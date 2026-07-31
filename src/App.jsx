@@ -267,9 +267,16 @@ async function fetchVerses(surahNum, langCode) {
 
 // ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
 async function askAI(prompt, langName) {
+  const key = import.meta.env.VITE_ANTHROPIC_KEY || "";
+  if (!key) throw new Error("NO_KEY");
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 450,
