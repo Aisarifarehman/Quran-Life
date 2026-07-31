@@ -399,6 +399,7 @@ export default function QuranLife() {
   const stopAudio = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setPlayKey(null);
+    setContinueDialog(null);
   }, []);
 
   // mode: "single" = play one verse only (inside reader)
@@ -410,32 +411,62 @@ export default function QuranLife() {
     const [url1, url2] = getAudioUrls(qari, sn, vn);
     setPlayKey(key);
 
-    function tryUrl(url, fallbacks) {
-      const audio = new Audio(url);
-      audioRef.current = audio;
+    let fallbackTimer = null;
+    let finished = false; // prevent double-firing
 
-      audio.addEventListener("ended", () => {
-        setPlayKey(null);
-        audioRef.current = null;
+    function handleFinished() {
+      if (finished) return; // already handled
+      finished = true;
+      if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+      setPlayKey(null);
+      audioRef.current = null;
 
-        if (mode === "surah" && allVerses && allVerses.length > 0) {
-          // HOME LIST MODE — play next verse automatically, no dialog
+      if (mode === "surah" && allVerses && allVerses.length > 0) {
+        const idx = allVerses.findIndex(v => v.number === vn);
+        if (idx >= 0 && idx < allVerses.length - 1) {
+          playVerse(sn, allVerses[idx + 1].number, "surah", allVerses);
+        }
+      } else if (mode === "single" && allVerses && allVerses.length > 0) {
           const idx = allVerses.findIndex(v => v.number === vn);
-          if (idx >= 0 && idx < allVerses.length - 1) {
-            playVerse(sn, allVerses[idx + 1].number, "surah", allVerses);
-          }
-        } else if (mode === "single" && allVerses && allVerses.length > 0) {
-          // INSIDE READER MODE — show Continue dialog
-          const idx = allVerses.findIndex(v => v.number === vn);
+          // Only show dialog if there IS a next verse
           if (idx >= 0 && idx < allVerses.length - 1) {
             const nextVn = allVerses[idx + 1].number;
             const surahName = SURAHS.find(s => s.n === sn)?.name || "";
             setContinueDialog({ sn, vn, nextVn, surahName });
           }
+          // Last verse — just stop quietly
+        }
+    }
+
+    function tryUrl(url, fallbacks) {
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      // When metadata loads, set a fallback timer based on duration
+      // This ensures ended always fires even if audio API misses it
+      audio.addEventListener("loadedmetadata", () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          // Add 800ms buffer after duration
+          fallbackTimer = setTimeout(() => {
+            if (audioRef.current === audio) handleFinished();
+          }, (audio.duration * 1000) + 800);
+        }
+      });
+
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) handleFinished();
+      });
+
+      audio.addEventListener("timeupdate", () => {
+        // Extra safety — if within 0.3s of end, trigger finish
+        if (audio.duration && isFinite(audio.duration) &&
+            audio.currentTime >= audio.duration - 0.3) {
+          if (audioRef.current === audio) handleFinished();
         }
       });
 
       audio.addEventListener("error", () => {
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
         } else {
@@ -443,7 +474,9 @@ export default function QuranLife() {
           setPlayKey(null);
         }
       });
+
       audio.play().catch(() => {
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
         } else {
@@ -974,7 +1007,16 @@ export default function QuranLife() {
                 <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
               </div>
               <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                <button className="pbtn" onClick={e => { e.stopPropagation(); openSurah(s.n, true); }}>▶ Play</button>
+                <button className="pbtn" onClick={async e => {
+                  e.stopPropagation();
+                  stopAudio();
+                  setContinueDialog(null);
+                  // Load verses silently without opening read screen
+                  try {
+                    const v = await fetchVerses(s.n, lang);
+                    playVerse(s.n, 1, "surah", v);
+                  } catch(e) {}
+                }}>▶ Play</button>
                 <button className="rbtn" onClick={() => openSurah(s.n)}>Read</button>
               </div>
             </div>
@@ -1183,30 +1225,23 @@ export default function QuranLife() {
         <Nav readOn />
         <LangSheet /><QariSheet /><BkSheet />
 
-        {/* Continue Dialog — shown after verse ends inside reader */}
+        {/* Continue Dialog — small toast near bottom, not full screen */}
         {continueDialog && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-            <div style={{ background: "#fff", borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 520, padding: "22px 18px 36px", animation: "pop .2s ease" }}>
-              <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 16px" }} />
-              <div style={{ textAlign: "center", marginBottom: 18 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>
-                  Verse {continueDialog.vn} complete
-                </div>
-                <div style={{ fontSize: 13, color: "#6b7280" }}>
-                  {continueDialog.surahName} · Continue to verse {continueDialog.nextVn}?
-                </div>
+          <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 28px)", maxWidth: 490, zIndex: 300, animation: "pop .2s ease" }}>
+            <div style={{ background: "#1a1a1a", borderRadius: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,.35)" }}>
+              <div style={{ fontSize: 18 }}>🎵</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>Verse {continueDialog.vn} done</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,.6)" }}>{continueDialog.surahName} · Next verse {continueDialog.nextVn}</div>
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setContinueDialog(null); stopAudio(); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: 14, border: ".5px solid #ddd", background: "linear-gradient(180deg,#fff,#f0f0f0)", color: "#444", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 3px 0 #bbb" }}>
-                  ⏹ Stop
-                </button>
-                <button onClick={() => { const d = continueDialog; setContinueDialog(null); playVerse(d.sn, d.nextVn, "single", verses); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(180deg,#1a9a5c,#0f5132)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 0 #072b1a" }}>
-                  ▶ Continue
-                </button>
-              </div>
+              <button onClick={() => { setContinueDialog(null); stopAudio(); }}
+                style={{ padding: "7px 12px", borderRadius: 20, border: ".5px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.12)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                ⏹ Stop
+              </button>
+              <button onClick={() => { const d = continueDialog; setContinueDialog(null); playVerse(d.sn, d.nextVn, "single", verses); }}
+                style={{ padding: "7px 14px", borderRadius: 20, border: "none", background: "linear-gradient(180deg,#1a9a5c,#0f5132)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 0 #072b1a" }}>
+                ▶ Continue
+              </button>
             </div>
           </div>
         )}
