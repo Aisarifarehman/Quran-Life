@@ -279,6 +279,7 @@ async function askAI(prompt, langName) {
       }]
     })
   });
+  if (r.status === 401) throw new Error("NO_KEY");
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const d = await r.json();
   return (d.content?.[0]?.text || "").trim();
@@ -310,6 +311,7 @@ function getNextPrayer() {
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
+  const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
   const [lang, setLang] = useState("en");
   const [qari, setQari] = useState("ar.alafasy");
@@ -426,8 +428,11 @@ export default function QuranLife() {
     try {
       const text = await askAI(prompt, curLang.n);
       setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
-    } catch {
-      setCache(p => ({ ...p, [key]: { loading: false, error: "Failed to load. Tap Retry.", text: null } }));
+    } catch(e) {
+      const msg = e.message === "NO_KEY"
+        ? "AI Knowledge coming soon. The app is fully functional for reading, audio and translation."
+        : "Failed to load. Tap Retry.";
+      setCache(p => ({ ...p, [key]: { loading: false, error: msg, text: null } }));
     }
   }, [cache, curLang.n]);
 
@@ -481,10 +486,20 @@ export default function QuranLife() {
   // ── STYLES ──────────────────────────────────────────────────
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
+    *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
+    html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}
     body{font-family:'Inter',sans-serif;background:#f5f3ee}
     .ar{font-family:'Amiri',serif!important}
     ::-webkit-scrollbar{width:0;height:0}
+    .mushaf-wrap{background:#fdf6e3;border-radius:8px;padding:20px 16px;margin:10px 0;position:relative;box-shadow:0 2px 20px rgba(139,105,20,.15),inset 0 0 60px rgba(139,105,20,.04)}
+    .mushaf-wrap::before{content:'';position:absolute;inset:6px;border:1.5px solid rgba(139,105,20,.25);border-radius:4px;pointer-events:none}
+    .mushaf-wrap::after{content:'';position:absolute;inset:10px;border:.5px solid rgba(139,105,20,.1);border-radius:2px;pointer-events:none}
+    .mushaf-text{font-family:'Amiri',serif;font-size:24px;line-height:3;direction:rtl;text-align:justify;color:#1a0500;word-spacing:4px}
+    .mushaf-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8b6914,#c9943a);color:#fff;font-size:10px;font-weight:700;margin:0 3px;vertical-align:middle;flex-shrink:0;font-family:'Inter',sans-serif;line-height:1}
+    .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%}
+    .mode-btn{padding:6px 13px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;white-space:nowrap}
+    .mode-btn.active{background:#e8b84b;color:#1a0a00;border:.5px solid #c9943a}
+    .mode-btn:not(.active){background:rgba(255,255,255,.15);color:#fff;border:.5px solid rgba(255,255,255,.3)}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     @keyframes bv{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
     @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
@@ -536,12 +551,15 @@ export default function QuranLife() {
     </div>
   );
 
-  const RetryRow = ({ msg, onRetry }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-      <span style={{ fontSize: 12, color: "#dc2626" }}>{msg}</span>
-      <button className="retry-btn" onClick={onRetry}>↺ Retry</button>
-    </div>
-  );
+  const RetryRow = ({ msg, onRetry }) => {
+    const isNoKey = msg && msg.includes("coming soon");
+    return (
+      <div style={{ padding: "12px 14px", borderRadius: 10, background: isNoKey ? "#f0faf5" : "#fff5f5", border: `.5px solid ${isNoKey ? "#0f513244" : "#fca5a5"}`, margin: "6px 0" }}>
+        <div style={{ fontSize: 13, color: isNoKey ? G : "#dc2626", lineHeight: 1.6 }}>{isNoKey ? "🔐 " : "⚠️ "}{msg}</div>
+        {!isNoKey && <button className="retry-btn" style={{ marginTop: 8 }} onClick={onRetry}>↺ Retry</button>}
+      </div>
+    );
+  };
 
   const AIBlock = ({ cacheKey, onRetry }) => {
     const e = cache[cacheKey] || {};
@@ -890,12 +908,22 @@ export default function QuranLife() {
             <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na}</button>
             <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length}</button>
           </div>
+          {/* Reading mode toggle */}
+          <div style={{ display: "flex", gap: 7, marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)", overflowX: "auto" }}>
+            <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>
+              📋 Normal
+            </button>
+            <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>
+              📖 Mushaf Style
+            </button>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", alignSelf: "center", marginLeft: 4, whiteSpace: "nowrap" }}>🔍 Pinch to zoom Arabic</span>
+          </div>
         </div>
 
-        {/* Bismillah for non-Fatiha, non-Tawbah */}
+        {/* Bismillah */}
         {s.n !== 1 && s.n !== 9 && (
-          <div style={{ textAlign: "center", padding: "14px 0 10px", background: "#fff", borderBottom: ".5px solid #e4e8e2" }}>
-            <div className="ar" style={{ fontSize: 22, color: G }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+          <div style={{ textAlign: "center", padding: "13px 0 9px", background: mushafMode ? "#fdf6e3" : "#fff", borderBottom: ".5px solid #e4e8e2" }}>
+            <div className="ar" style={{ fontSize: 22, color: mushafMode ? "#8b6914" : G }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
           </div>
         )}
 
@@ -915,7 +943,49 @@ export default function QuranLife() {
             </div>
           )}
 
-          {verses.map(verse => {
+          {/* ── MUSHAF STYLE MODE ── */}
+          {mushafMode && verses.length > 0 && (
+            <div>
+              <div className="mushaf-wrap">
+                <div className="mushaf-text zoom-arabic">
+                  {verses.map(v => (
+                    <span key={v.number}>
+                      {v.arabic}{" "}
+                      <span className="mushaf-num">{v.number}</span>{" "}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {/* Translations below Mushaf */}
+              <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginTop: 10, border: ".5px solid #e4e8e2" }}>
+                <div style={{ fontSize: 11, color: G, fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: .5 }}>
+                  Translation · {curLang.n}
+                </div>
+                {verses.map(v => (
+                  <div key={v.number} style={{ display: "flex", gap: 10, paddingBottom: 12, marginBottom: 12, borderBottom: ".5px solid #f4f4f4" }}>
+                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: G, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 2 }}>{v.number}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75, marginBottom: 8 }}>{v.translation}</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button className={`lbtn${playKey === `${s.n}:${v.number}` ? " pl" : ""}`}
+                          onClick={() => playKey === `${s.n}:${v.number}` ? stopAudio() : playVerse(s.n, v.number)}
+                          style={{ fontSize: 11, padding: "3px 10px" }}>
+                          {playKey === `${s.n}:${v.number}` ? "⏸" : "▶"} Play
+                        </button>
+                        <button onClick={() => toggleBk(s.n, s.name, v.number, v.arabic, v.translation)}
+                          style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: isBk(s.n, v.number) ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
+                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("meaning"); }}
+                          style={{ padding: "3px 10px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>📖 Deep Knowledge</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── NORMAL MODE ── */}
+          {!mushafMode && verses.map(verse => {
             const pk = `${s.n}:${verse.number}`;
             const isPlaying = playKey === pk;
             const isOpen = openPanel === verse.number;
@@ -941,7 +1011,7 @@ export default function QuranLife() {
 
                 {/* Arabic + translation */}
                 <div style={{ padding: "14px 14px 12px" }}>
-                  <div className="ar" style={{ fontSize: 24, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: ".5px solid #f4f4f4" }}>
+                  <div className="ar zoom-arabic" style={{ fontSize: 24, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: ".5px solid #f4f4f4" }}>
                     {verse.arabic}
                   </div>
                   <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75 }}>{verse.translation}</div>
@@ -1135,7 +1205,7 @@ export default function QuranLife() {
 
   // ── ROOT RENDER ─────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh" }}>
+    <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%" }}>
       <style>{css}</style>
       {screen === "home" && <HomeScreen />}
       {screen === "read" && <ReadScreen />}
