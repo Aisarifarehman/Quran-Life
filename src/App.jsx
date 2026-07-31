@@ -271,9 +271,18 @@ async function fetchVerses(surahNum, langCode) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  // Always fetch Arabic + translation
-  const transParam = transId ? `&translations=${transId}` : "&translations=131";
-  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300${transParam}&fields=text_uthmani`;
+  // Always fetch English (131) as base + selected language if available
+  let url;
+  if (transId) {
+    // Fetch selected language translation
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId}&fields=text_uthmani`;
+  } else if (langCode === "ar") {
+    // Arabic — no translation needed, original text IS the translation
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  } else {
+    // Language not in our DB — fetch English as fallback
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  }
 
   const r = await fetch(url);
   if (!r.ok) throw new Error(`API ${r.status}`);
@@ -282,7 +291,9 @@ async function fetchVerses(surahNum, langCode) {
   const verses = d.verses.map(v => ({
     number: v.verse_number,
     arabic: v.text_uthmani,
-    translation: (v.translations?.[0]?.text || "").replace(/<[^>]+>/g, ""),
+    translation: langCode === "ar"
+      ? v.text_uthmani // Arabic — show original
+      : (v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "") || "Translation not available for this language",
   }));
 
   verseCache[cacheKey] = verses;
@@ -369,7 +380,9 @@ export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
-  const [continueDialog, setContinueDialog] = useState(null); // {sn, vn, nextVn, surahName}
+  const [continueDialog, setContinueDialog] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const [fontSize, setFontSize] = useState(24); // Arabic font size
   const [lang, setLang] = useState("en");
   const [qari, setQari] = useState("ar.alafasy");
   const [verses, setVerses] = useState([]);
@@ -628,9 +641,11 @@ export default function QuranLife() {
     @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
     html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}
-    body{font-family:'Inter',sans-serif;background:#f5f3ee}
+    body{font-family:'Inter',sans-serif;background:${darkMode ? "#0f0f0f" : "#f5f3ee"};color:${darkMode ? "#e8e8e8" : "#1a1a1a"}}
     .ar{font-family:'Amiri',serif!important}
     ::-webkit-scrollbar{width:0;height:0}
+    .dark-card{background:${darkMode ? "#1a1a1a" : "#fff"};border-color:${darkMode ? "#2a2a2a" : "#e2e8e4"}}
+    .dark-text{color:${darkMode ? "#e8e8e8" : "#1a1a1a"}}
     .mushaf-wrap{background:#fdf6e3;border-radius:8px;padding:20px 16px;margin:10px 0;position:relative;box-shadow:0 2px 20px rgba(139,105,20,.15),inset 0 0 60px rgba(139,105,20,.04)}
     .mushaf-wrap::before{content:'';position:absolute;inset:6px;border:1.5px solid rgba(139,105,20,.25);border-radius:4px;pointer-events:none}
     .mushaf-wrap::after{content:'';position:absolute;inset:10px;border:.5px solid rgba(139,105,20,.1);border-radius:2px;pointer-events:none}
@@ -1083,15 +1098,23 @@ export default function QuranLife() {
             <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na}</button>
             <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length}</button>
           </div>
-          {/* Reading mode toggle */}
-          <div style={{ display: "flex", gap: 7, marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)", overflowX: "auto" }}>
-            <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>
-              📋 Normal
+          {/* Reading mode toggle + controls */}
+          <div style={{ display: "flex", gap: 6, marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)", overflowX: "auto", alignItems: "center" }}>
+            <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📋 Normal</button>
+            <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📖 Mushaf</button>
+            {/* Font size controls */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+              <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
+                style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>A-</button>
+              <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
+                style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>A+</button>
+            </div>
+            {/* Dark mode toggle */}
+            <button onClick={() => setDarkMode(d => !d)}
+              style={{ padding: "4px 10px", borderRadius: 14, background: darkMode ? "#e8b84b" : "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: darkMode ? "#1a0a00" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {darkMode ? "☀️ Light" : "🌙 Dark"}
             </button>
-            <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>
-              📖 Mushaf Style
-            </button>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", alignSelf: "center", marginLeft: 4, whiteSpace: "nowrap" }}>🔍 Pinch to zoom Arabic</span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)", alignSelf: "center", whiteSpace: "nowrap" }}>🔍 Pinch zoom</span>
           </div>
         </div>
 
@@ -1168,7 +1191,7 @@ export default function QuranLife() {
             const sajdah = isSajdahVerse(s.n, verse.number);
 
             return (
-              <div key={verse.number} className="fade" style={{ background: "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
+              <div key={verse.number} className="fade" style={{ background: darkMode ? "#1a1a1a" : "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : darkMode ? "#2a2a2a" : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
                 {/* Sajdah Banner */}
                 {sajdah && (
                   <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", padding: "7px 13px", display: "flex", alignItems: "center", gap: 8 }}>
@@ -1203,10 +1226,26 @@ export default function QuranLife() {
 
                 {/* Arabic + translation */}
                 <div style={{ padding: "14px 14px 12px" }}>
-                  <div className="ar zoom-arabic" style={{ fontSize: 24, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: ".5px solid #f4f4f4" }}>
+                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
                     {verse.arabic}
                   </div>
-                  <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75 }}>{verse.translation}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ flex: 1, fontSize: 13, color: "#333", lineHeight: 1.75, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
+                      {verse.translation}
+                    </div>
+                    {verse.translation && verse.translation !== "Translation not available for this language" && (
+                      <button onClick={() => {
+                        if ("speechSynthesis" in window) {
+                          window.speechSynthesis.cancel();
+                          const u = new SpeechSynthesisUtterance(verse.translation);
+                          u.lang = lang; u.rate = 0.85;
+                          window.speechSynthesis.speak(u);
+                        }
+                      }} style={{ flexShrink: 0, padding: "4px 8px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 10, fontWeight: 600, cursor: "pointer", marginTop: 2 }}>
+                        🔊
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Deep Knowledge panel */}
@@ -1226,16 +1265,34 @@ export default function QuranLife() {
                       ))}
                     </div>
 
-                    {/* Meaning tab — instant, no AI needed */}
+                    {/* Meaning tab */}
                     {activeTab === "meaning" && (
                       <div>
-                        <div style={{ background: "#f0faf5", border: `.5px solid ${G}33`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
-                          <div className="ar" style={{ fontSize: 24, color: G, lineHeight: 1.9, direction: "rtl" }}>{verse.arabic}</div>
-                        </div>
+                        {/* Translation with voice button */}
                         <div style={{ background: "#f8fafb", borderRadius: 10, padding: 13, border: ".5px solid #e2e8e4", marginBottom: 10 }}>
-                          <div style={{ fontSize: 11, color: G, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Translation · {curLang.n}</div>
-                          <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.8 }}>{verse.translation}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, color: G, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5 }}>
+                              Translation · {curLang.n}
+                            </div>
+                            <button
+                              onClick={() => {
+                                if ("speechSynthesis" in window) {
+                                  window.speechSynthesis.cancel();
+                                  const u = new SpeechSynthesisUtterance(verse.translation);
+                                  u.lang = lang;
+                                  u.rate = 0.85;
+                                  window.speechSynthesis.speak(u);
+                                }
+                              }}
+                              style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 14, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                              🔊 Listen
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.85, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
+                            {verse.translation}
+                          </div>
                         </div>
+                        {/* Verse info */}
                         <div style={{ padding: "10px 12px", background: "#fffbeb", border: ".5px solid #d97706", borderRadius: 9 }}>
                           <div style={{ fontSize: 11, color: "#92400e", fontWeight: 600, marginBottom: 3 }}>
                             📖 {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
