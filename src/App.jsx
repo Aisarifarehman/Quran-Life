@@ -198,6 +198,30 @@ const QARIS = [
   {id:"ar.saadalghamdi",name:"Saad Al-Ghamdi",short:"Al-Ghamdi",origin:"Saudi Arabia"},
 ];
 
+// ─── 15 SAJDAH VERSES ────────────────────────────────────────
+// These are the 14 obligatory + 1 recommended Sajdah verses in the Quran
+const SAJDAH_VERSES = [
+  {surah:7, verse:206, type:"wajib"},
+  {surah:13, verse:15, type:"wajib"},
+  {surah:16, verse:50, type:"wajib"},
+  {surah:17, verse:109, type:"wajib"},
+  {surah:19, verse:58, type:"wajib"},
+  {surah:22, verse:18, type:"wajib"},
+  {surah:22, verse:77, type:"recommended"},
+  {surah:25, verse:60, type:"wajib"},
+  {surah:27, verse:26, type:"wajib"},
+  {surah:32, verse:15, type:"wajib"},
+  {surah:38, verse:24, type:"recommended"},
+  {surah:41, verse:38, type:"wajib"},
+  {surah:53, verse:62, type:"wajib"},
+  {surah:84, verse:21, type:"wajib"},
+  {surah:96, verse:19, type:"wajib"},
+];
+
+function isSajdahVerse(surahNum, verseNum) {
+  return SAJDAH_VERSES.find(s => s.surah === surahNum && s.verse === verseNum) || null;
+}
+
 const QUICK_LINKS = [
   {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,icon:"👑"},
   {name:"Al-Kahf",ar:"الكهف",surah:18,icon:"🕌"},
@@ -432,7 +456,8 @@ export default function QuranLife() {
           if (idx >= 0 && idx < allVerses.length - 1) {
             const nextVn = allVerses[idx + 1].number;
             const surahName = SURAHS.find(s => s.n === sn)?.name || "";
-            setContinueDialog({ sn, vn, nextVn, surahName });
+            const sajdah = isSajdahVerse(sn, vn);
+            setContinueDialog({ sn, vn, nextVn, surahName, sajdah });
           }
           // Last verse — just stop quietly
         }
@@ -1140,9 +1165,26 @@ export default function QuranLife() {
             const isPlaying = playKey === pk;
             const isOpen = openPanel === verse.number;
             const bkd = isBk(s.n, verse.number);
+            const sajdah = isSajdahVerse(s.n, verse.number);
 
             return (
-              <div key={verse.number} className="fade" style={{ background: "#fff", border: `.5px solid ${bkd ? "#8e44ad44" : isOpen ? G : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : "none" }}>
+              <div key={verse.number} className="fade" style={{ background: "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
+                {/* Sajdah Banner */}
+                {sajdah && (
+                  <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", padding: "7px 13px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>🕌</span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
+                        {sajdah.type === "wajib" ? "Sajdah Tilawah — Obligatory" : "Sajdah Tilawah — Recommended"}
+                      </div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.8)" }}>
+                        {sajdah.type === "wajib"
+                          ? "Performing Sajdah is obligatory after reading or hearing this verse"
+                          : "Performing Sajdah is recommended after reading or hearing this verse"}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Verse bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderBottom: ".5px solid #f0f0f0", background: isOpen ? "#f0faf5" : "#fafafa", flexWrap: "wrap" }}>
                   <div style={{ width: 26, height: 26, borderRadius: "50%", background: G, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{verse.number}</div>
@@ -1238,7 +1280,18 @@ export default function QuranLife() {
         {/* Continue Dialog — small toast near bottom, not full screen */}
         {continueDialog && (
           <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 28px)", maxWidth: 490, zIndex: 300, animation: "pop .2s ease" }}>
-            <div style={{ background: "#1a1a1a", borderRadius: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,.35)" }}>
+            {/* Sajdah reminder if applicable */}
+            {continueDialog.sajdah && (
+              <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", borderRadius: "12px 12px 0 0", padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>🕌</span>
+                <div style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
+                  {continueDialog.sajdah.type === "wajib"
+                    ? "Sajdah Tilawah is OBLIGATORY for this verse"
+                    : "Sajdah Tilawah is recommended for this verse"}
+                </div>
+              </div>
+            )}
+            <div style={{ background: "#1a1a1a", borderRadius: continueDialog.sajdah ? "0 0 16px 16px" : 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,.35)" }}>
               <div style={{ fontSize: 18 }}>🎵</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>Verse {continueDialog.vn} done</div>
