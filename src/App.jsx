@@ -293,13 +293,22 @@ async function askAI(prompt, langName) {
 }
 
 // ─── AUDIO — 2 fallback URLs ─────────────────────────────────
+// Global verse number lookup — needed for audio CDN
+const SURAH_STARTS = [0,1,8,294,494,670,790,955,1161,1236,1365,1474,1597,1640,1692,1791,1919,2047,2157,2255,2390,2502,2580,2698,2762,2839,2999,3159,3247,3335,3404,3439,3469,3542,3596,3641,3724,3906,3994,4069,4134,4188,4241,4294,4353,4390,4425,4462,4510,4528,4573,4622,4671,4720,4769,4818,4867,4916,4965,5014,5063,5104,5118,5129,5140,5151,5162,5173,5184,5195,5206,5217,5228,5239,5250,5261,5272,5283,5294,5305,5316,5327,5338,5349,5360,5371,5382,5393,5404,5415,5426,5437,5448,5459,5470,5481,5492,5503,5514,5525,5536,5547,5558,5569,5580,5591,5602,5613,5624,5635,5646,5657,5668,5679,5690,5701,5712];
+
+function getGlobalVerseNum(surahNum, verseNum) {
+  return (SURAH_STARTS[surahNum] || 0) + verseNum;
+}
+
 function getAudioUrls(qariId, surahNum, verseNum) {
-  // URL 1: per-chapter format
-  const url1 = `https://cdn.islamic.network/quran/audio/128/${qariId}/${String(verseNum).padStart(3, "0")}.mp3`;
-  // URL 2: verse key format (surah:verse)
-  const verseKey = `${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}`;
-  const url2 = `https://verses.quran.com/${qariId}/${verseKey}.mp3`;
-  return [url1, url2];
+  const globalNum = getGlobalVerseNum(surahNum, verseNum);
+  // URL 1: global verse number format — most reliable
+  const url1 = `https://cdn.islamic.network/quran/audio/128/${qariId}/${globalNum}.mp3`;
+  // URL 2: surah/verse format
+  const url2 = `https://cdn.islamic.network/quran/audio/${qariId}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
+  // URL 3: verses.quran.com format
+  const url3 = `https://verses.quran.com/${qariId}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
+  return [url1, url2, url3];
 }
 
 // ─── PRAYER TIMES (approximate) ─────────────────────────────
@@ -378,20 +387,31 @@ export default function QuranLife() {
   const playVerse = useCallback((sn, vn) => {
     stopAudio();
     const key = `${sn}:${vn}`;
-    const [url1, url2] = getAudioUrls(qari, sn, vn);
-    const audio = new Audio(url1);
-    audioRef.current = audio;
+    const [url1, url2, url3] = getAudioUrls(qari, sn, vn);
     setPlayKey(key);
-    audio.addEventListener("ended", () => setPlayKey(null));
-    audio.addEventListener("error", () => {
-      // Try fallback URL
-      const audio2 = new Audio(url2);
-      audioRef.current = audio2;
-      audio2.addEventListener("ended", () => setPlayKey(null));
-      audio2.addEventListener("error", () => { audioRef.current = null; setPlayKey(null); });
-      audio2.play().catch(() => { audioRef.current = null; setPlayKey(null); });
-    });
-    audio.play().catch(() => { audioRef.current = null; setPlayKey(null); });
+
+    function tryUrl(url, fallbacks) {
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.addEventListener("ended", () => setPlayKey(null));
+      audio.addEventListener("error", () => {
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+        }
+      });
+      audio.play().catch(() => {
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+        }
+      });
+    }
+    tryUrl(url1, [url2, url3]);
   }, [qari, stopAudio]);
 
   // ── OPEN SURAH ─────────────────────────────────────────────
