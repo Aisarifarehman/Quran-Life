@@ -266,37 +266,107 @@ const ARABIC_ALPHA = [
 const verseCache = {};
 
 // ─── FETCH VERSES — with language support ───────────────────
+// AI translation cache — per verse per language
+const aiTransCache = {};
+
+async function translateWithAI(verses, langName, langCode) {
+  const key = `${verses[0]?.number}-${verses.length}-${langCode}`;
+  if (aiTransCache[key]) return aiTransCache[key];
+
+  // Translate all verses in one AI call (batch)
+  const verseList = verses.map(v => `${v.number}: ${v.translation}`).join("\n");
+  const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
+
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey || "",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2000,
+      messages: [{
+        role: "user",
+        content: `Translate these Quran verse translations from English to ${langName}. Return ONLY the translations in the same numbered format. No extra text.\n\n${verseList}`
+      }]
+    })
+  });
+
+  if (!r.ok) return null;
+  const d = await r.json();
+  const text = (d.content?.[0]?.text || "").trim();
+
+  // Parse the numbered translations
+  const lines = text.split("\n").filter(l => l.trim());
+  const result = {};
+  lines.forEach(line => {
+    const match = line.match(/^(\d+):\s*(.+)/);
+    if (match) result[parseInt(match[1])] = match[2].trim();
+  });
+
+  aiTransCache[key] = result;
+  return result;
+}
+
 async function fetchVerses(surahNum, langCode) {
   const transId = LANG_TRANSLATIONS[langCode];
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  // Always fetch English (131) as base + selected language if available
-  let url;
-  if (transId) {
-    // Fetch selected language translation
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId}&fields=text_uthmani`;
-  } else if (langCode === "ar") {
-    // Arabic — no translation needed, original text IS the translation
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-  } else {
-    // Language not in our DB — fetch English as fallback
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-  }
+  // Always fetch English first
+  const url = transId
+    ? `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId},131&fields=text_uthmani`
+    : `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
 
   const r = await fetch(url);
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d = await r.json();
 
-  const verses = d.verses.map(v => ({
-    number: v.verse_number,
-    arabic: v.text_uthmani,
-    translation: langCode === "ar"
-      ? v.text_uthmani // Arabic — show original
-      : (v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "") || "Translation not available for this language",
-  }));
+  const verses = d.verses.map(v => {
+    const translations = v.translations || [];
+    let translation = "";
+
+    if (langCode === "ar") {
+      translation = v.text_uthmani;
+    } else if (transId && translations.length >= 1) {
+      translation = (translations[0]?.text || "").replace(/<[^>]+>/g, "");
+      if (!translation && translations.length >= 2) {
+        translation = (translations[1]?.text || "").replace(/<[^>]+>/g, "");
+      }
+    } else {
+      translation = (translations[0]?.text || "").replace(/<[^>]+>/g, "");
+    }
+
+    return {
+      number: v.verse_number,
+      arabic: v.text_uthmani,
+      translation: translation || "",
+    };
+  });
 
   verseCache[cacheKey] = verses;
+
+  // If no translation ID — use AI to translate from English in background
+  if (!transId && langCode !== "ar" && langCode !== "en") {
+    const langName = Object.entries({ ur:"Urdu", ha:"Hausa", ps:"Pashto", pa:"Punjabi", sd:"Sindhi", so:"Somali", zu:"Zulu", am:"Amharic", sq:"Albanian", el:"Greek", he:"Hebrew", fi:"Finnish", sv:"Swedish", tl:"Filipino", ku:"Kurdish", yo:"Yoruba", my:"Burmese" })[langCode] || langCode;
+    const LANGS_MAP = { ur:"Urdu", ha:"Hausa", ps:"Pashto", pa:"Punjabi", sd:"Sindhi", so:"Somali", zu:"Zulu", am:"Amharic", sq:"Albanian", el:"Greek", he:"Hebrew", fi:"Finnish", sv:"Swedish", tl:"Filipino", ku:"Kurdish", yo:"Yoruba", my:"Burmese", mn:"Mongolian", km:"Khmer", tg:"Tajik", jv:"Javanese", kk:"Kazakh", uz:"Uzbek", af:"Afrikaans", bs:"Bosnian", uk:"Ukrainian", ne:"Nepali", te:"Telugu", ta:"Tamil", ml:"Malayalam", gu:"Gujarati" };
+    const langFullName = LANGS_MAP[langCode] || langCode;
+
+    // Translate in background — update cache when done
+    translateWithAI(verses, langFullName, langCode).then(aiTrans => {
+      if (aiTrans) {
+        const updated = verses.map(v => ({
+          ...v,
+          translation: aiTrans[v.number] || v.translation,
+        }));
+        verseCache[cacheKey] = updated;
+      }
+    }).catch(() => {});
+  }
+
   return verses;
 }
 
@@ -1099,22 +1169,29 @@ export default function QuranLife() {
             <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length}</button>
           </div>
           {/* Reading mode toggle + controls */}
-          <div style={{ display: "flex", gap: 6, marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)", overflowX: "auto", alignItems: "center" }}>
-            <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📋 Normal</button>
-            <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📖 Mushaf</button>
-            {/* Font size controls */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
-              <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
-                style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>A-</button>
-              <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
-                style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>A+</button>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)" }}>
+            {/* Row 1: Mode buttons */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📋 Normal</button>
+              <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📖 Mushaf</button>
+              <div style={{ flex: 1 }} />
+              {/* Dark mode toggle */}
+              <button onClick={() => setDarkMode(d => !d)}
+                style={{ padding: "5px 12px", borderRadius: 16, background: darkMode ? "#e8b84b" : "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: darkMode ? "#1a0a00" : "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                {darkMode ? "☀️ Light" : "🌙 Dark"}
+              </button>
             </div>
-            {/* Dark mode toggle */}
-            <button onClick={() => setDarkMode(d => !d)}
-              style={{ padding: "4px 10px", borderRadius: 14, background: darkMode ? "#e8b84b" : "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: darkMode ? "#1a0a00" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-              {darkMode ? "☀️ Light" : "🌙 Dark"}
-            </button>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)", alignSelf: "center", whiteSpace: "nowrap" }}>🔍 Pinch zoom</span>
+            {/* Row 2: Font size controls */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>Arabic Size:</span>
+              <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
+                style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>A-</button>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", minWidth: 20, textAlign: "center" }}>{fontSize}</span>
+              <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
+                style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>A+</button>
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>🔍 Pinch to zoom</span>
+            </div>
           </div>
         </div>
 
@@ -1230,8 +1307,8 @@ export default function QuranLife() {
                     {verse.arabic}
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <div style={{ flex: 1, fontSize: 13, color: "#333", lineHeight: 1.75, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                      {verse.translation}
+                    <div style={{ flex: 1, fontSize: 13, color: darkMode ? "#e8e8e8" : "#333", lineHeight: 1.75, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
+                      {verse.translation || "Loading translation..."}
                     </div>
                     {verse.translation && verse.translation !== "Translation not available for this language" && (
                       <button onClick={() => {
@@ -1289,7 +1366,7 @@ export default function QuranLife() {
                             </button>
                           </div>
                           <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.85, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                            {verse.translation}
+                            {verse.translation || "Translation loading..."}
                           </div>
                         </div>
                         {/* Verse info */}
