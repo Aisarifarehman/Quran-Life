@@ -1,0 +1,1146 @@
+// QURAN LIFE — PHASE 2
+// Architecture: plain text AI (no JSON), per-tab loading, cached, retry on fail
+// Audio: 2 fallback URLs, never silent fail
+// Translation: Quran.com API with language codes, not AI
+// Search: instant, smooth, no delay
+
+import { useState, useRef, useCallback, useEffect } from "react";
+
+// ─── CONSTANTS ────────────────────────────────────────────────
+const G = "#0f5132";
+const GOLD = "#c9943a";
+
+// ─── 114 SURAHS ──────────────────────────────────────────────
+const SURAHS = [
+  {n:1,name:"Al-Fatiha",ar:"الفاتحة",meaning:"The Opening",verses:7,type:"Meccan",juz:1,page:1},
+  {n:2,name:"Al-Baqarah",ar:"البقرة",meaning:"The Cow",verses:286,type:"Medinan",juz:1,page:2},
+  {n:3,name:"Ali Imran",ar:"آل عمران",meaning:"Family of Imran",verses:200,type:"Medinan",juz:3,page:50},
+  {n:4,name:"An-Nisa",ar:"النساء",meaning:"The Women",verses:176,type:"Medinan",juz:4,page:77},
+  {n:5,name:"Al-Maidah",ar:"المائدة",meaning:"The Table Spread",verses:120,type:"Medinan",juz:6,page:106},
+  {n:6,name:"Al-Anam",ar:"الأنعام",meaning:"The Cattle",verses:165,type:"Meccan",juz:7,page:128},
+  {n:7,name:"Al-Araf",ar:"الأعراف",meaning:"The Heights",verses:206,type:"Meccan",juz:8,page:151},
+  {n:8,name:"Al-Anfal",ar:"الأنفال",meaning:"The Spoils of War",verses:75,type:"Medinan",juz:9,page:177},
+  {n:9,name:"At-Tawbah",ar:"التوبة",meaning:"The Repentance",verses:129,type:"Medinan",juz:10,page:187},
+  {n:10,name:"Yunus",ar:"يونس",meaning:"Jonah",verses:109,type:"Meccan",juz:11,page:208},
+  {n:11,name:"Hud",ar:"هود",meaning:"Hud",verses:123,type:"Meccan",juz:11,page:221},
+  {n:12,name:"Yusuf",ar:"يوسف",meaning:"Joseph",verses:111,type:"Meccan",juz:12,page:235},
+  {n:13,name:"Ar-Rad",ar:"الرعد",meaning:"The Thunder",verses:43,type:"Medinan",juz:13,page:249},
+  {n:14,name:"Ibrahim",ar:"إبراهيم",meaning:"Abraham",verses:52,type:"Meccan",juz:13,page:255},
+  {n:15,name:"Al-Hijr",ar:"الحجر",meaning:"The Rocky Tract",verses:99,type:"Meccan",juz:14,page:262},
+  {n:16,name:"An-Nahl",ar:"النحل",meaning:"The Bee",verses:128,type:"Meccan",juz:14,page:267},
+  {n:17,name:"Al-Isra",ar:"الإسراء",meaning:"The Night Journey",verses:111,type:"Meccan",juz:15,page:282},
+  {n:18,name:"Al-Kahf",ar:"الكهف",meaning:"The Cave",verses:110,type:"Meccan",juz:15,page:293},
+  {n:19,name:"Maryam",ar:"مريم",meaning:"Mary",verses:98,type:"Meccan",juz:16,page:305},
+  {n:20,name:"Ta-Ha",ar:"طه",meaning:"Ta-Ha",verses:135,type:"Meccan",juz:16,page:312},
+  {n:21,name:"Al-Anbiya",ar:"الأنبياء",meaning:"The Prophets",verses:112,type:"Meccan",juz:17,page:322},
+  {n:22,name:"Al-Hajj",ar:"الحج",meaning:"The Pilgrimage",verses:78,type:"Medinan",juz:17,page:332},
+  {n:23,name:"Al-Muminun",ar:"المؤمنون",meaning:"The Believers",verses:118,type:"Meccan",juz:18,page:342},
+  {n:24,name:"An-Nur",ar:"النور",meaning:"The Light",verses:64,type:"Medinan",juz:18,page:350},
+  {n:25,name:"Al-Furqan",ar:"الفرقان",meaning:"The Criterion",verses:77,type:"Meccan",juz:18,page:359},
+  {n:26,name:"Ash-Shuara",ar:"الشعراء",meaning:"The Poets",verses:227,type:"Meccan",juz:19,page:367},
+  {n:27,name:"An-Naml",ar:"النمل",meaning:"The Ant",verses:93,type:"Meccan",juz:19,page:377},
+  {n:28,name:"Al-Qasas",ar:"القصص",meaning:"The Stories",verses:88,type:"Meccan",juz:20,page:385},
+  {n:29,name:"Al-Ankabut",ar:"العنكبوت",meaning:"The Spider",verses:69,type:"Meccan",juz:20,page:396},
+  {n:30,name:"Ar-Rum",ar:"الروم",meaning:"The Romans",verses:60,type:"Meccan",juz:21,page:404},
+  {n:31,name:"Luqman",ar:"لقمان",meaning:"Luqman",verses:34,type:"Meccan",juz:21,page:411},
+  {n:32,name:"As-Sajdah",ar:"السجدة",meaning:"The Prostration",verses:30,type:"Meccan",juz:21,page:415},
+  {n:33,name:"Al-Ahzab",ar:"الأحزاب",meaning:"The Combined Forces",verses:73,type:"Medinan",juz:21,page:418},
+  {n:34,name:"Saba",ar:"سبأ",meaning:"Sheba",verses:54,type:"Meccan",juz:22,page:428},
+  {n:35,name:"Fatir",ar:"فاطر",meaning:"Originator",verses:45,type:"Meccan",juz:22,page:434},
+  {n:36,name:"Ya-Sin",ar:"يس",meaning:"Ya Sin",verses:83,type:"Meccan",juz:22,page:440},
+  {n:37,name:"As-Saffat",ar:"الصافات",meaning:"Those Ranged in Rows",verses:182,type:"Meccan",juz:23,page:446},
+  {n:38,name:"Sad",ar:"ص",meaning:"The Letter Sad",verses:88,type:"Meccan",juz:23,page:453},
+  {n:39,name:"Az-Zumar",ar:"الزمر",meaning:"The Troops",verses:75,type:"Meccan",juz:23,page:458},
+  {n:40,name:"Ghafir",ar:"غافر",meaning:"The Forgiver",verses:85,type:"Meccan",juz:24,page:467},
+  {n:41,name:"Fussilat",ar:"فصلت",meaning:"Explained in Detail",verses:54,type:"Meccan",juz:24,page:477},
+  {n:42,name:"Ash-Shura",ar:"الشورى",meaning:"The Consultation",verses:53,type:"Meccan",juz:25,page:483},
+  {n:43,name:"Az-Zukhruf",ar:"الزخرف",meaning:"The Ornaments of Gold",verses:89,type:"Meccan",juz:25,page:489},
+  {n:44,name:"Ad-Dukhan",ar:"الدخان",meaning:"The Smoke",verses:59,type:"Meccan",juz:25,page:496},
+  {n:45,name:"Al-Jathiyah",ar:"الجاثية",meaning:"The Crouching",verses:37,type:"Meccan",juz:25,page:499},
+  {n:46,name:"Al-Ahqaf",ar:"الأحقاف",meaning:"The Wind-Curved Sandhills",verses:35,type:"Meccan",juz:26,page:502},
+  {n:47,name:"Muhammad",ar:"محمد",meaning:"Muhammad",verses:38,type:"Medinan",juz:26,page:507},
+  {n:48,name:"Al-Fath",ar:"الفتح",meaning:"The Victory",verses:29,type:"Medinan",juz:26,page:511},
+  {n:49,name:"Al-Hujurat",ar:"الحجرات",meaning:"The Rooms",verses:18,type:"Medinan",juz:26,page:515},
+  {n:50,name:"Qaf",ar:"ق",meaning:"The Letter Qaf",verses:45,type:"Meccan",juz:26,page:518},
+  {n:51,name:"Adh-Dhariyat",ar:"الذاريات",meaning:"The Winnowing Winds",verses:60,type:"Meccan",juz:26,page:520},
+  {n:52,name:"At-Tur",ar:"الطور",meaning:"The Mount",verses:49,type:"Meccan",juz:27,page:523},
+  {n:53,name:"An-Najm",ar:"النجم",meaning:"The Star",verses:62,type:"Meccan",juz:27,page:526},
+  {n:54,name:"Al-Qamar",ar:"القمر",meaning:"The Moon",verses:55,type:"Meccan",juz:27,page:528},
+  {n:55,name:"Ar-Rahman",ar:"الرحمن",meaning:"The Beneficent",verses:78,type:"Medinan",juz:27,page:531},
+  {n:56,name:"Al-Waqiah",ar:"الواقعة",meaning:"The Inevitable",verses:96,type:"Meccan",juz:27,page:534},
+  {n:57,name:"Al-Hadid",ar:"الحديد",meaning:"The Iron",verses:29,type:"Medinan",juz:27,page:537},
+  {n:58,name:"Al-Mujadila",ar:"المجادلة",meaning:"The Pleading Woman",verses:22,type:"Medinan",juz:28,page:542},
+  {n:59,name:"Al-Hashr",ar:"الحشر",meaning:"The Exile",verses:24,type:"Medinan",juz:28,page:545},
+  {n:60,name:"Al-Mumtahanah",ar:"الممتحنة",meaning:"She That is to be Examined",verses:13,type:"Medinan",juz:28,page:549},
+  {n:61,name:"As-Saf",ar:"الصف",meaning:"The Rows",verses:14,type:"Medinan",juz:28,page:551},
+  {n:62,name:"Al-Jumuah",ar:"الجمعة",meaning:"The Congregation",verses:11,type:"Medinan",juz:28,page:553},
+  {n:63,name:"Al-Munafiqun",ar:"المنافقون",meaning:"The Hypocrites",verses:11,type:"Medinan",juz:28,page:554},
+  {n:64,name:"At-Taghabun",ar:"التغابن",meaning:"The Mutual Disillusion",verses:18,type:"Medinan",juz:28,page:556},
+  {n:65,name:"At-Talaq",ar:"الطلاق",meaning:"The Divorce",verses:12,type:"Medinan",juz:28,page:558},
+  {n:66,name:"At-Tahrim",ar:"التحريم",meaning:"The Prohibition",verses:12,type:"Medinan",juz:28,page:560},
+  {n:67,name:"Al-Mulk",ar:"الملك",meaning:"The Sovereignty",verses:30,type:"Meccan",juz:29,page:562},
+  {n:68,name:"Al-Qalam",ar:"القلم",meaning:"The Pen",verses:52,type:"Meccan",juz:29,page:564},
+  {n:69,name:"Al-Haqqah",ar:"الحاقة",meaning:"The Reality",verses:52,type:"Meccan",juz:29,page:566},
+  {n:70,name:"Al-Maarij",ar:"المعارج",meaning:"The Ascending Stairways",verses:44,type:"Meccan",juz:29,page:568},
+  {n:71,name:"Nuh",ar:"نوح",meaning:"Noah",verses:28,type:"Meccan",juz:29,page:570},
+  {n:72,name:"Al-Jinn",ar:"الجن",meaning:"The Jinn",verses:28,type:"Meccan",juz:29,page:572},
+  {n:73,name:"Al-Muzzammil",ar:"المزمل",meaning:"The Enshrouded One",verses:20,type:"Meccan",juz:29,page:574},
+  {n:74,name:"Al-Muddaththir",ar:"المدثر",meaning:"The Cloaked One",verses:56,type:"Meccan",juz:29,page:575},
+  {n:75,name:"Al-Qiyamah",ar:"القيامة",meaning:"The Resurrection",verses:40,type:"Meccan",juz:29,page:577},
+  {n:76,name:"Al-Insan",ar:"الإنسان",meaning:"The Human",verses:31,type:"Medinan",juz:29,page:578},
+  {n:77,name:"Al-Mursalat",ar:"المرسلات",meaning:"The Emissaries",verses:50,type:"Meccan",juz:29,page:580},
+  {n:78,name:"An-Naba",ar:"النبأ",meaning:"The Tidings",verses:40,type:"Meccan",juz:30,page:582},
+  {n:79,name:"An-Naziat",ar:"النازعات",meaning:"Those Who Drag Forth",verses:46,type:"Meccan",juz:30,page:583},
+  {n:80,name:"Abasa",ar:"عبس",meaning:"He Frowned",verses:42,type:"Meccan",juz:30,page:585},
+  {n:81,name:"At-Takwir",ar:"التكوير",meaning:"The Overthrowing",verses:29,type:"Meccan",juz:30,page:586},
+  {n:82,name:"Al-Infitar",ar:"الانفطار",meaning:"The Cleaving",verses:19,type:"Meccan",juz:30,page:587},
+  {n:83,name:"Al-Mutaffifin",ar:"المطففين",meaning:"The Defrauding",verses:36,type:"Meccan",juz:30,page:587},
+  {n:84,name:"Al-Inshiqaq",ar:"الانشقاق",meaning:"The Splitting Open",verses:25,type:"Meccan",juz:30,page:589},
+  {n:85,name:"Al-Buruj",ar:"البروج",meaning:"The Mansions of the Stars",verses:22,type:"Meccan",juz:30,page:590},
+  {n:86,name:"At-Tariq",ar:"الطارق",meaning:"The Morning Star",verses:17,type:"Meccan",juz:30,page:591},
+  {n:87,name:"Al-Ala",ar:"الأعلى",meaning:"The Most High",verses:19,type:"Meccan",juz:30,page:591},
+  {n:88,name:"Al-Ghashiyah",ar:"الغاشية",meaning:"The Overwhelming",verses:26,type:"Meccan",juz:30,page:592},
+  {n:89,name:"Al-Fajr",ar:"الفجر",meaning:"The Dawn",verses:30,type:"Meccan",juz:30,page:593},
+  {n:90,name:"Al-Balad",ar:"البلد",meaning:"The City",verses:20,type:"Meccan",juz:30,page:594},
+  {n:91,name:"Ash-Shams",ar:"الشمس",meaning:"The Sun",verses:15,type:"Meccan",juz:30,page:595},
+  {n:92,name:"Al-Layl",ar:"الليل",meaning:"The Night",verses:21,type:"Meccan",juz:30,page:595},
+  {n:93,name:"Ad-Duha",ar:"الضحى",meaning:"The Morning Hours",verses:11,type:"Meccan",juz:30,page:596},
+  {n:94,name:"Ash-Sharh",ar:"الشرح",meaning:"The Relief",verses:8,type:"Meccan",juz:30,page:596},
+  {n:95,name:"At-Tin",ar:"التين",meaning:"The Fig",verses:8,type:"Meccan",juz:30,page:597},
+  {n:96,name:"Al-Alaq",ar:"العلق",meaning:"The Clot",verses:19,type:"Meccan",juz:30,page:597},
+  {n:97,name:"Al-Qadr",ar:"القدر",meaning:"The Power",verses:5,type:"Meccan",juz:30,page:598},
+  {n:98,name:"Al-Bayyinah",ar:"البينة",meaning:"The Clear Proof",verses:8,type:"Medinan",juz:30,page:598},
+  {n:99,name:"Az-Zalzalah",ar:"الزلزلة",meaning:"The Earthquake",verses:8,type:"Medinan",juz:30,page:599},
+  {n:100,name:"Al-Adiyat",ar:"العاديات",meaning:"The Courser",verses:11,type:"Meccan",juz:30,page:599},
+  {n:101,name:"Al-Qariah",ar:"القارعة",meaning:"The Calamity",verses:11,type:"Meccan",juz:30,page:600},
+  {n:102,name:"At-Takathur",ar:"التكاثر",meaning:"The Rivalry in World Increase",verses:8,type:"Meccan",juz:30,page:600},
+  {n:103,name:"Al-Asr",ar:"العصر",meaning:"The Declining Day",verses:3,type:"Meccan",juz:30,page:601},
+  {n:104,name:"Al-Humazah",ar:"الهمزة",meaning:"The Traducer",verses:9,type:"Meccan",juz:30,page:601},
+  {n:105,name:"Al-Fil",ar:"الفيل",meaning:"The Elephant",verses:5,type:"Meccan",juz:30,page:601},
+  {n:106,name:"Quraysh",ar:"قريش",meaning:"Quraysh",verses:4,type:"Meccan",juz:30,page:602},
+  {n:107,name:"Al-Maun",ar:"الماعون",meaning:"The Small Kindnesses",verses:7,type:"Meccan",juz:30,page:602},
+  {n:108,name:"Al-Kawthar",ar:"الكوثر",meaning:"The Abundance",verses:3,type:"Meccan",juz:30,page:602},
+  {n:109,name:"Al-Kafirun",ar:"الكافرون",meaning:"The Disbelievers",verses:6,type:"Meccan",juz:30,page:603},
+  {n:110,name:"An-Nasr",ar:"النصر",meaning:"The Divine Support",verses:3,type:"Medinan",juz:30,page:603},
+  {n:111,name:"Al-Masad",ar:"المسد",meaning:"The Palm Fiber",verses:5,type:"Meccan",juz:30,page:603},
+  {n:112,name:"Al-Ikhlas",ar:"الإخلاص",meaning:"The Sincerity",verses:4,type:"Meccan",juz:30,page:604},
+  {n:113,name:"Al-Falaq",ar:"الفلق",meaning:"The Daybreak",verses:5,type:"Meccan",juz:30,page:604},
+  {n:114,name:"An-Nas",ar:"الناس",meaning:"The Mankind",verses:6,type:"Meccan",juz:30,page:604},
+];
+
+// Language → Quran.com translation ID mapping
+const LANG_TRANSLATIONS = {
+  en: 131, ur: 97, fr: 136, de: 163, es: 83, tr: 77, id: 134,
+  ms: 39, bn: 161, hi: 122, sw: 56, fa: 135, ru: 79, zh: 109,
+  ar: null, // Arabic is the original text
+  pt: 103, it: 153, nl: 144, pl: 180, ko: 112, ja: 120,
+  ta: 230, te: 231, ml: 37, gu: 217, ne: 203, my: 243,
+  ha: null, ps: null, ku: null, pa: null, sd: null,
+  so: null, zu: null, am: null, sq: null, bs: 125,
+  uk: 151, el: null, he: null, fi: null, sv: null, tl: null,
+};
+
+const LANGS = [
+  {c:"en",n:"English",na:"English"},
+  {c:"ur",n:"Urdu",na:"اردو"},
+  {c:"ar",n:"Arabic",na:"العربية"},
+  {c:"fr",n:"French",na:"Français"},
+  {c:"de",n:"German",na:"Deutsch"},
+  {c:"es",n:"Spanish",na:"Español"},
+  {c:"tr",n:"Turkish",na:"Türkçe"},
+  {c:"id",n:"Indonesian",na:"Bahasa Indonesia"},
+  {c:"ms",n:"Malay",na:"Bahasa Melayu"},
+  {c:"bn",n:"Bengali",na:"বাংলা"},
+  {c:"hi",n:"Hindi",na:"हिंदी"},
+  {c:"sw",n:"Swahili",na:"Kiswahili"},
+  {c:"ha",n:"Hausa",na:"Hausa"},
+  {c:"ps",n:"Pashto",na:"پښتو"},
+  {c:"fa",n:"Persian",na:"فارسی"},
+  {c:"pa",n:"Punjabi",na:"ਪੰਜਾਬੀ"},
+  {c:"sd",n:"Sindhi",na:"سنڌي"},
+  {c:"so",n:"Somali",na:"Soomaali"},
+  {c:"zh",n:"Chinese",na:"中文"},
+  {c:"ja",n:"Japanese",na:"日本語"},
+  {c:"ko",n:"Korean",na:"한국어"},
+  {c:"ru",n:"Russian",na:"Русский"},
+  {c:"pt",n:"Portuguese",na:"Português"},
+  {c:"it",n:"Italian",na:"Italiano"},
+  {c:"ta",n:"Tamil",na:"தமிழ்"},
+  {c:"te",n:"Telugu",na:"తెలుగు"},
+  {c:"ml",n:"Malayalam",na:"മലയാളം"},
+  {c:"gu",n:"Gujarati",na:"ગુજરાતી"},
+  {c:"ne",n:"Nepali",na:"नेपाली"},
+  {c:"my",n:"Burmese",na:"မြန်မာဘာသာ"},
+  {c:"yo",n:"Yoruba",na:"Yorùbá"},
+  {c:"sq",n:"Albanian",na:"Shqip"},
+  {c:"uk",n:"Ukrainian",na:"Українська"},
+  {c:"el",n:"Greek",na:"Ελληνικά"},
+  {c:"he",n:"Hebrew",na:"עברית"},
+  {c:"fi",n:"Finnish",na:"Suomi"},
+  {c:"sv",n:"Swedish",na:"Svenska"},
+  {c:"tl",n:"Filipino",na:"Filipino"},
+  {c:"am",n:"Amharic",na:"አማርኛ"},
+  {c:"zu",n:"Zulu",na:"isiZulu"},
+  {c:"af",n:"Afrikaans",na:"Afrikaans"},
+  {c:"bs",n:"Bosnian",na:"Bosanski"},
+  {c:"kk",n:"Kazakh",na:"Қазақша"},
+  {c:"uz",n:"Uzbek",na:"O'zbek"},
+  {c:"mn",n:"Mongolian",na:"Монгол"},
+  {c:"km",n:"Khmer",na:"ភាសាខ្មែរ"},
+  {c:"tg",n:"Tajik",na:"Тоҷикӣ"},
+  {c:"jv",n:"Javanese",na:"Basa Jawa"},
+];
+
+const QARIS = [
+  {id:"ar.alafasy",name:"Mishary Alafasy",short:"Mishary",origin:"Kuwait"},
+  {id:"ar.abdurrahmanassudais",name:"Abdul Rahman Al-Sudais",short:"Al-Sudais",origin:"Saudi Arabia"},
+  {id:"ar.mahermuaiqly",name:"Maher Al Muaiqly",short:"Al-Muaiqly",origin:"Saudi Arabia"},
+  {id:"ar.saadalghamdi",name:"Saad Al-Ghamdi",short:"Al-Ghamdi",origin:"Saudi Arabia"},
+];
+
+const QUICK_LINKS = [
+  {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,icon:"👑"},
+  {name:"Al-Kahf",ar:"الكهف",surah:18,icon:"🕌"},
+  {name:"Al-Mulk",ar:"الملك",surah:67,icon:"🌙"},
+  {name:"Ar-Rahman",ar:"الرحمن",surah:55,icon:"💚"},
+  {name:"Ya-Sin",ar:"يس",surah:36,icon:"⭐"},
+  {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,icon:"🤲"},
+];
+
+const ARABIC_ALPHA = [
+  {l:"أ",n:"Alif",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wm:"Lion"},
+  {l:"ب",n:"Ba",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wm:"Duck"},
+  {l:"ت",n:"Ta",s:"T",color:"#f39c12",e:"🍎",w:"تفاحة",wm:"Apple"},
+  {l:"ث",n:"Tha",s:"Th",color:"#27ae60",e:"🐍",w:"ثعبان",wm:"Snake"},
+  {l:"ج",n:"Jim",s:"J",color:"#16a085",e:"🐪",w:"جمل",wm:"Camel"},
+  {l:"ح",n:"Ha",s:"H",color:"#2980b9",e:"🐎",w:"حصان",wm:"Horse"},
+  {l:"خ",n:"Kha",s:"Kh",color:"#8e44ad",e:"🐑",w:"خروف",wm:"Sheep"},
+  {l:"د",n:"Dal",s:"D",color:"#c0392b",e:"🐻",w:"دب",wm:"Bear"},
+  {l:"ذ",n:"Dhal",s:"Dh",color:"#d35400",e:"🐺",w:"ذئب",wm:"Wolf"},
+  {l:"ر",n:"Ra",s:"R",color:"#7f8c8d",e:"🍇",w:"رمان",wm:"Pomegranate"},
+  {l:"ز",n:"Zay",s:"Z",color:"#2ecc71",e:"🌺",w:"زهرة",wm:"Flower"},
+  {l:"س",n:"Sin",s:"S",color:"#1abc9c",e:"🐟",w:"سمكة",wm:"Fish"},
+  {l:"ش",n:"Shin",s:"Sh",color:"#3498db",e:"☀️",w:"شمس",wm:"Sun"},
+  {l:"ص",n:"Sad",s:"S",color:"#9b59b6",e:"🦅",w:"صقر",wm:"Falcon"},
+  {l:"ض",n:"Dad",s:"D",color:"#e91e63",e:"🐸",w:"ضفدع",wm:"Frog"},
+  {l:"ط",n:"Ta",s:"T",color:"#ff5722",e:"🥁",w:"طبل",wm:"Drum"},
+  {l:"ظ",n:"Dha",s:"Dh",color:"#795548",e:"🦌",w:"ظبي",wm:"Deer"},
+  {l:"ع",n:"Ain",s:"'A",color:"#607d8b",e:"🍇",w:"عنب",wm:"Grapes"},
+  {l:"غ",n:"Ghain",s:"Gh",color:"#e74c3c",e:"🐦",w:"غراب",wm:"Crow"},
+  {l:"ف",n:"Fa",s:"F",color:"#e67e22",e:"🦋",w:"فراشة",wm:"Butterfly"},
+  {l:"ق",n:"Qaf",s:"Q",color:"#f39c12",e:"🐱",w:"قطة",wm:"Cat"},
+  {l:"ك",n:"Kaf",s:"K",color:"#27ae60",e:"🐶",w:"كلب",wm:"Dog"},
+  {l:"ل",n:"Lam",s:"L",color:"#16a085",e:"🎮",w:"لعبة",wm:"Game"},
+  {l:"م",n:"Mim",s:"M",color:"#2980b9",e:"💧",w:"ماء",wm:"Water"},
+  {l:"ن",n:"Nun",s:"N",color:"#8e44ad",e:"🌟",w:"نجمة",wm:"Star"},
+  {l:"ه",n:"Ha",s:"H",color:"#c0392b",e:"🌙",w:"هلال",wm:"Crescent"},
+  {l:"و",n:"Waw",s:"W",color:"#d35400",e:"🌹",w:"وردة",wm:"Rose"},
+  {l:"ي",n:"Ya",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
+];
+
+// ─── VERSE CACHE — never re-fetch ───────────────────────────
+const verseCache = {};
+
+// ─── FETCH VERSES — with language support ───────────────────
+async function fetchVerses(surahNum, langCode) {
+  const transId = LANG_TRANSLATIONS[langCode];
+  const cacheKey = `${surahNum}-${langCode}`;
+  if (verseCache[cacheKey]) return verseCache[cacheKey];
+
+  // Always fetch Arabic + translation
+  const transParam = transId ? `&translations=${transId}` : "&translations=131";
+  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300${transParam}&fields=text_uthmani`;
+
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  const d = await r.json();
+
+  const verses = d.verses.map(v => ({
+    number: v.verse_number,
+    arabic: v.text_uthmani,
+    translation: (v.translations?.[0]?.text || "").replace(/<[^>]+>/g, ""),
+  }));
+
+  verseCache[cacheKey] = verses;
+  return verses;
+}
+
+// ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
+async function askAI(prompt, langName) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 450,
+      messages: [{
+        role: "user",
+        content: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`
+      }]
+    })
+  });
+  if (!r.ok) throw new Error(`AI ${r.status}`);
+  const d = await r.json();
+  return (d.content?.[0]?.text || "").trim();
+}
+
+// ─── AUDIO — 2 fallback URLs ─────────────────────────────────
+function getAudioUrls(qariId, surahNum, verseNum) {
+  // URL 1: per-chapter format
+  const url1 = `https://cdn.islamic.network/quran/audio/128/${qariId}/${String(verseNum).padStart(3, "0")}.mp3`;
+  // URL 2: verse key format (surah:verse)
+  const verseKey = `${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}`;
+  const url2 = `https://verses.quran.com/${qariId}/${verseKey}.mp3`;
+  return [url1, url2];
+}
+
+// ─── PRAYER TIMES (approximate) ─────────────────────────────
+const PRAYER_NAMES = ["Fajr","Sunrise","Dhuhr","Asr","Maghrib","Isha"];
+const PRAYER_TIMES = ["05:12","06:38","12:15","15:45","18:52","20:18"];
+function getNextPrayer() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  for (let i = 0; i < PRAYER_TIMES.length; i++) {
+    const [ph, pm] = PRAYER_TIMES[i].split(":").map(Number);
+    if (h < ph || (h === ph && m < pm)) return i;
+  }
+  return 0;
+}
+
+// ─── MAIN APP ────────────────────────────────────────────────
+export default function QuranLife() {
+  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
+  const [surahNum, setSurahNum] = useState(null);
+  const [lang, setLang] = useState("en");
+  const [qari, setQari] = useState("ar.alafasy");
+  const [verses, setVerses] = useState([]);
+  const [versesLoading, setVersesLoading] = useState(false);
+  const [versesError, setVersesError] = useState(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [navTab, setNavTab] = useState("home");
+  const [openPanel, setOpenPanel] = useState(null); // verseNum
+  const [activeTab, setActiveTab] = useState("meaning");
+  const [cache, setCache] = useState({}); // AI content cache
+  const [playKey, setPlayKey] = useState(null);
+  const [showLang, setShowLang] = useState(false);
+  const [showQari, setShowQari] = useState(false);
+  const [showPrayer, setShowPrayer] = useState(false);
+  const [showJuz, setShowJuz] = useState(false);
+  const [showGoto, setShowGoto] = useState(false);
+  const [showBkSheet, setShowBkSheet] = useState(false);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [lastRead, setLastRead] = useState(null);
+  const [kidLetter, setKidLetter] = useState(null);
+  const [learned, setLearned] = useState([]);
+  const [langSearch, setLangSearch] = useState("");
+  const [gotoPage, setGotoPage] = useState("");
+  const audioRef = useRef(null);
+
+  const curLang = LANGS.find(l => l.c === lang) || LANGS[0];
+  const curQari = QARIS.find(q => q.id === qari) || QARIS[0];
+  const curSurah = SURAHS.find(s => s.n === surahNum);
+  const nextPrayer = getNextPrayer();
+
+  const filteredLangs = LANGS.filter(l =>
+    l.n.toLowerCase().includes(langSearch.toLowerCase()) ||
+    l.na.toLowerCase().includes(langSearch.toLowerCase())
+  );
+
+  const filtered = SURAHS.filter(s => {
+    const q = query.toLowerCase();
+    const qm = !q || s.name.toLowerCase().includes(q) || s.ar.includes(query) ||
+      s.meaning.toLowerCase().includes(q) || String(s.n).includes(q);
+    const fm = filter === "all" ||
+      (filter === "meccan" && s.type === "Meccan") ||
+      (filter === "medinan" && s.type === "Medinan") ||
+      (filter === "juz30" && s.juz === 30) ||
+      (filter === "short" && s.verses <= 20) ||
+      (filter === "long" && s.verses >= 100);
+    return qm && fm;
+  });
+
+  // ── AUDIO ──────────────────────────────────────────────────
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setPlayKey(null);
+  }, []);
+
+  const playVerse = useCallback((sn, vn) => {
+    stopAudio();
+    const key = `${sn}:${vn}`;
+    const [url1, url2] = getAudioUrls(qari, sn, vn);
+    const audio = new Audio(url1);
+    audioRef.current = audio;
+    setPlayKey(key);
+    audio.addEventListener("ended", () => setPlayKey(null));
+    audio.addEventListener("error", () => {
+      // Try fallback URL
+      const audio2 = new Audio(url2);
+      audioRef.current = audio2;
+      audio2.addEventListener("ended", () => setPlayKey(null));
+      audio2.addEventListener("error", () => { audioRef.current = null; setPlayKey(null); });
+      audio2.play().catch(() => { audioRef.current = null; setPlayKey(null); });
+    });
+    audio.play().catch(() => { audioRef.current = null; setPlayKey(null); });
+  }, [qari, stopAudio]);
+
+  // ── OPEN SURAH ─────────────────────────────────────────────
+  const openSurah = useCallback(async (n) => {
+    stopAudio();
+    setSurahNum(n);
+    setScreen("read");
+    setNavTab("home");
+    setOpenPanel(null);
+    setVerses([]);
+    setVersesLoading(true);
+    setVersesError(null);
+    window.scrollTo(0, 0);
+    try {
+      const v = await fetchVerses(n, lang);
+      setVerses(v);
+      setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
+    } catch (e) {
+      setVersesError("Could not load verses. Please check your connection and tap Retry.");
+    } finally {
+      setVersesLoading(false);
+    }
+  }, [lang, stopAudio]);
+
+  // Reload verses when language changes while reading
+  useEffect(() => {
+    if (screen === "read" && surahNum) {
+      setVerses([]);
+      setVersesLoading(true);
+      setVersesError(null);
+      fetchVerses(surahNum, lang)
+        .then(v => { setVerses(v); setVersesLoading(false); })
+        .catch(() => { setVersesError("Could not load. Tap Retry."); setVersesLoading(false); });
+    }
+  }, [lang]);
+
+  // ── AI CONTENT ─────────────────────────────────────────────
+  const getOrLoad = useCallback(async (key, prompt, force = false) => {
+    if (cache[key] && !force) return;
+    setCache(p => ({ ...p, [key]: { loading: true, error: null, text: null } }));
+    try {
+      const text = await askAI(prompt, curLang.n);
+      setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
+    } catch {
+      setCache(p => ({ ...p, [key]: { loading: false, error: "Failed to load. Tap Retry.", text: null } }));
+    }
+  }, [cache, curLang.n]);
+
+  const loadTabContent = useCallback((verse, tab, force = false) => {
+    const sn = curSurah?.name || "";
+    const key = `${surahNum}-${verse.number}-${tab}-${lang}`;
+    if (cache[key]?.text && !force) return;
+    let prompt = "";
+    if (tab === "tafsir")
+      prompt = `Provide tafsir for Surah ${sn} verse ${verse.number}: "${verse.arabic}" (meaning: "${verse.translation}"). Include: verse meaning, Ibn Kathir explanation, Al-Tabari, contemporary scholar view, simple explanation for any person.`;
+    else if (tab === "revelation")
+      prompt = `Explain the revelation context (Asbab al-Nuzul) of Surah ${sn} verse ${verse.number}: "${verse.arabic}". Cover: when it was revealed, why, to whom, and the historical event behind it.`;
+    else if (tab === "science")
+      prompt = `Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.arabic}" (meaning: "${verse.translation}"). Be completely honest — label the connection as Confirmed by science, Claimed but debated, Speculative, or state there is no scientific connection. Include relevant scientific formula if applicable.`;
+    else if (tab === "hadith")
+      prompt = `Share hadiths related to Surah ${sn} verse ${verse.number}: "${verse.arabic}". For each hadith: give the text, source (book name and number), authenticity grade (Sahih/Hasan/Daif/Mawdu), grader name, and reason for the grade. Clearly warn about any fabricated hadiths and explain why sharing them is dangerous.`;
+    getOrLoad(key, prompt, force);
+  }, [surahNum, curSurah, lang, cache, getOrLoad]);
+
+  const openDeepPanel = useCallback((verse) => {
+    if (openPanel === verse.number) { setOpenPanel(null); return; }
+    setOpenPanel(verse.number);
+    setActiveTab("meaning");
+  }, [openPanel]);
+
+  const switchTab = useCallback((verse, tab) => {
+    setActiveTab(tab);
+    if (tab !== "meaning") loadTabContent(verse, tab);
+  }, [loadTabContent]);
+
+  // When language changes, clear AI cache for current panel
+  const changeLang = useCallback((code) => {
+    setLang(code);
+    setShowLang(false);
+    setLangSearch("");
+    // Clear cached AI content so it reloads in new language
+    setCache({});
+  }, []);
+
+  // ── BOOKMARKS ───────────────────────────────────────────────
+  const toggleBk = useCallback((sn, sname, vn, arabic, translation) => {
+    setBookmarks(prev => {
+      const exists = prev.findIndex(b => b.sn === sn && b.vn === vn);
+      if (exists >= 0) return prev.filter((_, i) => i !== exists);
+      return [...prev, { sn, sname, vn, arabic, translation: translation.slice(0, 100) }];
+    });
+  }, []);
+
+  const isBk = useCallback((sn, vn) => bookmarks.some(b => b.sn === sn && b.vn === vn), [bookmarks]);
+
+  // ── STYLES ──────────────────────────────────────────────────
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#f5f3ee}
+    .ar{font-family:'Amiri',serif!important}
+    ::-webkit-scrollbar{width:0;height:0}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes bv{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+    @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+    .fade{animation:fadeIn .22s ease}
+    .pop{animation:pop .18s ease}
+    .bn{width:5px;height:5px;border-radius:50%;background:${G};display:inline-block;animation:bv 1.2s ease-in-out infinite}
+    .tab{padding:5px 11px;border-radius:18px;border:.5px solid #ddd;background:transparent;color:#333;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Inter',sans-serif}
+    .tab.on{background:${G};border-color:${G};color:#fff;font-weight:600}
+    .tab:not(.on):hover{background:#f0faf5}
+    .srow{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#fff;cursor:pointer;border-bottom:.5px solid #f0f0ec;transition:background .1s}
+    .srow:hover{background:#f5fcf7}
+    .srow:last-child{border-bottom:none}
+    .pbtn{padding:4px 11px;border-radius:15px;border:.5px solid ${G};color:${G};background:transparent;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+    .pbtn:hover{background:${G};color:#fff}
+    .rbtn{padding:4px 11px;border-radius:15px;background:${G};color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+    .rbtn:hover{background:#0a3d26}
+    .chip{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:16px;border:.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.13);color:#fff;font-size:11px;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif}
+    .chip:hover{background:rgba(255,255,255,.22)}
+    .lo{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 12px;background:transparent;border:none;color:#1a1a1a;transition:background .1s;cursor:pointer;font-family:'Inter',sans-serif}
+    .lo:hover,.lo.sel{background:#f0faf5}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+    .sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:82vh;overflow-y:auto;padding:18px 14px 28px;animation:pop .2s ease}
+    .nav{position:fixed;bottom:0;width:100%;max-width:520px;left:50%;transform:translateX(-50%);background:#fff;border-top:.5px solid #e4e8e2;display:flex;padding:6px 0 10px;z-index:60;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+    .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:3px 0}
+    .ni-lbl{font-size:10px;color:#9ba5b0;font-weight:500}
+    .ni.on .ni-lbl{color:${G};font-weight:700}
+    .fc{padding:5px 11px;border-radius:18px;border:.5px solid #ddd;background:#fff;color:#5a6472;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif}
+    .fc.on{background:${G};border-color:${G};color:#fff}
+    .qpill{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 11px;background:#fff;border-radius:11px;border:.5px solid #e4e8e2;cursor:pointer;min-width:78px;text-align:center;transition:all .15s;flex-shrink:0}
+    .qpill:hover{background:#f0faf5;border-color:${G}}
+    .aitext{font-size:13px;line-height:1.9;color:#1a1a1a;white-space:pre-wrap;direction:auto}
+    .alpha-card{border-radius:13px;padding:12px;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:5px;border:2px solid transparent}
+    .alpha-card:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+    .retry-btn{padding:5px 13px;border:.5px solid ${G};border-radius:12px;background:transparent;color:${G};font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+    .retry-btn:hover{background:${G};color:#fff}
+    .lbtn{display:flex;align-items:center;gap:4px;padding:5px 11px;border:.5px solid ${G};border-radius:16px;background:transparent;color:${G};font-size:11px;font-weight:600;transition:all .15s;cursor:pointer;font-family:'Inter',sans-serif}
+    .lbtn.pl,.lbtn:hover{background:${G};color:#fff}
+    .dbtn{display:flex;align-items:center;gap:4px;padding:5px 11px;border:.5px solid #ddd;border-radius:16px;background:transparent;color:#444;font-size:11px;transition:all .15s;cursor:pointer;font-family:'Inter',sans-serif}
+    .dbtn.op,.dbtn:hover{background:${G};border-color:${G};color:#fff}
+    .bk-btn{font-size:17px;background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;transition:transform .15s}
+    .bk-btn:hover{transform:scale(1.2)}
+  `;
+
+  // ── SHARED HELPERS ──────────────────────────────────────────
+  const Spinner = ({ label }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 0" }}>
+      {[0, .15, .3].map((d, i) => <span key={i} className="bn" style={{ animationDelay: `${d}s` }} />)}
+      <span style={{ fontSize: 13, color: "#6b7280", marginLeft: 6 }}>{label}</span>
+    </div>
+  );
+
+  const RetryRow = ({ msg, onRetry }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
+      <span style={{ fontSize: 12, color: "#dc2626" }}>{msg}</span>
+      <button className="retry-btn" onClick={onRetry}>↺ Retry</button>
+    </div>
+  );
+
+  const AIBlock = ({ cacheKey, onRetry }) => {
+    const e = cache[cacheKey] || {};
+    if (e.loading) return <Spinner label={`Loading in ${curLang.n}...`} />;
+    if (e.error) return <RetryRow msg={e.error} onRetry={onRetry} />;
+    if (e.text) return (
+      <div className="aitext" style={{ background: "#f8fafb", borderRadius: 9, padding: 12, border: ".5px solid #e2e8e4", fontSize: 13, lineHeight: 1.9 }}>
+        {e.text}
+      </div>
+    );
+    return null;
+  };
+
+  const Nav = ({ readOn = false }) => (
+    <div className="nav">
+      {[["🏠","Home","home"],["📖","Read","read"],["🎓","Kids","kids"],["🔖","Saved","bookmarks"],["⚙️","More","more"]].map(([icon, label, id]) => (
+        <div key={id} className={`ni${navTab === id ? " on" : ""}`} onClick={() => {
+          if (id === "home") { stopAudio(); setScreen("home"); setNavTab("home"); }
+          else if (id === "read") { if (surahNum) setScreen("read"); else openSurah(lastRead?.surahN || 1); setNavTab("read"); }
+          else if (id === "kids") { setScreen("kids"); setNavTab("kids"); setKidLetter(null); }
+          else if (id === "bookmarks") { setScreen("bookmarks"); setNavTab("bookmarks"); }
+          else if (id === "more") setShowLang(true);
+        }}>
+          <div style={{ fontSize: 18 }}>{icon}</div>
+          <div className="ni-lbl">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const LangSheet = () => showLang ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowLang(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🌍 Select Language</div>
+        <input placeholder="Search language..." value={langSearch} onChange={e => setLangSearch(e.target.value)}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 10 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: "55vh", overflowY: "auto" }}>
+          {filteredLangs.map(l => (
+            <button key={l.c} className={`lo${lang === l.c ? " sel" : ""}`}
+              style={{ borderRadius: 9, border: ".5px solid #e2e8e4", justifyContent: "space-between", padding: "8px 10px", fontWeight: lang === l.c ? 700 : 400 }}
+              onClick={() => changeLang(l.c)}>
+              <span style={{ fontSize: 12 }}>{l.n}</span>
+              <span style={{ fontSize: 11, color: "#9ba5b0" }}>{l.na}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const QariSheet = () => showQari ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowQari(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>🎙 Select Qari</div>
+        {QARIS.map(q => (
+          <div key={q.id} onClick={() => { setQari(q.id); setShowQari(false); stopAudio(); }}
+            style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 12px", borderRadius: 10, border: `.5px solid ${qari === q.id ? G : "#e2e8e4"}`, background: qari === q.id ? "#f0faf5" : "#fff", cursor: "pointer", marginBottom: 8 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: qari === q.id ? G : "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>🎙</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{q.name}</div>
+              <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 2 }}>{q.origin}</div>
+            </div>
+            {qari === q.id && <span style={{ color: G, fontSize: 16 }}>✓</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  const PrayerSheet = () => showPrayer ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowPrayer(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>🕌 Prayer Times</div>
+        {PRAYER_NAMES.map((p, i) => (
+          <div key={p} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 9, marginBottom: 6, background: i === nextPrayer ? "#f0faf5" : "#fafafa", border: `.5px solid ${i === nextPrayer ? G + "44" : "#f0f0ec"}` }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: i === nextPrayer ? 700 : 400, color: i === nextPrayer ? G : "#1a1a1a" }}>{p}</div>
+              {i === nextPrayer && <div style={{ fontSize: 10, color: G, fontWeight: 600 }}>Next Prayer</div>}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: i === nextPrayer ? G : "#555" }}>{PRAYER_TIMES[i]}</div>
+          </div>
+        ))}
+        <div style={{ marginTop: 10, padding: 10, background: "#f8fafb", borderRadius: 9, fontSize: 11, color: "#9ba5b0", textAlign: "center" }}>
+          Enable location for accurate local prayer times
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const JuzSheet = () => showJuz ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowJuz(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>📚 Juz Index</div>
+        <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
+          {Array.from({ length: 30 }, (_, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 4px", borderBottom: ".5px solid #f0f0ec", cursor: "pointer" }}
+              onClick={() => { setShowJuz(false); /* In full app navigate to juz */ }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>Juz {i + 1}</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>Part {i + 1} of 30</div>
+              </div>
+              <div className="ar" style={{ fontSize: 16, color: G }}>الجزء {i + 1}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const GotoSheet = () => showGoto ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowGoto(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>📄 Go To Page</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input type="number" min="1" max="604" placeholder="Enter page (1–604)" value={gotoPage} onChange={e => setGotoPage(e.target.value)}
+            style={{ flex: 1, padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+          <button onClick={() => {
+            const p = parseInt(gotoPage);
+            if (p && p >= 1 && p <= 604) {
+              const s = SURAHS.slice().reverse().find(x => x.page <= p) || SURAHS[0];
+              openSurah(s.n); setShowGoto(false); setGotoPage("");
+            }
+          }} style={{ padding: "10px 16px", background: G, color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Go</button>
+        </div>
+        <div style={{ fontSize: 11, color: "#9ba5b0", marginBottom: 10 }}>Or jump directly to a Surah:</div>
+        <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
+          {SURAHS.map(s => (
+            <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 4px", borderBottom: ".5px solid #f0f0ec", cursor: "pointer" }}
+              onClick={() => { openSurah(s.n); setShowGoto(false); }}>
+              <div style={{ fontSize: 11, color: "#9ba5b0", width: 36 }}>P.{s.page}</div>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{s.name}</div>
+              <div className="ar" style={{ fontSize: 16, color: G }}>{s.ar}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const BkSheet = () => showBkSheet ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowBkSheet(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🔖 Bookmarks</div>
+        <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 14 }}>{bookmarks.length} saved verses</div>
+        {bookmarks.length === 0
+          ? <div style={{ padding: "24px 0", textAlign: "center", color: "#9ba5b0", fontSize: 13 }}>No bookmarks yet. Tap 🔖 on any verse while reading.</div>
+          : bookmarks.map((b, i) => (
+            <div key={i} onClick={() => { openSurah(b.sn); setShowBkSheet(false); }}
+              style={{ padding: "10px 12px", borderRadius: 10, background: "#fdf8ff", border: ".5px solid #d8b4fe", marginBottom: 8, cursor: "pointer" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#8e44ad", marginBottom: 4 }}>{b.sname} · Verse {b.vn}</div>
+              <div className="ar" style={{ fontSize: 16, color: "#1a1a1a", direction: "rtl", textAlign: "right", lineHeight: 1.9 }}>{b.arabic}</div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  ) : null;
+
+  // ── HOME SCREEN ─────────────────────────────────────────────
+  const HomeScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80 }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(165deg,#051a0e 0%,${G} 50%,#1a7a45 100%)`, padding: "14px 14px 0", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, opacity: .04 }}>
+          <svg width="100%" height="100%"><defs><pattern id="p" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse"><polygon points="25,2 47,14 47,36 25,48 3,36 3,14" fill="none" stroke="#fff" strokeWidth=".6" /></pattern></defs><rect width="100%" height="100%" fill="url(#p)" /></svg>
+        </div>
+        <div style={{ position: "relative", zIndex: 2 }}>
+          {/* Top bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${GOLD},#e8b84b)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📖</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1 }}>Quran Life</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", letterSpacing: .5 }}>COMPLETE KNOWLEDGE PHASE 2</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="chip" onClick={() => setShowPrayer(true)}>🕌 Prayer</button>
+              <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
+              <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
+            </div>
+          </div>
+          {/* Prayer bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(0,0,0,.15)", borderRadius: 10, marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,.6)" }}>{new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}</div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>Next Prayer</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#e8b84b" }}>{PRAYER_NAMES[nextPrayer]} · {PRAYER_TIMES[nextPrayer]}</div>
+            </div>
+          </div>
+          {/* Daily verse */}
+          <div style={{ textAlign: "center", paddingBottom: 18 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 18, background: "rgba(201,148,58,.18)", border: ".5px solid rgba(201,148,58,.32)", color: "#e8b84b", fontSize: 10, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>✨ Daily Verse · Al-Fatiha 5</div>
+            <div className="ar" style={{ fontSize: 26, color: "#e8b84b", lineHeight: 1.8, marginBottom: 5 }}>إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,.6)", fontStyle: "italic" }}>"It is You we worship and You we ask for help."</div>
+          </div>
+          {/* Stats */}
+          <div style={{ display: "flex", borderTop: ".5px solid rgba(255,255,255,.1)", background: "rgba(0,0,0,.12)" }}>
+            {[["114","Surahs"],["6,236","Verses"],["30","Juz"],["48+","Languages"]].map(([n, l]) => (
+              <div key={l} style={{ flex: 1, padding: "10px 0", textAlign: "center", borderRight: ".5px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{n}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", marginTop: 1, textTransform: "uppercase", letterSpacing: .4 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Search — butter smooth */}
+      <div style={{ padding: "12px 13px 8px", position: "relative" }}>
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search Surah name, meaning, number... 🧈"
+            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", transition: "border-color .2s" }}
+            onFocus={e => e.target.style.borderColor = G} onBlur={e => e.target.style.borderColor = "#ddd"} />
+          {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>}
+        </div>
+        {/* Live search dropdown */}
+        {query && filtered.length > 0 && (
+          <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
+            {filtered.slice(0, 8).map(s => (
+              <div key={s.n} onClick={() => { openSurah(s.n); setQuery(""); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec", transition: "background .1s" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.meaning} · {s.verses} verses</div>
+                </div>
+                <div className="ar" style={{ fontSize: 16, color: G }}>{s.ar}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Feature tiles */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, padding: "4px 13px 10px" }}>
+        {/* Resume / Start reading */}
+        <div onClick={() => openSurah(lastRead?.surahN || 1)}
+          style={{ background: `linear-gradient(135deg,${G},#1a7a45)`, borderRadius: 13, padding: 13, cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, boxShadow: "0 4px 14px rgba(15,81,50,.2)" }}>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,.6)", textTransform: "uppercase", letterSpacing: .8 }}>{lastRead ? "▶ Resume Reading" : "📖 Start Reading"}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{lastRead ? lastRead.surahName : "Al-Fatiha"}</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,.65)" }}>{lastRead ? `Verse ${lastRead.verse}` : "The Opening"}</div>
+          {lastRead && <div style={{ height: 3, background: "rgba(255,255,255,.18)", borderRadius: 2, marginTop: 4 }}><div style={{ height: "100%", width: "30%", background: "#e8b84b", borderRadius: 2 }} /></div>}
+        </div>
+        {/* 4 mini tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          {[
+            { icon: "🎓", label: "Kids\nLearn", bg: "linear-gradient(135deg,#e67e22,#f39c12)", shadow: "rgba(230,126,34,.25)", action: () => { setScreen("kids"); setNavTab("kids"); setKidLetter(null); } },
+            { icon: "🔖", label: `${bookmarks.length}\nSaved`, bg: "linear-gradient(135deg,#8e44ad,#9b59b6)", shadow: "rgba(142,68,173,.25)", action: () => setShowBkSheet(true) },
+            { icon: "📚", label: "Juz\nIndex", bg: "linear-gradient(135deg,#2980b9,#3498db)", shadow: "rgba(41,128,185,.25)", action: () => setShowJuz(true) },
+            { icon: "📄", label: "Go To\nPage", bg: "linear-gradient(135deg,#16a085,#1abc9c)", shadow: "rgba(22,160,133,.25)", action: () => setShowGoto(true) },
+          ].map(({ icon, label, bg, shadow, action }) => (
+            <div key={label} onClick={action} style={{ background: bg, borderRadius: 12, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, boxShadow: `0 3px 10px ${shadow}` }}>
+              <div style={{ fontSize: 22 }}>{icon}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.3, whiteSpace: "pre-line" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick Links */}
+      <div style={{ padding: "2px 13px 10px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>⚡ Quick Links</div>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+          {QUICK_LINKS.map(q => (
+            <div key={q.name} className="qpill" onClick={() => openSurah(q.surah)}>
+              <div style={{ fontSize: 20 }}>{q.icon}</div>
+              <div style={{ fontSize: 11, fontWeight: 600 }}>{q.name}</div>
+              <div className="ar" style={{ fontSize: 12, color: G }}>{q.ar}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 6, padding: "4px 13px 8px", overflowX: "auto" }}>
+        {[["all","All 114"],["meccan","Meccan"],["medinan","Medinan"],["juz30","Juz 30"],["short","Short"],["long","Long"]].map(([v, l]) => (
+          <button key={v} className={`fc${filter === v ? " on" : ""}`} onClick={() => setFilter(v)}>{l}</button>
+        ))}
+      </div>
+
+      {/* Surah list */}
+      <div style={{ padding: "0 13px 4px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9 }}>All Surahs</div>
+        <div style={{ fontSize: 11, color: "#9ba5b0" }}>{filtered.length} surahs</div>
+      </div>
+      <div style={{ margin: "0 13px", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,.06)" }}>
+        {filtered.length === 0
+          ? <div style={{ padding: "24px 0", textAlign: "center", color: "#9ba5b0", fontSize: 13 }}>No surahs match your search</div>
+          : filtered.map((s, i) => (
+            <div key={s.n} className="srow" style={{ borderBottom: i < filtered.length - 1 ? ".5px solid #f0f0ec" : "none" }}>
+              {/* Number diamond */}
+              <div style={{ width: 32, height: 32, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute" }}><polygon points="16,1.5 30,9 30,23 16,30.5 2,23 2,9" fill="none" stroke={G} strokeWidth="1.1" /></svg>
+                <span style={{ position: "relative", zIndex: 1, fontSize: 10, fontWeight: 700, color: G }}>{s.n}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>
+                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: s.type === "Meccan" ? "#e8f4ee" : "#e8eef8", color: s.type === "Meccan" ? "#1a6b3c" : "#1a4b8c", marginRight: 4 }}>{s.type}</span>
+                  {s.verses}v · Juz {s.juz}
+                </div>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0, marginRight: 6 }}>
+                <div className="ar" style={{ fontSize: 17, color: G, lineHeight: 1.4 }}>{s.ar}</div>
+                <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
+              </div>
+              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                <button className="pbtn" onClick={e => { e.stopPropagation(); playVerse(s.n, 1); }}>▶ Play</button>
+                <button className="rbtn" onClick={() => openSurah(s.n)}>Read</button>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+      <div style={{ height: 14 }} />
+      <Nav />
+      <LangSheet /><QariSheet /><PrayerSheet /><JuzSheet /><GotoSheet /><BkSheet />
+    </div>
+  );
+
+  // ── READ SCREEN ─────────────────────────────────────────────
+  const ReadScreen = () => {
+    const s = curSurah || SURAHS[0];
+    return (
+      <div className="fade" style={{ paddingBottom: 80 }}>
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg,#051a0e,${G},#1a7a45)`, padding: "12px 13px 13px", position: "sticky", top: 0, zIndex: 40 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <button onClick={() => { stopAudio(); setScreen("home"); setNavTab("home"); }}
+              style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff", flexShrink: 0, cursor: "pointer" }}>←</button>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{s.name}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>{s.type} · {s.verses} verses · Juz {s.juz} · Page {s.page}</div>
+            </div>
+            <div className="ar" style={{ fontSize: 19, color: "#e8b84b", marginRight: 4 }}>{s.ar}</div>
+            <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
+            <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na}</button>
+            <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length}</button>
+          </div>
+        </div>
+
+        {/* Bismillah for non-Fatiha, non-Tawbah */}
+        {s.n !== 1 && s.n !== 9 && (
+          <div style={{ textAlign: "center", padding: "14px 0 10px", background: "#fff", borderBottom: ".5px solid #e4e8e2" }}>
+            <div className="ar" style={{ fontSize: 22, color: G }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+          </div>
+        )}
+
+        <div style={{ padding: "10px 12px" }}>
+          {versesLoading && (
+            <div style={{ padding: "44px 0", textAlign: "center" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 10 }}>
+                {[0, .15, .3].map((d, i) => <span key={i} className="bn" style={{ animationDelay: `${d}s` }} />)}
+              </div>
+              <div style={{ fontSize: 13, color: "#6b7280" }}>Loading {s.name} in {curLang.n}...</div>
+            </div>
+          )}
+          {versesError && (
+            <div style={{ padding: "32px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 12 }}>{versesError}</div>
+              <button onClick={() => openSurah(s.n)} style={{ padding: "8px 20px", background: G, color: "#fff", border: "none", borderRadius: 18, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↺ Retry</button>
+            </div>
+          )}
+
+          {verses.map(verse => {
+            const pk = `${s.n}:${verse.number}`;
+            const isPlaying = playKey === pk;
+            const isOpen = openPanel === verse.number;
+            const bkd = isBk(s.n, verse.number);
+
+            return (
+              <div key={verse.number} className="fade" style={{ background: "#fff", border: `.5px solid ${bkd ? "#8e44ad44" : isOpen ? G : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : "none" }}>
+                {/* Verse bar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderBottom: ".5px solid #f0f0f0", background: isOpen ? "#f0faf5" : "#fafafa", flexWrap: "wrap" }}>
+                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: G, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{verse.number}</div>
+                  <div style={{ flex: 1, fontSize: 10, color: "#9ba5b0" }}>Verse {verse.number} of {s.verses} · {s.name}</div>
+                  <button className="bk-btn" title={bkd ? "Remove bookmark" : "Add bookmark"}
+                    onClick={() => toggleBk(s.n, s.name, verse.number, verse.arabic, verse.translation)}
+                    style={{ color: bkd ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
+                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number)}>
+                    {isPlaying ? "⏸ Pause" : "▶ Play"}
+                  </button>
+                  <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
+                    if (openPanel === verse.number) { setOpenPanel(null); }
+                    else { setOpenPanel(verse.number); setActiveTab("meaning"); }
+                  }}>📖 {isOpen ? "Close" : "Deep Knowledge"}</button>
+                </div>
+
+                {/* Arabic + translation */}
+                <div style={{ padding: "14px 14px 12px" }}>
+                  <div className="ar" style={{ fontSize: 24, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: ".5px solid #f4f4f4" }}>
+                    {verse.arabic}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75 }}>{verse.translation}</div>
+                </div>
+
+                {/* Deep Knowledge panel */}
+                {isOpen && (
+                  <div style={{ borderTop: ".5px solid rgba(15,81,50,.1)", background: "#fafffe", padding: 13 }}>
+                    {/* Tabs */}
+                    <div style={{ display: "flex", gap: 5, marginBottom: 13, flexWrap: "wrap" }}>
+                      {[
+                        { id: "meaning", label: "📖 Meaning" },
+                        { id: "tafsir", label: "🕌 Tafsir" },
+                        { id: "revelation", label: "📜 Revelation" },
+                        { id: "science", label: "🔬 Science" },
+                        { id: "hadith", label: "📋 Hadith" },
+                      ].map(t => (
+                        <button key={t.id} className={`tab${activeTab === t.id ? " on" : ""}`}
+                          onClick={() => switchTab(verse, t.id)}>{t.label}</button>
+                      ))}
+                    </div>
+
+                    {/* Meaning tab — instant, no AI needed */}
+                    {activeTab === "meaning" && (
+                      <div>
+                        <div style={{ background: "#f0faf5", border: `.5px solid ${G}33`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
+                          <div className="ar" style={{ fontSize: 24, color: G, lineHeight: 1.9, direction: "rtl" }}>{verse.arabic}</div>
+                        </div>
+                        <div style={{ background: "#f8fafb", borderRadius: 10, padding: 13, border: ".5px solid #e2e8e4", marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: G, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Translation · {curLang.n}</div>
+                          <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.8 }}>{verse.translation}</div>
+                        </div>
+                        <div style={{ padding: "10px 12px", background: "#fffbeb", border: ".5px solid #d97706", borderRadius: 9 }}>
+                          <div style={{ fontSize: 11, color: "#92400e", fontWeight: 600, marginBottom: 3 }}>
+                            📖 {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#78350f" }}>Tap Tafsir, Revelation, Science or Hadith tabs for deep knowledge in {curLang.n}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI tabs — plain text, retry on fail */}
+                    {activeTab !== "meaning" && (() => {
+                      const key = `${surahNum}-${verse.number}-${activeTab}-${lang}`;
+                      const entry = cache[key] || {};
+                      if (!entry.text && !entry.loading && !entry.error) {
+                        // Auto-trigger load
+                        loadTabContent(verse, activeTab);
+                      }
+                      return (
+                        <div>
+                          <div style={{ fontSize: 11, color: G, fontWeight: 600, textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>
+                            {activeTab === "tafsir" ? "Tafsir" : activeTab === "revelation" ? "Revelation History" : activeTab === "science" ? "Scientific Connection" : "Hadith & Authenticity"} · {curLang.n}
+                          </div>
+                          {entry.loading && <Spinner label={`Loading in ${curLang.n}...`} />}
+                          {entry.error && <RetryRow msg={entry.error} onRetry={() => loadTabContent(verse, activeTab, true)} />}
+                          {entry.text && (
+                            <div className="aitext" style={{ background: "#f8fafb", borderRadius: 9, padding: 12, border: ".5px solid #e2e8e4" }}>
+                              {entry.text}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <Nav readOn />
+        <LangSheet /><QariSheet /><BkSheet />
+      </div>
+    );
+  };
+
+  // ── KIDS SCREEN ─────────────────────────────────────────────
+  const KidsScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#fff9f0,#f0fff4)", minHeight: "100vh" }}>
+      <div style={{ background: "linear-gradient(135deg,#e67e22,#f39c12)", padding: "16px 14px 20px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, opacity: .07, fontSize: 48, lineHeight: 1 }}>🌟⭐🌙✨</div>
+        <div style={{ position: "relative" }}>
+          <button onClick={() => { setScreen("home"); setNavTab("home"); setKidLetter(null); }}
+            style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Back</button>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 38, marginBottom: 6 }}>🎓</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Kids Arabic Corner</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,.8)", marginTop: 4 }}>Learn Arabic Alphabet with Fun! 🎉</div>
+            <div style={{ marginTop: 10, padding: "5px 14px", background: "rgba(255,255,255,.2)", borderRadius: 18, display: "inline-block", fontSize: 12, color: "#fff" }}>
+              {learned.length} of {ARABIC_ALPHA.length} letters learned ⭐
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div style={{ padding: "12px 14px 6px" }}>
+        <div style={{ height: 8, background: "#e2e8e4", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${Math.round((learned.length / ARABIC_ALPHA.length) * 100)}%`, background: "linear-gradient(90deg,#e67e22,#f39c12)", borderRadius: 6, transition: "width .5s" }} />
+        </div>
+        <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 4, textAlign: "center" }}>{Math.round((learned.length / ARABIC_ALPHA.length) * 100)}% Complete</div>
+      </div>
+
+      {kidLetter !== null ? (
+        /* Letter detail */
+        <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 18, padding: 20, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }} className="pop">
+          <div style={{ fontSize: 72, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].e}</div>
+          <div className="ar" style={{ fontSize: 72, color: ARABIC_ALPHA[kidLetter].color, lineHeight: 1.2, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].l}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].n}</div>
+          <div style={{ fontSize: 16, color: "#6b7280", marginBottom: 14 }}>Sound: "{ARABIC_ALPHA[kidLetter].s}"</div>
+          <div style={{ background: "#f8f4ee", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <div className="ar" style={{ fontSize: 32, color: ARABIC_ALPHA[kidLetter].color, marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].w}</div>
+            <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 500 }}>{ARABIC_ALPHA[kidLetter].wm}</div>
+            <div style={{ fontSize: 12, color: "#9ba5b0" }}>Example word in Arabic</div>
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button onClick={() => setKidLetter(null)} style={{ padding: "9px 20px", borderRadius: 20, border: ".5px solid #ddd", background: "#fff", fontSize: 13, cursor: "pointer" }}>← Back</button>
+            <button onClick={() => {
+              setLearned(prev => prev.includes(kidLetter) ? prev.filter(i => i !== kidLetter) : [...prev, kidLetter]);
+            }} style={{ padding: "9px 20px", borderRadius: 20, background: learned.includes(kidLetter) ? "#27ae60" : "#e67e22", color: "#fff", border: "none", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
+              {learned.includes(kidLetter) ? "✅ Learned!" : "Mark Learned ⭐"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: "8px 14px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 10 }}>🔤 Arabic Letters — Tap to Learn</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9 }}>
+            {ARABIC_ALPHA.map((a, i) => (
+              <div key={i} className="alpha-card" onClick={() => setKidLetter(i)}
+                style={{ background: `${a.color}18`, borderColor: learned.includes(i) ? G : "transparent" }}>
+                <div style={{ fontSize: 22 }}>{a.e}</div>
+                <div className="ar" style={{ fontSize: 28, color: a.color, fontWeight: 700, lineHeight: 1.2 }}>{a.l}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#5a6472" }}>{a.n}</div>
+                {learned.includes(i) && <div style={{ fontSize: 9, color: G, fontWeight: 700 }}>✓</div>}
+              </div>
+            ))}
+          </div>
+          {learned.length === ARABIC_ALPHA.length && (
+            <div style={{ marginTop: 16, padding: 16, background: "linear-gradient(135deg,#e67e22,#f39c12)", borderRadius: 14, textAlign: "center" }}>
+              <div style={{ fontSize: 30, marginBottom: 6 }}>🎉</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Congratulations!</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,.85)", marginTop: 4 }}>You learned all {ARABIC_ALPHA.length} Arabic letters!</div>
+            </div>
+          )}
+        </div>
+      )}
+      <Nav />
+    </div>
+  );
+
+  // ── BOOKMARKS SCREEN ────────────────────────────────────────
+  const BookmarksScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80 }}>
+      <div style={{ background: "linear-gradient(135deg,#8e44ad,#9b59b6)", padding: "14px 14px 16px" }}>
+        <button onClick={() => { setScreen("home"); setNavTab("home"); }}
+          style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>🔖 Your Bookmarks</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.65)", marginTop: 3 }}>{bookmarks.length} saved verses</div>
+      </div>
+      <div style={{ padding: "12px 13px" }}>
+        {bookmarks.length === 0 ? (
+          <div style={{ padding: "44px 0", textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔖</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No bookmarks yet</div>
+            <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>While reading any Surah, tap 🔖 on any verse to save it here.</div>
+            <button onClick={() => openSurah(1)} style={{ marginTop: 14, padding: "9px 22px", background: G, color: "#fff", border: "none", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Start Reading</button>
+          </div>
+        ) : bookmarks.map((b, i) => (
+          <div key={i} style={{ background: "#fff", border: ".5px solid #d8b4fe", borderRadius: 13, marginBottom: 9, overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: ".5px solid #f0f0ec", background: "#fdf8ff" }}>
+              <div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#8e44ad" }}>{b.sname}</span>
+                <span style={{ fontSize: 11, color: "#9ba5b0", marginLeft: 6 }}>· Verse {b.vn}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => openSurah(b.sn)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 12, background: G, color: "#fff", border: "none", cursor: "pointer" }}>Read</button>
+                <button onClick={() => toggleBk(b.sn, b.sname, b.vn, b.arabic, b.translation)} style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: "#dc2626" }}>×</button>
+              </div>
+            </div>
+            <div style={{ padding: 12 }}>
+              <div className="ar" style={{ fontSize: 20, direction: "rtl", textAlign: "right", color: "#1a1a1a", lineHeight: 1.9, marginBottom: 8 }}>{b.arabic}</div>
+              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>{b.translation}{b.translation.length >= 100 ? "..." : ""}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Nav />
+    </div>
+  );
+
+  // ── ROOT RENDER ─────────────────────────────────────────────
+  return (
+    <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh" }}>
+      <style>{css}</style>
+      {screen === "home" && <HomeScreen />}
+      {screen === "read" && <ReadScreen />}
+      {screen === "kids" && <KidsScreen />}
+      {screen === "bookmarks" && <BookmarksScreen />}
+    </div>
+  );
+}
