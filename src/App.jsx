@@ -555,9 +555,11 @@ export default function QuranLife() {
     .mushaf-text{font-family:'Amiri',serif;font-size:24px;line-height:3;direction:rtl;text-align:justify;color:#1a0500;word-spacing:4px}
     .mushaf-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8b6914,#c9943a);color:#fff;font-size:10px;font-weight:700;margin:0 3px;vertical-align:middle;flex-shrink:0;font-family:'Inter',sans-serif;line-height:1}
     .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%}
-    .mode-btn{padding:6px 13px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;white-space:nowrap}
-    .mode-btn.active{background:#e8b84b;color:#1a0a00;border:.5px solid #c9943a}
-    .mode-btn:not(.active){background:rgba(255,255,255,.15);color:#fff;border:.5px solid rgba(255,255,255,.3)}
+    .mode-btn{padding:6px 14px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
+    .mode-btn.active{background:linear-gradient(180deg,#e8b84b 0%,#c9943a 100%);color:#1a0a00;border:.5px solid #a67c2a;box-shadow:0 3px 0 #7a5a1a}
+    .mode-btn.active:active{transform:translateY(3px);box-shadow:0 0 0 #7a5a1a}
+    .mode-btn:not(.active){background:linear-gradient(180deg,rgba(255,255,255,.25) 0%,rgba(255,255,255,.1) 100%);color:#fff;border:.5px solid rgba(255,255,255,.35);box-shadow:0 3px 0 rgba(0,0,0,.2)}
+    .mode-btn:not(.active):active{transform:translateY(3px);box-shadow:0 0 0 rgba(0,0,0,.2)}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     @keyframes bv{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
     @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
@@ -570,10 +572,12 @@ export default function QuranLife() {
     .srow{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#fff;cursor:pointer;border-bottom:.5px solid #f0f0ec;transition:background .1s}
     .srow:hover{background:#f5fcf7}
     .srow:last-child{border-bottom:none}
-    .pbtn{padding:4px 11px;border-radius:15px;border:.5px solid ${G};color:${G};background:transparent;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
-    .pbtn:hover{background:${G};color:#fff}
-    .rbtn{padding:4px 11px;border-radius:15px;background:${G};color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
-    .rbtn:hover{background:#0a3d26}
+    .pbtn{padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f5fcf7 0%,#e0f2e8 100%);color:#0f5132;box-shadow:0 3px 0 #0a3d2644,0 5px 10px rgba(15,81,50,.12);border:.5px solid #0f5132;transition:all .12s}
+    .pbtn:hover{transform:translateY(1px);box-shadow:0 2px 0 #0a3d2644}
+    .pbtn:active{transform:translateY(3px);box-shadow:0 0 0 #0a3d2644}
+    .rbtn{padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);color:#fff;box-shadow:0 3px 0 #072b1a,0 5px 10px rgba(15,81,50,.2);border:none;transition:all .12s}
+    .rbtn:hover{transform:translateY(1px);box-shadow:0 2px 0 #072b1a}
+    .rbtn:active{transform:translateY(3px);box-shadow:0 0 0 #072b1a}
     .chip{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:16px;border:.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.13);color:#fff;font-size:11px;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif}
     .chip:hover{background:rgba(255,255,255,.22)}
     .lo{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:8px 12px;background:transparent;border:none;color:#1a1a1a;transition:background .1s;cursor:pointer;font-family:'Inter',sans-serif}
@@ -584,19 +588,41 @@ export default function QuranLife() {
     .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:3px 0}
     .ni-lbl{font-size:10px;color:#9ba5b0;font-weight:500}
     .ni.on .ni-lbl{color:${G};font-weight:700}
-    .fc{padding:5px 11px;border-radius:18px;border:.5px solid #ddd;background:#fff;color:#5a6472;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif}
-    .fc.on{background:${G};border-color:${G};color:#fff}
-    .qpill{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 11px;background:#fff;border-radius:11px;border:.5px solid #e4e8e2;cursor:pointer;min-width:78px;text-align:center;transition:all .15s;flex-shrink:0}
-    .qpill:hover{background:#f0faf5;border-color:${G}}
+    .fc{padding:5px 12px;border-radius:18px;border:.5px solid #ddd;background:linear-gradient(180deg,#fff 0%,#f0f0f0 100%);color:#5a6472;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 0 #ccc;transition:all .12s}
+    .fc:hover{transform:translateY(1px);box-shadow:0 1px 0 #ccc}
+    .fc.on{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);border-color:#0f5132;color:#fff;box-shadow:0 2px 0 #072b1a}
+    /* 3D BULGE BUTTONS */
+    .btn-3d{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:20px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;position:relative;border:none;outline:none;white-space:nowrap}
+    .btn-3d-green{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 60%,#0a3d26 100%);color:#fff;box-shadow:0 4px 0 #072b1a,0 6px 12px rgba(15,81,50,.35);text-shadow:0 1px 2px rgba(0,0,0,.3)}
+    .btn-3d-green:hover{transform:translateY(1px);box-shadow:0 3px 0 #072b1a,0 4px 10px rgba(15,81,50,.3)}
+    .btn-3d-green:active{transform:translateY(4px);box-shadow:0 0px 0 #072b1a,0 2px 6px rgba(15,81,50,.2)}
+    .btn-3d-gold{background:linear-gradient(180deg,#e8b84b 0%,#c9943a 60%,#a67c2a 100%);color:#1a0a00;box-shadow:0 4px 0 #7a5a1a,0 6px 12px rgba(139,105,20,.35);text-shadow:0 1px 1px rgba(255,255,255,.2)}
+    .btn-3d-gold:hover{transform:translateY(1px);box-shadow:0 3px 0 #7a5a1a,0 4px 10px rgba(139,105,20,.3)}
+    .btn-3d-gold:active{transform:translateY(4px);box-shadow:0 0px 0 #7a5a1a}
+    .btn-3d-white{background:linear-gradient(180deg,#ffffff 0%,#f0f0f0 60%,#e0e0e0 100%);color:#0f5132;box-shadow:0 4px 0 #aaa,0 6px 12px rgba(0,0,0,.15);border:.5px solid #ddd}
+    .btn-3d-white:hover{transform:translateY(1px);box-shadow:0 3px 0 #aaa,0 4px 8px rgba(0,0,0,.1)}
+    .btn-3d-white:active{transform:translateY(4px);box-shadow:0 0px 0 #aaa}
+    .btn-3d-outline{background:linear-gradient(180deg,#f5fcf7 0%,#e8f5ee 100%);color:#0f5132;box-shadow:0 3px 0 #0f5132,0 5px 10px rgba(15,81,50,.2);border:.5px solid #0f5132}
+    .btn-3d-outline:hover{transform:translateY(1px);box-shadow:0 2px 0 #0f5132}
+    .btn-3d-outline:active{transform:translateY(3px);box-shadow:0 0px 0 #0f5132}
+    /* Quick links grid — no overflow */
+    .ql-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .qpill{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:linear-gradient(180deg,#fff 0%,#f5fcf7 100%);border-radius:12px;border:.5px solid #d4e8da;cursor:pointer;text-align:center;transition:all .12s;box-shadow:0 3px 0 #0f513222,0 5px 10px rgba(15,81,50,.08)}
+    .qpill:hover{transform:translateY(1px);box-shadow:0 2px 0 #0f513222,0 3px 7px rgba(15,81,50,.08)}
+    .qpill:active{transform:translateY(3px);box-shadow:0 0px 0 #0f513222}
     .aitext{font-size:13px;line-height:1.9;color:#1a1a1a;white-space:pre-wrap;direction:auto}
     .alpha-card{border-radius:13px;padding:12px;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:5px;border:2px solid transparent}
     .alpha-card:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(0,0,0,.12)}
-    .retry-btn{padding:5px 13px;border:.5px solid ${G};border-radius:12px;background:transparent;color:${G};font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
-    .retry-btn:hover{background:${G};color:#fff}
-    .lbtn{display:flex;align-items:center;gap:4px;padding:5px 11px;border:.5px solid ${G};border-radius:16px;background:transparent;color:${G};font-size:11px;font-weight:600;transition:all .15s;cursor:pointer;font-family:'Inter',sans-serif}
-    .lbtn.pl,.lbtn:hover{background:${G};color:#fff}
-    .dbtn{display:flex;align-items:center;gap:4px;padding:5px 11px;border:.5px solid #ddd;border-radius:16px;background:transparent;color:#444;font-size:11px;transition:all .15s;cursor:pointer;font-family:'Inter',sans-serif}
-    .dbtn.op,.dbtn:hover{background:${G};border-color:${G};color:#fff}
+    .retry-btn{padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f5fcf7 0%,#e0f2e8 100%);color:#0f5132;box-shadow:0 3px 0 #0a3d2644;border:.5px solid #0f5132;transition:all .12s;margin-top:8px;display:inline-block}
+    .retry-btn:hover{transform:translateY(1px);box-shadow:0 2px 0 #0a3d2644}
+    .lbtn{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f5fcf7 0%,#e0f2e8 100%);color:#0f5132;box-shadow:0 3px 0 #0a3d2644,0 5px 10px rgba(15,81,50,.12);border:.5px solid #0f5132;transition:all .12s}
+    .lbtn:hover{transform:translateY(1px);box-shadow:0 2px 0 #0a3d2644}
+    .lbtn:active{transform:translateY(3px);box-shadow:0 0 0 #0a3d2644}
+    .lbtn.pl{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);color:#fff;box-shadow:0 3px 0 #072b1a;border-color:#0f5132}
+    .dbtn{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;background:linear-gradient(180deg,#fafafa 0%,#efefef 100%);color:#444;box-shadow:0 3px 0 #bbb,0 5px 10px rgba(0,0,0,.07);border:.5px solid #ddd;transition:all .12s}
+    .dbtn:hover{transform:translateY(1px);box-shadow:0 2px 0 #bbb}
+    .dbtn:active{transform:translateY(3px);box-shadow:0 0 0 #bbb}
+    .dbtn.op{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);color:#fff;box-shadow:0 3px 0 #072b1a;border-color:#0f5132}
     .bk-btn{font-size:17px;background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;transition:transform .15s}
     .bk-btn:hover{transform:scale(1.2)}
   `;
@@ -793,18 +819,18 @@ export default function QuranLife() {
         </div>
         <div style={{ position: "relative", zIndex: 2 }}>
           {/* Top bar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${GOLD},#e8b84b)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📖</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${GOLD},#e8b84b)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>📖</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1 }}>Quran Life</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", letterSpacing: .5 }}>COMPLETE KNOWLEDGE PHASE 2</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1 }}>Quran Life</div>
+                <div style={{ fontSize: 9, color: "rgba(255,255,255,.5)", letterSpacing: .4 }}>COMPLETE KNOWLEDGE</div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button className="chip" onClick={() => setShowPrayer(true)}>🕌 Prayer</button>
-              <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
-              <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button className="chip" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => setShowPrayer(true)}>🕌 Prayer</button>
+              <button className="chip" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
+              <button className="chip" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
             </div>
           </div>
           {/* Prayer bar */}
@@ -889,11 +915,11 @@ export default function QuranLife() {
       {/* Quick Links */}
       <div style={{ padding: "2px 13px 10px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>⚡ Quick Links</div>
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+        <div className="ql-grid">
           {QUICK_LINKS.map(q => (
             <div key={q.name} className="qpill" onClick={() => openSurah(q.surah)}>
               <div style={{ fontSize: 20 }}>{q.icon}</div>
-              <div style={{ fontSize: 11, fontWeight: 600 }}>{q.name}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }}>{q.name}</div>
               <div className="ar" style={{ fontSize: 12, color: G }}>{q.ar}</div>
             </div>
           ))}
