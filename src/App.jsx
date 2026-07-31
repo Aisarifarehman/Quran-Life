@@ -485,7 +485,17 @@ export default function QuranLife() {
         }
       });
     }
-    tryUrl(url1, [url2]);
+    // Play Bismillah before verse 1 of any Surah except At-Tawbah (9)
+    // Bismillah is verse 1 of Al-Fatiha globally = audio file 1
+    if (vn === 1 && sn !== 9) {
+      const bismillahUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/1.mp3`;
+      const bismillah = new Audio(bismillahUrl);
+      bismillah.addEventListener("ended", () => tryUrl(url1, [url2]));
+      bismillah.addEventListener("error", () => tryUrl(url1, [url2]));
+      bismillah.play().catch(() => tryUrl(url1, [url2]));
+    } else {
+      tryUrl(url1, [url2]);
+    }
   }, [qari, stopAudio]);
 
   // ── OPEN SURAH ─────────────────────────────────────────────
