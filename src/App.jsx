@@ -355,7 +355,7 @@ async function fetchVerses(surahNum, langCode) {
     const LANGS_MAP = { ur:"Urdu", ha:"Hausa", ps:"Pashto", pa:"Punjabi", sd:"Sindhi", so:"Somali", zu:"Zulu", am:"Amharic", sq:"Albanian", el:"Greek", he:"Hebrew", fi:"Finnish", sv:"Swedish", tl:"Filipino", ku:"Kurdish", yo:"Yoruba", my:"Burmese", mn:"Mongolian", km:"Khmer", tg:"Tajik", jv:"Javanese", kk:"Kazakh", uz:"Uzbek", af:"Afrikaans", bs:"Bosnian", uk:"Ukrainian", ne:"Nepali", te:"Telugu", ta:"Tamil", ml:"Malayalam", gu:"Gujarati" };
     const langFullName = LANGS_MAP[langCode] || langCode;
 
-    // Translate in background — update cache when done
+    // Translate with AI in background — call onUpdate when done so UI refreshes
     translateWithAI(verses, langFullName, langCode).then(aiTrans => {
       if (aiTrans) {
         const updated = verses.map(v => ({
@@ -363,12 +363,19 @@ async function fetchVerses(surahNum, langCode) {
           translation: aiTrans[v.number] || v.translation,
         }));
         verseCache[cacheKey] = updated;
+        // Notify caller to re-render with updated translations
+        if (onTranslationReady) onTranslationReady(updated);
       }
     }).catch(() => {});
   }
 
   return verses;
 }
+
+// Wrapper that fetchVerses uses to notify React to re-render
+let _onTranslationReady = null;
+function setTranslationCallback(cb) { _onTranslationReady = cb; }
+function onTranslationReady(verses) { if (_onTranslationReady) _onTranslationReady(verses); }
 
 // ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
 async function askAI(prompt, langName) {
@@ -468,6 +475,7 @@ export default function QuranLife() {
   const [showLang, setShowLang] = useState(false);
   const [showQari, setShowQari] = useState(false);
   const [showPrayer, setShowPrayer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showJuz, setShowJuz] = useState(false);
   const [showGoto, setShowGoto] = useState(false);
   const [showBkSheet, setShowBkSheet] = useState(false);
@@ -593,9 +601,10 @@ export default function QuranLife() {
         }
       });
     }
-    // Play Bismillah before verse 1 of any Surah except At-Tawbah (9)
-    // Bismillah is verse 1 of Al-Fatiha globally = audio file 1
-    if (vn === 1 && sn !== 9) {
+    // Play Bismillah before verse 1 of any Surah
+    // EXCEPT: Al-Fatiha (1) — its verse 1 IS the Bismillah already
+    // EXCEPT: At-Tawbah (9) — has no Bismillah
+    if (vn === 1 && sn !== 9 && sn !== 1) {
       const bismillahUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/1.mp3`;
       const bismillah = new Audio(bismillahUrl);
       bismillah.addEventListener("ended", () => tryUrl(url1, [url2]));
@@ -617,11 +626,12 @@ export default function QuranLife() {
     setVersesLoading(true);
     setVersesError(null);
     window.scrollTo(0, 0);
+    // Register callback so AI translation triggers re-render
+    setTranslationCallback((updated) => setVerses([...updated]));
     try {
       const v = await fetchVerses(n, lang);
       setVerses(v);
       setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
-      // Auto play from verse 1 if requested
       if (autoPlay && v.length > 0) {
         setTimeout(() => playVerse(n, 1, "surah", v), 500);
       }
@@ -832,7 +842,7 @@ export default function QuranLife() {
           else if (id === "read") { if (surahNum) setScreen("read"); else openSurah(lastRead?.surahN || 1); setNavTab("read"); }
           else if (id === "kids") { setScreen("kids"); setNavTab("kids"); setKidLetter(null); }
           else if (id === "bookmarks") { setScreen("bookmarks"); setNavTab("bookmarks"); }
-          else if (id === "more") setShowLang(true);
+          else if (id === "more") setShowSettings(true);
         }}>
           <div style={{ fontSize: 18 }}>{icon}</div>
           <div className="ni-lbl">{label}</div>
@@ -840,6 +850,70 @@ export default function QuranLife() {
       ))}
     </div>
   );
+
+  const SettingsSheet = () => showSettings ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowSettings(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 16px" }} />
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>⚙️ Settings</div>
+
+        {/* Language */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🌍 Language</div>
+          <button onClick={() => { setShowSettings(false); setShowLang(true); }}
+            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `.5px solid ${G}`, background: "#f0faf5", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: G }}>{curLang.n}</span>
+            <span style={{ fontSize: 13, color: "#9ba5b0" }}>{curLang.na} ›</span>
+          </button>
+        </div>
+
+        {/* Qari */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🎙 Reciter (Qari)</div>
+          <button onClick={() => { setShowSettings(false); setShowQari(true); }}
+            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `.5px solid ${G}`, background: "#f0faf5", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: G }}>{curQari.name}</span>
+            <span style={{ fontSize: 11, color: "#9ba5b0" }}>{curQari.origin} ›</span>
+          </button>
+        </div>
+
+        {/* Display */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🎨 Display</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button onClick={() => setDarkMode(false)}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: `.5px solid ${!darkMode ? G : "#ddd"}`, background: !darkMode ? "#f0faf5" : "#fff", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, fontSize: 13, color: !darkMode ? G : "#666" }}>
+              ☀️ Light Mode
+            </button>
+            <button onClick={() => setDarkMode(true)}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: `.5px solid ${darkMode ? G : "#ddd"}`, background: darkMode ? "#1a1a1a" : "#fff", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, fontSize: 13, color: darkMode ? "#fff" : "#666" }}>
+              🌙 Dark Mode
+            </button>
+          </div>
+        </div>
+
+        {/* Font Size */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🔡 Arabic Font Size</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, border: ".5px solid #e2e8e4", background: "#fafafa" }}>
+            <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
+              style={{ width: 36, height: 36, borderRadius: "50%", background: G, color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>A-</button>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div className="ar" style={{ fontSize: fontSize, color: G, lineHeight: 1.4 }}>بِسْمِ اللَّهِ</div>
+              <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 4 }}>Size: {fontSize}px</div>
+            </div>
+            <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
+              style={{ width: 36, height: 36, borderRadius: "50%", background: G, color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>A+</button>
+          </div>
+        </div>
+
+        <button onClick={() => setShowSettings(false)}
+          style={{ width: "100%", padding: "12px", borderRadius: 12, background: G, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          Done ✓
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   const LangSheet = () => showLang ? (
     <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowLang(false); }}>
@@ -1145,7 +1219,7 @@ export default function QuranLife() {
       </div>
       <div style={{ height: 14 }} />
       <Nav />
-      <LangSheet /><QariSheet /><PrayerSheet /><JuzSheet /><GotoSheet /><BkSheet />
+      <SettingsSheet /><LangSheet /><QariSheet /><PrayerSheet /><JuzSheet /><GotoSheet /><BkSheet />
     </div>
   );
 
@@ -1308,7 +1382,7 @@ export default function QuranLife() {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div style={{ flex: 1, fontSize: 13, color: darkMode ? "#e8e8e8" : "#333", lineHeight: 1.75, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                      {verse.translation || "Loading translation..."}
+                      {verse.translation || "..."}
                     </div>
                     {verse.translation && verse.translation !== "Translation not available for this language" && (
                       <button onClick={() => {
@@ -1366,7 +1440,7 @@ export default function QuranLife() {
                             </button>
                           </div>
                           <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.85, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                            {verse.translation || "Translation loading..."}
+                            {verse.translation || "..."}
                           </div>
                         </div>
                         {/* Verse info */}
@@ -1409,7 +1483,7 @@ export default function QuranLife() {
           })}
         </div>
         <Nav readOn />
-        <LangSheet /><QariSheet /><BkSheet />
+        <SettingsSheet /><LangSheet /><QariSheet /><BkSheet />
 
         {/* Continue Dialog — small toast near bottom, not full screen */}
         {continueDialog && (
