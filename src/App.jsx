@@ -293,21 +293,37 @@ async function askAI(prompt, langName) {
 }
 
 // ─── AUDIO — 2 fallback URLs ─────────────────────────────────
-// Global verse number lookup — needed for audio CDN
-const SURAH_STARTS = [0,1,8,294,494,670,790,955,1161,1236,1365,1474,1597,1640,1692,1791,1919,2047,2157,2255,2390,2502,2580,2698,2762,2839,2999,3159,3247,3335,3404,3439,3469,3542,3596,3641,3724,3906,3994,4069,4134,4188,4241,4294,4353,4390,4425,4462,4510,4528,4573,4622,4671,4720,4769,4818,4867,4916,4965,5014,5063,5104,5118,5129,5140,5151,5162,5173,5184,5195,5206,5217,5228,5239,5250,5261,5272,5283,5294,5305,5316,5327,5338,5349,5360,5371,5382,5393,5404,5415,5426,5437,5448,5459,5470,5481,5492,5503,5514,5525,5536,5547,5558,5569,5580,5591,5602,5613,5624,5635,5646,5657,5668,5679,5690,5701,5712];
-
-function getGlobalVerseNum(surahNum, verseNum) {
-  return (SURAH_STARTS[surahNum] || 0) + verseNum;
-}
+// Correct global verse start numbers for each surah (1-indexed)
+// Surah 1 starts at verse 1, Surah 2 starts at verse 8, etc.
+const SURAH_VERSE_STARTS = {
+  1:1, 2:8, 3:294, 4:494, 5:670, 6:790, 7:955, 8:1161, 9:1236, 10:1365,
+  11:1474, 12:1597, 13:1708, 14:1751, 15:1804, 16:1902, 17:2030, 18:2141,
+  19:2251, 20:2349, 21:2484, 22:2596, 23:2674, 24:2792, 25:2856, 26:2933,
+  27:3160, 28:3253, 29:3341, 30:3410, 31:3470, 32:3504, 33:3534, 34:3607,
+  35:3661, 36:3706, 37:3789, 38:3971, 39:4059, 40:4134, 41:4219, 42:4273,
+  43:4326, 44:4415, 45:4474, 46:4511, 47:4546, 48:4584, 49:4613, 50:4631,
+  51:4676, 52:4736, 53:4785, 54:4847, 55:4902, 56:4980, 57:5076, 58:5105,
+  59:5127, 60:5151, 61:5164, 62:5178, 63:5189, 64:5200, 65:5218, 66:5230,
+  67:5242, 68:5272, 69:5324, 70:5376, 71:5420, 72:5448, 73:5476, 74:5496,
+  75:5552, 76:5592, 77:5623, 78:5673, 79:5713, 80:5759, 81:5801, 82:5830,
+  83:5849, 84:5885, 85:5910, 86:5932, 87:5949, 88:5968, 89:5994, 90:6024,
+  91:6044, 92:6059, 93:6080, 94:6091, 95:6099, 96:6107, 97:6126, 98:6131,
+  99:6139, 100:6147, 101:6158, 102:6169, 103:6177, 104:6180, 105:6189,
+  106:6194, 107:6198, 108:6205, 109:6208, 110:6214, 111:6217, 112:6222,
+  113:6226, 114:6231
+};
 
 function getAudioUrls(qariId, surahNum, verseNum) {
-  const globalNum = getGlobalVerseNum(surahNum, verseNum);
-  // URL 1: global verse number format — most reliable
+  // Calculate correct global verse number
+  const startVerse = SURAH_VERSE_STARTS[surahNum] || 1;
+  const globalNum = startVerse + verseNum - 1;
+  
+  // URL 1: Best — global verse number (verified working)
   const url1 = `https://cdn.islamic.network/quran/audio/128/${qariId}/${globalNum}.mp3`;
-  // URL 2: surah/verse format
-  const url2 = `https://cdn.islamic.network/quran/audio/${qariId}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
-  // URL 3: verses.quran.com format
-  const url3 = `https://verses.quran.com/${qariId}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
+  // URL 2: Everyayah format
+  const url2 = `https://everyayah.com/data/${qariId.replace("ar.","")}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
+  // URL 3: mp3quran
+  const url3 = `https://server8.mp3quran.net/afs/${String(surahNum).padStart(3,"0")}.mp3`;
   return [url1, url2, url3];
 }
 
@@ -384,16 +400,27 @@ export default function QuranLife() {
     setPlayKey(null);
   }, []);
 
-  const playVerse = useCallback((sn, vn) => {
+  const playVerse = useCallback((sn, vn, allVerses) => {
     stopAudio();
     const key = `${sn}:${vn}`;
-    const [url1, url2, url3] = getAudioUrls(qari, sn, vn);
+    const [url1, url2] = getAudioUrls(qari, sn, vn);
     setPlayKey(key);
 
     function tryUrl(url, fallbacks) {
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.addEventListener("ended", () => setPlayKey(null));
+      audio.addEventListener("ended", () => {
+        // Auto-play next verse if available
+        if (allVerses && allVerses.length > 0) {
+          const currentIdx = allVerses.findIndex(v => v.number === vn);
+          if (currentIdx >= 0 && currentIdx < allVerses.length - 1) {
+            const nextVerse = allVerses[currentIdx + 1];
+            playVerse(sn, nextVerse.number, allVerses);
+            return;
+          }
+        }
+        setPlayKey(null);
+      });
       audio.addEventListener("error", () => {
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
@@ -411,11 +438,11 @@ export default function QuranLife() {
         }
       });
     }
-    tryUrl(url1, [url2, url3]);
+    tryUrl(url1, [url2]);
   }, [qari, stopAudio]);
 
   // ── OPEN SURAH ─────────────────────────────────────────────
-  const openSurah = useCallback(async (n) => {
+  const openSurah = useCallback(async (n, autoPlay = false) => {
     stopAudio();
     setSurahNum(n);
     setScreen("read");
@@ -429,6 +456,10 @@ export default function QuranLife() {
       const v = await fetchVerses(n, lang);
       setVerses(v);
       setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
+      // Auto play from verse 1 if requested
+      if (autoPlay && v.length > 0) {
+        setTimeout(() => playVerse(n, 1, v), 500);
+      }
     } catch (e) {
       setVersesError("Could not load verses. Please check your connection and tap Retry.");
     } finally {
@@ -903,7 +934,7 @@ export default function QuranLife() {
                 <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
               </div>
               <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                <button className="pbtn" onClick={e => { e.stopPropagation(); playVerse(s.n, 1); }}>▶ Play</button>
+                <button className="pbtn" onClick={e => { e.stopPropagation(); openSurah(s.n, true); }}>▶ Play</button>
                 <button className="rbtn" onClick={() => openSurah(s.n)}>Read</button>
               </div>
             </div>
@@ -1027,7 +1058,7 @@ export default function QuranLife() {
                   <button className="bk-btn" title={bkd ? "Remove bookmark" : "Add bookmark"}
                     onClick={() => toggleBk(s.n, s.name, verse.number, verse.arabic, verse.translation)}
                     style={{ color: bkd ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number)}>
+                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number, verses)}>
                     {isPlaying ? "⏸ Pause" : "▶ Play"}
                   </button>
                   <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
