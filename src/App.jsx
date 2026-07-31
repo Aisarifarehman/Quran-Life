@@ -345,6 +345,7 @@ export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
+  const [continueDialog, setContinueDialog] = useState(null); // {sn, vn, nextVn, surahName}
   const [lang, setLang] = useState("en");
   const [qari, setQari] = useState("ar.alafasy");
   const [verses, setVerses] = useState([]);
@@ -400,8 +401,11 @@ export default function QuranLife() {
     setPlayKey(null);
   }, []);
 
-  const playVerse = useCallback((sn, vn, allVerses) => {
+  // mode: "single" = play one verse only (inside reader)
+  //       "surah"  = play full surah continuously (from home list)
+  const playVerse = useCallback((sn, vn, mode = "single", allVerses = null) => {
     stopAudio();
+    setContinueDialog(null);
     const key = `${sn}:${vn}`;
     const [url1, url2] = getAudioUrls(qari, sn, vn);
     setPlayKey(key);
@@ -409,18 +413,28 @@ export default function QuranLife() {
     function tryUrl(url, fallbacks) {
       const audio = new Audio(url);
       audioRef.current = audio;
+
       audio.addEventListener("ended", () => {
-        // Auto-play next verse if available
-        if (allVerses && allVerses.length > 0) {
-          const currentIdx = allVerses.findIndex(v => v.number === vn);
-          if (currentIdx >= 0 && currentIdx < allVerses.length - 1) {
-            const nextVerse = allVerses[currentIdx + 1];
-            playVerse(sn, nextVerse.number, allVerses);
-            return;
+        setPlayKey(null);
+        audioRef.current = null;
+
+        if (mode === "surah" && allVerses && allVerses.length > 0) {
+          // HOME LIST MODE — play next verse automatically, no dialog
+          const idx = allVerses.findIndex(v => v.number === vn);
+          if (idx >= 0 && idx < allVerses.length - 1) {
+            playVerse(sn, allVerses[idx + 1].number, "surah", allVerses);
+          }
+        } else if (mode === "single" && allVerses && allVerses.length > 0) {
+          // INSIDE READER MODE — show Continue dialog
+          const idx = allVerses.findIndex(v => v.number === vn);
+          if (idx >= 0 && idx < allVerses.length - 1) {
+            const nextVn = allVerses[idx + 1].number;
+            const surahName = SURAHS.find(s => s.n === sn)?.name || "";
+            setContinueDialog({ sn, vn, nextVn, surahName });
           }
         }
-        setPlayKey(null);
       });
+
       audio.addEventListener("error", () => {
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
@@ -458,7 +472,7 @@ export default function QuranLife() {
       setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
       // Auto play from verse 1 if requested
       if (autoPlay && v.length > 0) {
-        setTimeout(() => playVerse(n, 1, v), 500);
+        setTimeout(() => playVerse(n, 1, "surah", v), 500);
       }
     } catch (e) {
       setVersesError("Could not load verses. Please check your connection and tap Retry.");
@@ -1052,7 +1066,7 @@ export default function QuranLife() {
                       <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75, marginBottom: 8 }}>{v.translation}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className={`lbtn${playKey === `${s.n}:${v.number}` ? " pl" : ""}`}
-                          onClick={() => playKey === `${s.n}:${v.number}` ? stopAudio() : playVerse(s.n, v.number)}
+                          onClick={() => playKey === `${s.n}:${v.number}` ? stopAudio() : playVerse(s.n, v.number, "single", verses)}
                           style={{ fontSize: 11, padding: "3px 10px" }}>
                           {playKey === `${s.n}:${v.number}` ? "⏸" : "▶"} Play
                         </button>
@@ -1084,7 +1098,7 @@ export default function QuranLife() {
                   <button className="bk-btn" title={bkd ? "Remove bookmark" : "Add bookmark"}
                     onClick={() => toggleBk(s.n, s.name, verse.number, verse.arabic, verse.translation)}
                     style={{ color: bkd ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number, verses)}>
+                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number, "single", verses)}>
                     {isPlaying ? "⏸ Pause" : "▶ Play"}
                   </button>
                   <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
@@ -1168,6 +1182,34 @@ export default function QuranLife() {
         </div>
         <Nav readOn />
         <LangSheet /><QariSheet /><BkSheet />
+
+        {/* Continue Dialog — shown after verse ends inside reader */}
+        {continueDialog && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: "#fff", borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 520, padding: "22px 18px 36px", animation: "pop .2s ease" }}>
+              <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 16px" }} />
+              <div style={{ textAlign: "center", marginBottom: 18 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>
+                  Verse {continueDialog.vn} complete
+                </div>
+                <div style={{ fontSize: 13, color: "#6b7280" }}>
+                  {continueDialog.surahName} · Continue to verse {continueDialog.nextVn}?
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setContinueDialog(null); stopAudio(); }}
+                  style={{ flex: 1, padding: "12px", borderRadius: 14, border: ".5px solid #ddd", background: "linear-gradient(180deg,#fff,#f0f0f0)", color: "#444", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 3px 0 #bbb" }}>
+                  ⏹ Stop
+                </button>
+                <button onClick={() => { const d = continueDialog; setContinueDialog(null); playVerse(d.sn, d.nextVn, "single", verses); }}
+                  style={{ flex: 1, padding: "12px", borderRadius: 14, border: "none", background: "linear-gradient(180deg,#1a9a5c,#0f5132)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 0 #072b1a" }}>
+                  ▶ Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
