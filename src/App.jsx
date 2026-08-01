@@ -1266,7 +1266,18 @@ export default function QuranLife() {
 
         {/* Language picker */}
         <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Language</div>
-        <select value={audioLang} onChange={e => { setAudioLang(e.target.value); setAudioNoVoice(false); }} disabled={audioPlaying}
+        <select value={audioLang} onChange={e => {
+          const newLang = e.target.value;
+          setAudioLang(newLang);
+          if ("speechSynthesis" in window && newLang !== "en") {
+            const voices = window.speechSynthesis.getVoices();
+            const locale = SPEECH_LOCALE[newLang] || "en-US";
+            const hasVoice = voices.some(v => v.lang === locale || v.lang.startsWith(newLang));
+            setAudioNoVoice(!hasVoice);
+          } else {
+            setAudioNoVoice(false);
+          }
+        }} disabled={audioPlaying}
           style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 14, background: audioPlaying ? "#f4f4f4" : "#fff" }}>
           {LANGS.map(l => <option key={l.c} value={l.c}>{l.na} — {l.n}</option>)}
         </select>
@@ -1280,7 +1291,7 @@ export default function QuranLife() {
 
         {audioNoVoice && (
           <div style={{ padding: "10px 12px", background: "#fff3cd", border: ".5px solid #ffc107", borderRadius: 9, fontSize: 12, color: "#856404", marginBottom: 14 }}>
-            ⚠️ Your device has no voice installed for this language yet. On Android: Settings → System → Languages → Text-to-speech → Install voice data for this language. On iPhone: Settings → Accessibility → Spoken Content → Voices → download this language.
+            ⚠️ No voice recording exists for this language on your device yet. Please select another language, or install this language's voice pack: Android → Settings → System → Languages → Text-to-speech → Install voice data. iPhone → Settings → Accessibility → Spoken Content → Voices → download this language.
           </div>
         )}
 
