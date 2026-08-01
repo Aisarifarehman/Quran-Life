@@ -129,12 +129,63 @@ const SURAHS = [
 ];
 
 // Language → Quran.com translation ID mapping
-const LANG_TRANSLATIONS = {
-  // ONLY verified ID: 131 = English (Dr. Mustafa Khattab, The Clear Quran)
-  // ALL other languages use AI translation from English — guarantees correct language
-  en: 131,
-  ar: null, // Arabic is the original text
+// Dynamically loaded from Quran.com API on startup — no hardcoded guesses
+const LANG_TRANSLATIONS = { en: 131, ar: null };
+
+// Preferred author keywords per language for picking best translation
+const PREF = {
+  ur:["maududi","jalandhry","ahmed ali"],hi:["omari","hindi"],fr:["hamidullah"],
+  de:["bubenheim"],es:["garcia"],tr:["diyanet","ozturk"],id:["indonesian"],
+  ms:["basmeih","malay"],bn:["bengali"],fa:["makarem","ansarian"],
+  ru:["kuliev","osmanov"],zh:["makin","chinese"],pt:["nasr"],it:["piccardo"],
+  nl:["keyzer"],pl:["bielawski"],ko:["korean"],ja:["japanese"],
+  sw:["swahili"],bs:["korkut"],uk:["ukrainian"],
 };
+
+async function loadTranslationIDs() {
+  try {
+    const r = await fetch("https://api.quran.com/api/v4/resources/translations");
+    if (!r.ok) return;
+    const d = await r.json();
+    // Group by language name
+    const byLang = {};
+    for (const t of (d.translations || [])) {
+      const lc = (t.language_name || "").toLowerCase();
+      if (!byLang[lc]) byLang[lc] = [];
+      byLang[lc].push(t);
+    }
+    // Language code -> API language name mapping
+    const MAP = {
+      ur:"urdu", hi:"hindi", fr:"french", de:"german", es:"spanish",
+      tr:"turkish", id:"indonesian", ms:"malay", bn:"bengali", fa:"persian",
+      ru:"russian", zh:"chinese", pt:"portuguese", it:"italian", nl:"dutch",
+      pl:"polish", ko:"korean", ja:"japanese", sw:"swahili", bs:"bosnian",
+      uk:"ukrainian", ta:"tamil", te:"telugu", ml:"malayalam", gu:"gujarati",
+      ne:"nepali", my:"burmese", so:"somali", sq:"albanian", el:"greek",
+      he:"hebrew", fi:"finnish", sv:"swedish", af:"afrikaans", kk:"kazakh",
+      uz:"uzbek", am:"amharic", km:"khmer", mn:"mongolian", tg:"tajik",
+      jv:"javanese", ha:"hausa", yo:"yoruba", tl:"tagalog",
+    };
+    for (const [code, langName] of Object.entries(MAP)) {
+      const list = byLang[langName] || [];
+      if (!list.length) continue;
+      const prefs = PREF[code] || [];
+      let best = null;
+      for (const kw of prefs) {
+        best = list.find(t =>
+          (t.slug || "").toLowerCase().includes(kw) ||
+          (t.author_name || "").toLowerCase().includes(kw) ||
+          (t.name || "").toLowerCase().includes(kw)
+        );
+        if (best) break;
+      }
+      if (!best) best = list[0];
+      if (best) LANG_TRANSLATIONS[code] = best.id;
+    }
+  } catch (e) { /* silently fail — English always works */ }
+}
+// Run immediately when app loads
+loadTranslationIDs();
 
 const LANGS = [
   {c:"en",n:"English",na:"English"},
@@ -397,11 +448,9 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 
 // ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
-// FIX: Language instruction is at top + bottom + system prompt so AI always responds correctly
-async function askAI(prompt, langName, langCode) {
+async function askAI(prompt, langName) {
   const key = import.meta.env.VITE_ANTHROPIC_KEY || "";
   if (!key) throw new Error("NO_KEY");
-  const langNote = `CRITICAL: You MUST write your ENTIRE response in ${langName} language (code: "${langCode}"). Do NOT use English unless ${langName} IS English. Every word must be in ${langName}.`;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -412,11 +461,10 @@ async function askAI(prompt, langName, langCode) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 500,
-      system: `You are a Quranic scholar who responds ONLY in ${langName} (code: ${langCode}). Never respond in English unless the user's language IS English. Always write in ${langName}.`,
+      max_tokens: 450,
       messages: [{
         role: "user",
-        content: `${langNote}\n\n${prompt}\n\n${langNote}\n\nPlain flowing text only. No JSON. No bullet points. No markdown. Under 200 words. Language: ${langName} ONLY.`
+        content: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`
       }]
     })
   });
@@ -680,12 +728,11 @@ export default function QuranLife() {
   }, [lang]);
 
   // ── AI CONTENT ─────────────────────────────────────────────
-  // FIX: langName and langCode passed explicitly — no stale closure
-  const getOrLoad = useCallback(async (key, prompt, langName, langCode, force = false) => {
+  const getOrLoad = useCallback(async (key, prompt, force = false) => {
     if (cache[key] && !force) return;
     setCache(p => ({ ...p, [key]: { loading: true, error: null, text: null } }));
     try {
-      const text = await askAI(prompt, langName, langCode);
+      const text = await askAI(prompt, curLang.n);
       setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
     } catch(e) {
       const msg = e.message === "NO_KEY"
@@ -693,16 +740,12 @@ export default function QuranLife() {
         : "Failed to load. Tap Retry.";
       setCache(p => ({ ...p, [key]: { loading: false, error: msg, text: null } }));
     }
-  }, [cache]);
+  }, [cache, curLang.n]);
 
   const loadTabContent = useCallback((verse, tab, force = false) => {
     const sn = curSurah?.name || "";
     const key = `${surahNum}-${verse.number}-${tab}-${lang}`;
     if (cache[key]?.text && !force) return;
-    // FIX: capture langName & langCode at call time, not from stale closure
-    const activeLang = LANGS.find(l => l.c === lang) || LANGS[0];
-    const langName = activeLang.n;
-    const langCode = activeLang.c;
     let prompt = "";
     if (tab === "tafsir")
       prompt = `Provide tafsir for Surah ${sn} verse ${verse.number}: "${verse.arabic}" (meaning: "${verse.translation}"). Include: verse meaning, Ibn Kathir explanation, Al-Tabari, contemporary scholar view, simple explanation for any person.`;
@@ -712,7 +755,7 @@ export default function QuranLife() {
       prompt = `Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.arabic}" (meaning: "${verse.translation}"). Be completely honest — label the connection as Confirmed by science, Claimed but debated, Speculative, or state there is no scientific connection. Include relevant scientific formula if applicable.`;
     else if (tab === "hadith")
       prompt = `Share hadiths related to Surah ${sn} verse ${verse.number}: "${verse.arabic}". For each hadith: give the text, source (book name and number), authenticity grade (Sahih/Hasan/Daif/Mawdu), grader name, and reason for the grade. Clearly warn about any fabricated hadiths and explain why sharing them is dangerous.`;
-    getOrLoad(key, prompt, langName, langCode, force);
+    getOrLoad(key, prompt, force);
   }, [surahNum, curSurah, lang, cache, getOrLoad]);
 
   const openDeepPanel = useCallback((verse) => {
@@ -1434,7 +1477,7 @@ export default function QuranLife() {
                   {/* Translation line — always visible below Arabic */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
                     <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr", fontStyle: verse.translation ? "normal" : "italic" }}>
-                      {verse.translation || <span style={{ color: "#9ba5b0", fontSize: 12 }}>Loading translation...</span>}
+                      {verse.translation || <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
                     </div>
                     {verse.translation && (
                       <button onClick={() => {
