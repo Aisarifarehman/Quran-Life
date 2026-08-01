@@ -307,110 +307,100 @@ const ARABIC_ALPHA = [
   {l:"ي",n:"Ya",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
 ];
 
-// ─── VERSE CACHE — never re-fetch ───────────────────────────
+// ─── VERSE CACHE ─────────────────────────────────────────────
 const verseCache = {};
 
-// ─── FETCH VERSES — with language support ───────────────────
-// AI translation cache — per verse per language
-const aiTransCache = {};
+const LANG_NAMES = {
+  en:"English",ur:"Urdu",ar:"Arabic",fr:"French",de:"German",es:"Spanish",
+  tr:"Turkish",id:"Indonesian",ms:"Malay",bn:"Bengali",hi:"Hindi",sw:"Swahili",
+  ha:"Hausa",ps:"Pashto",fa:"Persian",pa:"Punjabi",sd:"Sindhi",so:"Somali",
+  zh:"Chinese",ja:"Japanese",ko:"Korean",ru:"Russian",pt:"Portuguese",it:"Italian",
+  nl:"Dutch",pl:"Polish",ta:"Tamil",te:"Telugu",ml:"Malayalam",gu:"Gujarati",
+  ne:"Nepali",my:"Burmese",yo:"Yoruba",sq:"Albanian",uk:"Ukrainian",el:"Greek",
+  he:"Hebrew",fi:"Finnish",sv:"Swedish",tl:"Filipino",am:"Amharic",zu:"Zulu",
+  af:"Afrikaans",bs:"Bosnian",kk:"Kazakh",uz:"Uzbek",mn:"Mongolian",km:"Khmer",
+  tg:"Tajik",jv:"Javanese",ku:"Kurdish",
+};
 
-async function translateWithAI(verses, langName, langCode) {
-  const key = `${verses[0]?.number}-${verses.length}-${langCode}`;
-  if (aiTransCache[key]) return aiTransCache[key];
-
-  // Translate all verses in one AI call (batch)
-  const verseList = verses.map(v => `${v.number}: ${v.translation}`).join("\n");
-  const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
-
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey || "",
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      messages: [{
-        role: "user",
-        content: `Translate these Quran verse translations from English to ${langName}. Return ONLY the translations in the same numbered format. No extra text.\n\n${verseList}`
-      }]
-    })
-  });
-
-  if (!r.ok) return null;
-  const d = await r.json();
-  const text = (d.content?.[0]?.text || "").trim();
-
-  // Parse the numbered translations
-  const lines = text.split("\n").filter(l => l.trim());
-  const result = {};
-  lines.forEach(line => {
-    const match = line.match(/^(\d+):\s*(.+)/);
-    if (match) result[parseInt(match[1])] = match[2].trim();
-  });
-
-  aiTransCache[key] = result;
-  return result;
+async function aiTranslateVerses(enVerses, langName, apiKey) {
+  if (!apiKey) return null;
+  const input = enVerses.map(v => `${v.number}: ${v.text}`).join("\n");
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format. No extra text.\n\n${input}` }]
+      })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const result = {};
+    (d.content?.[0]?.text || "").trim().split("\n").forEach(line => {
+      const m = line.match(/^(\d+):\s*(.+)/);
+      if (m) result[parseInt(m[1])] = m[2].trim();
+    });
+    return Object.keys(result).length > 0 ? result : null;
+  } catch { return null; }
 }
 
-async function fetchVerses(surahNum, langCode) {
-  const transId = LANG_TRANSLATIONS[langCode];
+async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  // Always fetch English first
-  const needsDual = transId && transId !== 131; // avoid 131,131 duplicate
-  const url = transId
-    ? `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId}${needsDual ? ",131" : ""}&fields=text_uthmani`
-    : `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  const transId = LANG_TRANSLATIONS[langCode];
+
+  // Build API URL — always get English (131), add language ID if different
+  let url;
+  if (langCode === "ar") {
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  } else if (transId && transId !== 131) {
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId},131&fields=text_uthmani`;
+  } else {
+    // English (131) or language with no ID — just fetch English
+    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  }
 
   const r = await fetch(url);
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d = await r.json();
 
   const verses = d.verses.map(v => {
-    const translations = v.translations || [];
+    const trans = v.translations || [];
     let translation = "";
-
     if (langCode === "ar") {
       translation = v.text_uthmani;
-    } else if (transId && translations.length >= 1) {
-      translation = (translations[0]?.text || "").replace(/<[^>]+>/g, "");
-      if (!translation && translations.length >= 2) {
-        translation = (translations[1]?.text || "").replace(/<[^>]+>/g, "");
+    } else if (transId && transId !== 131 && trans.length >= 1) {
+      translation = (trans[0]?.text || "").replace(/<[^>]+>/g, "").trim();
+      if (!translation && trans.length >= 2) {
+        translation = (trans[1]?.text || "").replace(/<[^>]+>/g, "").trim();
       }
     } else {
-      translation = (translations[0]?.text || "").replace(/<[^>]+>/g, "");
+      translation = (trans[0]?.text || "").replace(/<[^>]+>/g, "").trim();
     }
-
-    return {
-      number: v.verse_number,
-      arabic: v.text_uthmani,
-      translation: translation || "",
-    };
+    return { number: v.verse_number, arabic: v.text_uthmani, translation };
   });
 
   verseCache[cacheKey] = verses;
 
-  // If no translation ID — use AI to translate from English in background
-  if (!transId && langCode !== "ar" && langCode !== "en") {
-    const langName = Object.entries({ ur:"Urdu", ha:"Hausa", ps:"Pashto", pa:"Punjabi", sd:"Sindhi", so:"Somali", zu:"Zulu", am:"Amharic", sq:"Albanian", el:"Greek", he:"Hebrew", fi:"Finnish", sv:"Swedish", tl:"Filipino", ku:"Kurdish", yo:"Yoruba", my:"Burmese" })[langCode] || langCode;
-    const LANGS_MAP = { ur:"Urdu", ha:"Hausa", ps:"Pashto", pa:"Punjabi", sd:"Sindhi", so:"Somali", zu:"Zulu", am:"Amharic", sq:"Albanian", el:"Greek", he:"Hebrew", fi:"Finnish", sv:"Swedish", tl:"Filipino", ku:"Kurdish", yo:"Yoruba", my:"Burmese", mn:"Mongolian", km:"Khmer", tg:"Tajik", jv:"Javanese", kk:"Kazakh", uz:"Uzbek", af:"Afrikaans", bs:"Bosnian", uk:"Ukrainian", ne:"Nepali", te:"Telugu", ta:"Tamil", ml:"Malayalam", gu:"Gujarati" };
-    const langFullName = LANGS_MAP[langCode] || langCode;
-
-    // Translate with AI in background — call onUpdate when done so UI refreshes
-    translateWithAI(verses, langFullName, langCode).then(aiTrans => {
-      if (aiTrans) {
-        const updated = verses.map(v => ({
-          ...v,
-          translation: aiTrans[v.number] || v.translation,
-        }));
+  // Languages with NO translation ID — AI translates from English in background
+  const needsAI = !transId && langCode !== "ar" && langCode !== "en";
+  if (needsAI) {
+    const langName = LANG_NAMES[langCode] || langCode;
+    const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
+    const enVerses = verses.map(v => ({ number: v.number, text: v.translation }));
+    aiTranslateVerses(enVerses, langName, apiKey).then(result => {
+      if (result) {
+        const updated = verses.map(v => ({ ...v, translation: result[v.number] || v.translation }));
         verseCache[cacheKey] = updated;
-        // Notify caller to re-render with updated translations
-        if (onTranslationReady) onTranslationReady(updated);
+        if (onAIReady) onAIReady(updated);
       }
     }).catch(() => {});
   }
@@ -418,10 +408,6 @@ async function fetchVerses(surahNum, langCode) {
   return verses;
 }
 
-// Wrapper that fetchVerses uses to notify React to re-render
-let _onTranslationReady = null;
-function setTranslationCallback(cb) { _onTranslationReady = cb; }
-function onTranslationReady(verses) { if (_onTranslationReady) _onTranslationReady(verses); }
 
 // ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
 async function askAI(prompt, langName) {
@@ -675,10 +661,9 @@ export default function QuranLife() {
     setVersesLoading(true);
     setVersesError(null);
     window.scrollTo(0, 0);
-    // Register callback so AI translation triggers re-render
-    setTranslationCallback((updated) => setVerses([...updated]));
     try {
-      const v = await fetchVerses(n, lang);
+      const onAIReady = (updated) => setVerses([...updated]);
+      const v = await fetchVerses(n, lang, onAIReady);
       setVerses(v);
       setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
       if (autoPlay && v.length > 0) {
@@ -697,7 +682,8 @@ export default function QuranLife() {
       setVerses([]);
       setVersesLoading(true);
       setVersesError(null);
-      fetchVerses(surahNum, lang)
+      const onAIReady = (updated) => setVerses([...updated]);
+      fetchVerses(surahNum, lang, onAIReady)
         .then(v => { setVerses(v); setVersesLoading(false); })
         .catch(() => { setVersesError("Could not load. Tap Retry."); setVersesLoading(false); });
     }
@@ -1277,7 +1263,7 @@ export default function QuranLife() {
                   setContinueDialog(null);
                   // Load verses silently without opening read screen
                   try {
-                    const v = await fetchVerses(s.n, lang);
+                    const v = await fetchVerses(s.n, lang, null);
                     playVerse(s.n, 1, "surah", v);
                   } catch(e) {}
                 }}>▶ Play</button>
