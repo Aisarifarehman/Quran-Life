@@ -515,7 +515,7 @@ export default function QuranLife() {
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
   const [openPanel, setOpenPanel] = useState(null); // verseNum
-  const [activeTab, setActiveTab] = useState("meaning");
+  const [activeTab, setActiveTab] = useState("tafsir");
   const [cache, setCache] = useState({}); // AI content cache
   const [playKey, setPlayKey] = useState(null);
   const [showLang, setShowLang] = useState(false);
@@ -737,7 +737,7 @@ export default function QuranLife() {
   const openDeepPanel = useCallback((verse) => {
     if (openPanel === verse.number) { setOpenPanel(null); return; }
     setOpenPanel(verse.number);
-    setActiveTab("meaning");
+    setActiveTab("tafsir");
   }, [openPanel]);
 
   const switchTab = useCallback((verse, tab) => {
@@ -1393,7 +1393,7 @@ export default function QuranLife() {
                         </button>
                         <button onClick={() => toggleBk(s.n, s.name, v.number, v.arabic, v.translation)}
                           style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: isBk(s.n, v.number) ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("meaning"); }}
+                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("tafsir"); }}
                           style={{ padding: "3px 10px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>📖 Deep Knowledge</button>
                       </div>
                     </div>
@@ -1441,7 +1441,7 @@ export default function QuranLife() {
                   </button>
                   <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
                     if (openPanel === verse.number) { setOpenPanel(null); }
-                    else { setOpenPanel(verse.number); setActiveTab("meaning"); }
+                    else { setOpenPanel(verse.number); setActiveTab("tafsir"); }
                   }}>📖 {isOpen ? "Close" : "Deep Knowledge"}</button>
                 </div>
 
@@ -1450,11 +1450,12 @@ export default function QuranLife() {
                   <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
                     {verse.arabic}
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <div style={{ flex: 1, fontSize: 13, color: darkMode ? "#e8e8e8" : "#333", lineHeight: 1.75, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                      {verse.translation || "..."}
+                  {/* Translation line — always visible below Arabic */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                    <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr", fontStyle: verse.translation ? "normal" : "italic" }}>
+                      {verse.translation || <span style={{ color: "#9ba5b0", fontSize: 12 }}>Loading translation...</span>}
                     </div>
-                    {verse.translation && verse.translation !== "Translation not available for this language" && (
+                    {verse.translation && (
                       <button onClick={() => {
                         if ("speechSynthesis" in window) {
                           window.speechSynthesis.cancel();
@@ -1467,15 +1468,18 @@ export default function QuranLife() {
                       </button>
                     )}
                   </div>
+                  {/* Verse info small line */}
+                  <div style={{ fontSize: 10, color: "#9ba5b0", marginTop: 4 }}>
+                    {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
+                  </div>
                 </div>
 
                 {/* Deep Knowledge panel */}
                 {isOpen && (
                   <div style={{ borderTop: ".5px solid rgba(15,81,50,.1)", background: "#fafffe", padding: 13 }}>
-                    {/* Tabs */}
+                    {/* Tabs — no Meaning tab, translation already shows in verse card above */}
                     <div style={{ display: "flex", gap: 5, marginBottom: 13, flexWrap: "wrap" }}>
                       {[
-                        { id: "meaning", label: "📖 Meaning" },
                         { id: "tafsir", label: "🕌 Tafsir" },
                         { id: "revelation", label: "📜 Revelation" },
                         { id: "science", label: "🔬 Science" },
@@ -1486,45 +1490,8 @@ export default function QuranLife() {
                       ))}
                     </div>
 
-                    {/* Meaning tab */}
-                    {activeTab === "meaning" && (
-                      <div>
-                        {/* Translation with voice button */}
-                        <div style={{ background: "#f8fafb", borderRadius: 10, padding: 13, border: ".5px solid #e2e8e4", marginBottom: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, color: G, fontWeight: 700, textTransform: "uppercase", letterSpacing: .5 }}>
-                              Translation · {curLang.n}
-                            </div>
-                            <button
-                              onClick={() => {
-                                if ("speechSynthesis" in window) {
-                                  window.speechSynthesis.cancel();
-                                  const u = new SpeechSynthesisUtterance(verse.translation);
-                                  u.lang = lang;
-                                  u.rate = 0.85;
-                                  window.speechSynthesis.speak(u);
-                                }
-                              }}
-                              style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 14, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                              🔊 Listen
-                            </button>
-                          </div>
-                          <div style={{ fontSize: 14, color: "#1a1a1a", lineHeight: 1.85, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr" }}>
-                            {verse.translation || "..."}
-                          </div>
-                        </div>
-                        {/* Verse info */}
-                        <div style={{ padding: "10px 12px", background: "#fffbeb", border: ".5px solid #d97706", borderRadius: 9 }}>
-                          <div style={{ fontSize: 11, color: "#92400e", fontWeight: 600, marginBottom: 3 }}>
-                            📖 {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#78350f" }}>Tap Tafsir, Revelation, Science or Hadith tabs for deep knowledge in {curLang.n}</div>
-                        </div>
-                      </div>
-                    )}
-
                     {/* AI tabs — plain text, retry on fail */}
-                    {activeTab !== "meaning" && (() => {
+                    {(() => {
                       const key = `${surahNum}-${verse.number}-${activeTab}-${lang}`;
                       const entry = cache[key] || {};
                       if (!entry.text && !entry.loading && !entry.error) {
