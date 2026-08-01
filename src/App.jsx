@@ -812,6 +812,22 @@ function speakInLang(text, langCode, onEnd) {
   return voice; // null means device has no voice installed for this language
 }
 
+// Speak a Kids Corner Arabic letter — a bare isolated Arabic glyph (e.g. "أ")
+// often produces NO sound at all from TTS engines since it has no vowel to
+// pronounce. Speaking the letter's name instead (e.g. "Alif") guarantees
+// audible sound on every device, using the always-available English voice.
+function speakLetter(letterObj) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(letterObj.n);
+  u.lang = "en-US";
+  u.rate = 0.8;
+  const voices = window.speechSynthesis.getVoices();
+  const male = voices.find(v => v.lang.startsWith("en") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  if (male) u.voice = male;
+  window.speechSynthesis.speak(u);
+}
+
 async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
@@ -2262,7 +2278,7 @@ export default function QuranLife() {
         <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 18, padding: 20, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }} className="pop">
           <div style={{ fontSize: 72, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].e}</div>
           <div className="ar" style={{ fontSize: 72, color: ARABIC_ALPHA[kidLetter].color, lineHeight: 1.2, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].l}</div>
-          <button onClick={() => speakInLang(ARABIC_ALPHA[kidLetter].l, "ar")}
+          <button onClick={() => speakLetter(ARABIC_ALPHA[kidLetter])}
             style={{ width: 40, height: 40, borderRadius: "50%", border: `1.5px solid ${ARABIC_ALPHA[kidLetter].color}`, background: "#fff", color: ARABIC_ALPHA[kidLetter].color, fontSize: 18, cursor: "pointer", marginBottom: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
             🔊
           </button>
@@ -2289,7 +2305,7 @@ export default function QuranLife() {
             {ARABIC_ALPHA.map((a, i) => (
               <div key={i} className="alpha-card" onClick={() => {
                 setKidLetter(i);
-                speakInLang(a.l, "ar");
+                speakLetter(a);
               }}
                 style={{ background: `${a.color}18`, borderColor: learned.includes(i) ? G : "transparent" }}>
                 <div style={{ fontSize: 22 }}>{a.e}</div>
