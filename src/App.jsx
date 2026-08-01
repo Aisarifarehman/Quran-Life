@@ -994,6 +994,8 @@ export default function QuranLife() {
   const [showBkSheet, setShowBkSheet] = useState(false);
   const [showAudioSheet, setShowAudioSheet] = useState(false);
   const [audioLang, setAudioLang] = useState("en");
+  const [audioLangCountry, setAudioLangCountry] = useState("all");
+  const [audioLangSearch, setAudioLangSearch] = useState("");
   const [audioSurah, setAudioSurah] = useState(1);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioCurrentVerse, setAudioCurrentVerse] = useState(0);
@@ -1019,7 +1021,7 @@ export default function QuranLife() {
     (!countryLangCodes || countryLangCodes.includes(l.c)) &&
     (l.n.toLowerCase().includes(langSearch.toLowerCase()) ||
      l.na.toLowerCase().includes(langSearch.toLowerCase()))
-  );
+  ).sort((a, b) => a.n.localeCompare(b.n));
 
   const filtered = SURAHS.filter(s => {
     const q = query.toLowerCase();
@@ -1709,23 +1711,50 @@ export default function QuranLife() {
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🔊 Meaning Audio</div>
         <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 16 }}>Languages marked 🎙️ use a real recorded human reciter, continuous like the Arabic audio. Others use your device's male voice only — never female.</div>
 
-        {/* Language picker */}
+        {/* Language picker — alphabetical, searchable, country filter */}
         <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Language</div>
-        <select value={audioLang} onChange={e => {
-          const newLang = e.target.value;
-          setAudioLang(newLang);
-          if (hasRealVoice(newLang)) {
-            // Real recording exists — always works, no device voice needed
-            setAudioNoVoice(false);
-          } else if ("speechSynthesis" in window) {
-            setAudioNoVoice(!findMaleVoice(newLang));
-          } else {
-            setAudioNoVoice(true);
-          }
-        }} disabled={audioPlaying}
-          style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 14, background: audioPlaying ? "#f4f4f4" : "#fff" }}>
-          {LANGS.map(l => <option key={l.c} value={l.c}>{hasRealVoice(l.c) ? "🎙️ " : ""}{l.na} — {l.n}{hasRealVoice(l.c) ? " (Real Voice)" : ""}</option>)}
+        <select value={audioLangCountry} onChange={e => { setAudioLangCountry(e.target.value); setAudioLangSearch(""); }} disabled={audioPlaying}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${audioLangCountry !== "all" ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 8, background: audioPlaying ? "#f4f4f4" : (audioLangCountry !== "all" ? "#f0faf5" : "#fff"), color: "#1a1a1a", fontWeight: audioLangCountry !== "all" ? 600 : 400, cursor: audioPlaying ? "default" : "pointer" }}>
+          <option value="all">🌐 All Countries — show every language</option>
+          {COUNTRIES.map(c => (
+            <option key={c.id} value={c.id}>{c.flag} {c.name}</option>
+          ))}
         </select>
+        <input placeholder="Search language..." value={audioLangSearch} onChange={e => setAudioLangSearch(e.target.value)} disabled={audioPlaying}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 10, background: audioPlaying ? "#f4f4f4" : "#fff" }} />
+        {(() => {
+          const countryCodes = audioLangCountry === "all" ? null : (COUNTRIES.find(c => c.id === audioLangCountry)?.langs || null);
+          const filtered = [...LANGS]
+            .filter(l => (!countryCodes || countryCodes.includes(l.c)) &&
+              (l.n.toLowerCase().includes(audioLangSearch.toLowerCase()) || l.na.toLowerCase().includes(audioLangSearch.toLowerCase())))
+            .sort((a, b) => a.n.localeCompare(b.n));
+          return (
+            <div style={{ maxHeight: 220, overflowY: "auto", border: ".5px solid #eee", borderRadius: 9, marginBottom: 14 }}>
+              {filtered.length === 0 && (
+                <div style={{ padding: 14, textAlign: "center", color: "#9ba5b0", fontSize: 12 }}>No languages found</div>
+              )}
+              {filtered.map(l => (
+                <div key={l.c} onClick={() => {
+                  if (audioPlaying) return;
+                  setAudioLang(l.c);
+                  if (hasRealVoice(l.c)) {
+                    setAudioNoVoice(false);
+                  } else if ("speechSynthesis" in window) {
+                    setAudioNoVoice(!findMaleVoice(l.c));
+                  } else {
+                    setAudioNoVoice(true);
+                  }
+                }}
+                  style={{ padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: audioPlaying ? "default" : "pointer", background: audioLang === l.c ? "#f0faf5" : "#fff", borderBottom: ".5px solid #f4f4f4" }}>
+                  <span style={{ fontSize: 13, color: audioLang === l.c ? G : "#1a1a1a", fontWeight: audioLang === l.c ? 700 : 400 }}>
+                    {hasRealVoice(l.c) ? "🎙️ " : ""}{l.na} — {l.n}{hasRealVoice(l.c) ? " (Real Voice)" : ""}
+                  </span>
+                  {audioLang === l.c && <span style={{ color: G, fontSize: 14 }}>✓</span>}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Surah picker */}
         <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Surah</div>
@@ -2233,6 +2262,10 @@ export default function QuranLife() {
         <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 18, padding: 20, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }} className="pop">
           <div style={{ fontSize: 72, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].e}</div>
           <div className="ar" style={{ fontSize: 72, color: ARABIC_ALPHA[kidLetter].color, lineHeight: 1.2, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].l}</div>
+          <button onClick={() => speakInLang(ARABIC_ALPHA[kidLetter].l, "ar")}
+            style={{ width: 40, height: 40, borderRadius: "50%", border: `1.5px solid ${ARABIC_ALPHA[kidLetter].color}`, background: "#fff", color: ARABIC_ALPHA[kidLetter].color, fontSize: 18, cursor: "pointer", marginBottom: 8, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            🔊
+          </button>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].n}</div>
           <div style={{ fontSize: 16, color: "#6b7280", marginBottom: 14 }}>Sound: "{ARABIC_ALPHA[kidLetter].s}"</div>
           <div style={{ background: "#f8f4ee", borderRadius: 12, padding: 14, marginBottom: 16 }}>
@@ -2254,7 +2287,10 @@ export default function QuranLife() {
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 10 }}>🔤 Arabic Letters — Tap to Learn</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9 }}>
             {ARABIC_ALPHA.map((a, i) => (
-              <div key={i} className="alpha-card" onClick={() => setKidLetter(i)}
+              <div key={i} className="alpha-card" onClick={() => {
+                setKidLetter(i);
+                speakInLang(a.l, "ar");
+              }}
                 style={{ background: `${a.color}18`, borderColor: learned.includes(i) ? G : "transparent" }}>
                 <div style={{ fontSize: 22 }}>{a.e}</div>
                 <div className="ar" style={{ fontSize: 28, color: a.color, fontWeight: 700, lineHeight: 1.2 }}>{a.l}</div>
