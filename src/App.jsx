@@ -539,7 +539,7 @@ export default function QuranLife() {
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
   const [openPanel, setOpenPanel] = useState(null); // verseNum
-  const [activeTab, setActiveTab] = useState("translation");
+  const [activeTab, setActiveTab] = useState("tafsir");
   const [cache, setCache] = useState({}); // AI content cache
   const [playKey, setPlayKey] = useState(null);
   const [showLang, setShowLang] = useState(false);
@@ -763,7 +763,7 @@ export default function QuranLife() {
   const openDeepPanel = useCallback((verse) => {
     if (openPanel === verse.number) { setOpenPanel(null); return; }
     setOpenPanel(verse.number);
-    setActiveTab("translation");
+    setActiveTab("tafsir");
   }, [openPanel]);
 
   const switchTab = useCallback((verse, tab) => {
@@ -1419,7 +1419,7 @@ export default function QuranLife() {
                         </button>
                         <button onClick={() => toggleBk(s.n, s.name, v.number, v.arabic, v.translation)}
                           style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: isBk(s.n, v.number) ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("translation"); }}
+                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("tafsir"); }}
                           style={{ padding: "3px 10px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>📖 Deep Knowledge</button>
                       </div>
                     </div>
@@ -1467,15 +1467,29 @@ export default function QuranLife() {
                   </button>
                   <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
                     if (openPanel === verse.number) { setOpenPanel(null); }
-                    else { setOpenPanel(verse.number); setActiveTab("translation"); }
+                    else { setOpenPanel(verse.number); setActiveTab("tafsir"); }
                   }}>📖 {isOpen ? "Close" : "Deep Knowledge"}</button>
                 </div>
 
-                {/* Arabic only — translation now lives inside Deep Knowledge → Translation tab */}
+                {/* Arabic + translation shown automatically below it */}
                 <div style={{ padding: "14px 14px 12px" }}>
-                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 8 }}>
+                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
                     {verse.arabic}
                   </div>
+                  {(() => {
+                    const tKey = `${surahNum}-${verse.number}-translation-${lang}`;
+                    const tEntry = cache[tKey] || {};
+                    if (!tEntry.text && !tEntry.loading && !tEntry.error) {
+                      loadTabContent(verse, "translation");
+                    }
+                    return (
+                      <div style={{ fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, marginBottom: 6 }}>
+                        {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
+                        {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
+                        {tEntry.text && tEntry.text}
+                      </div>
+                    );
+                  })()}
                   {/* Verse info small line */}
                   <div style={{ fontSize: 10, color: "#9ba5b0" }}>
                     {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
@@ -1488,7 +1502,6 @@ export default function QuranLife() {
                     {/* Tabs — no Meaning tab, translation already shows in verse card above */}
                     <div style={{ display: "flex", gap: 5, marginBottom: 13, flexWrap: "wrap" }}>
                       {[
-                        { id: "translation", label: "🌐 Translation" },
                         { id: "tafsir", label: "🕌 Tafsir" },
                         { id: "revelation", label: "📜 Revelation" },
                         { id: "science", label: "🔬 Science" },
