@@ -369,6 +369,35 @@ const LANG_NAMES = {
   tg:"Tajik",jv:"Javanese",ku:"Kurdish",
 };
 
+// Exact BCP-47 locale per language — ensures the browser picks the CORRECT
+// voice/accent and never mixes languages during speech playback
+const SPEECH_LOCALE = {
+  en:"en-US",ur:"ur-PK",ar:"ar-SA",fr:"fr-FR",de:"de-DE",es:"es-ES",
+  tr:"tr-TR",id:"id-ID",ms:"ms-MY",bn:"bn-BD",hi:"hi-IN",sw:"sw-KE",
+  ha:"ha-NG",ps:"ps-AF",fa:"fa-IR",pa:"pa-IN",sd:"sd-PK",so:"so-SO",
+  zh:"zh-CN",ja:"ja-JP",ko:"ko-KR",ru:"ru-RU",pt:"pt-PT",it:"it-IT",
+  nl:"nl-NL",pl:"pl-PL",ta:"ta-IN",te:"te-IN",ml:"ml-IN",gu:"gu-IN",
+  ne:"ne-NP",my:"my-MM",yo:"yo-NG",sq:"sq-AL",uk:"uk-UA",el:"el-GR",
+  he:"he-IL",fi:"fi-FI",sv:"sv-SE",tl:"fil-PH",am:"am-ET",zu:"zu-ZA",
+  af:"af-ZA",bs:"bs-BA",kk:"kk-KZ",uz:"uz-UZ",mn:"mn-MN",km:"km-KH",
+  tg:"tg-TJ",jv:"jv-ID",ku:"ku-TR",
+};
+
+// Speak text in the exact language locale — always cancels any prior speech first
+// so audio from a different language can never overlap or mix
+function speakInLang(text, langCode) {
+  if (!("speechSynthesis" in window) || !text) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = SPEECH_LOCALE[langCode] || "en-US";
+  u.rate = 0.85;
+  // Try to pick a matching voice explicitly for better accuracy
+  const voices = window.speechSynthesis.getVoices();
+  const match = voices.find(v => v.lang === u.lang) || voices.find(v => v.lang.startsWith(langCode));
+  if (match) u.voice = match;
+  window.speechSynthesis.speak(u);
+}
+
 async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
@@ -1483,10 +1512,19 @@ export default function QuranLife() {
                       loadTabContent(verse, "translation");
                     }
                     return (
-                      <div style={{ fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, marginBottom: 6 }}>
-                        {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
-                        {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
-                        {tEntry.text && tEntry.text}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                        <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8 }}>
+                          {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
+                          {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
+                          {tEntry.text && tEntry.text}
+                        </div>
+                        {tEntry.text && (
+                          <button onClick={() => speakInLang(tEntry.text, lang)}
+                            title={`Listen in ${curLang.n}`}
+                            style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            🔊
+                          </button>
+                        )}
                       </div>
                     );
                   })()}
