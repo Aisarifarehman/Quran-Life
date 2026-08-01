@@ -383,19 +383,41 @@ const SPEECH_LOCALE = {
   tg:"tg-TJ",jv:"jv-ID",ku:"ku-TR",
 };
 
-// Speak text in the exact language locale — always cancels any prior speech first
-// so audio from a different language can never overlap or mix
-function speakInLang(text, langCode) {
-  if (!("speechSynthesis" in window) || !text) return;
+// Find the best MALE voice for a language — falls back to any available voice
+// Common male-voice name hints across Chrome/Edge/Android/iOS voice packs
+const MALE_HINTS = ["male", "david", "mark", "daniel", "james", "george", "fred", "alex", "rishi", "arjun", "hemant", "ravi", "puneet", "hamed", "guy", "matthew"];
+const FEMALE_HINTS = ["female", "samantha", "victoria", "susan", "zira", "karen", "moira", "tessa", "heera", "lekha", "aditi", "salli", "kalpana"];
+
+function findMaleVoice(langCode) {
+  const voices = window.speechSynthesis.getVoices();
+  const locale = SPEECH_LOCALE[langCode] || "en-US";
+  const localeMatches = voices.filter(v => v.lang === locale || v.lang.startsWith(langCode));
+  if (!localeMatches.length) return null;
+  // Prefer explicit male hint
+  let male = localeMatches.find(v => MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  if (male) return male;
+  // Exclude anything that looks female, take what's left
+  const notFemale = localeMatches.filter(v => !FEMALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  if (notFemale.length) return notFemale[0];
+  // Last resort — any voice for that locale
+  return localeMatches[0];
+}
+
+// Speak text in the exact language locale using the best male voice found.
+// Always cancels any prior speech first so audio can never overlap or mix.
+// onEnd fires when this utterance finishes (used to chain verses for continuous playback).
+function speakInLang(text, langCode, onEnd) {
+  if (!("speechSynthesis" in window) || !text) { if (onEnd) onEnd(); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = SPEECH_LOCALE[langCode] || "en-US";
   u.rate = 0.85;
-  // Try to pick a matching voice explicitly for better accuracy
-  const voices = window.speechSynthesis.getVoices();
-  const match = voices.find(v => v.lang === u.lang) || voices.find(v => v.lang.startsWith(langCode));
-  if (match) u.voice = match;
+  const voice = findMaleVoice(langCode);
+  if (voice) u.voice = voice;
+  u.onend = () => { if (onEnd) onEnd(); };
+  u.onerror = () => { if (onEnd) onEnd(); };
   window.speechSynthesis.speak(u);
+  return voice; // null means device has no voice installed for this language
 }
 
 async function aiTranslateChunk(chunk, langName, apiKey) {
@@ -578,6 +600,13 @@ export default function QuranLife() {
   const [showJuz, setShowJuz] = useState(false);
   const [showGoto, setShowGoto] = useState(false);
   const [showBkSheet, setShowBkSheet] = useState(false);
+  const [showAudioSheet, setShowAudioSheet] = useState(false);
+  const [audioLang, setAudioLang] = useState("en");
+  const [audioSurah, setAudioSurah] = useState(1);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioCurrentVerse, setAudioCurrentVerse] = useState(0);
+  const [audioNoVoice, setAudioNoVoice] = useState(false);
+  const audioStopRef = useRef(false);
   const [bookmarks, setBookmarks] = useState([]);
   const [lastRead, setLastRead] = useState(null);
   const [kidLetter, setKidLetter] = useState(null);
@@ -1175,7 +1204,114 @@ export default function QuranLife() {
     </div>
   ) : null;
 
-  // ── HOME SCREEN ─────────────────────────────────────────────
+  // ── MEANING AUDIO — continuous play/stop, male voice, real language ──
+  const stopAudioPlayback = useCallback(() => {
+    audioStopRef.current = true;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setAudioPlaying(false);
+    setAudioCurrentVerse(0);
+  }, []);
+
+  const playAudioSurah = useCallback(async () => {
+    if (!("speechSynthesis" in window)) return;
+    audioStopRef.current = false;
+    setAudioPlaying(true);
+    setAudioNoVoice(false);
+
+    // Check if a voice exists for this language at all
+    const voices = window.speechSynthesis.getVoices();
+    const locale = SPEECH_LOCALE[audioLang] || "en-US";
+    const hasVoice = voices.some(v => v.lang === locale || v.lang.startsWith(audioLang));
+    if (!hasVoice && audioLang !== "en") {
+      setAudioNoVoice(true);
+      setAudioPlaying(false);
+      return;
+    }
+
+    const surahVerses = await fetchVerses(audioSurah, "en", null); // Arabic text base, English fallback
+    const sName = SURAHS.find(s => s.n === audioSurah)?.name || "";
+
+    for (let i = 0; i < surahVerses.length; i++) {
+      if (audioStopRef.current) break;
+      const v = surahVerses[i];
+      setAudioCurrentVerse(v.number);
+
+      // Get translation — reuse existing cache/AI if available, else translate now
+      const key = `${audioSurah}-${v.number}-translation-${audioLang}`;
+      let text = cache[key]?.text;
+      if (!text) {
+        const prompt = `Translate this Quran verse from Arabic into ${LANG_NAMES[audioLang] || audioLang}. Surah ${sName}, Verse ${v.number}: "${v.arabic}"\n\nGive ONLY the accurate, clear meaning translation. No Arabic, no transliteration, no extra notes — just the translated meaning.`;
+        try {
+          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
+        } catch { text = null; }
+      }
+      if (audioStopRef.current) break;
+      if (!text) continue;
+
+      // Speak and wait for it to finish before moving to next verse
+      await new Promise(resolve => {
+        speakInLang(text, audioLang, resolve);
+      });
+    }
+    if (!audioStopRef.current) { setAudioPlaying(false); setAudioCurrentVerse(0); }
+  }, [audioLang, audioSurah, cache]);
+
+  const AudioSheet = () => showAudioSheet ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) { stopAudioPlayback(); setShowAudioSheet(false); } }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🔊 Meaning Audio</div>
+        <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 16 }}>Listen to the verse translation read aloud in your chosen language — continuously, until you press Stop.</div>
+
+        {/* Language picker */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Language</div>
+        <select value={audioLang} onChange={e => { setAudioLang(e.target.value); setAudioNoVoice(false); }} disabled={audioPlaying}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 14, background: audioPlaying ? "#f4f4f4" : "#fff" }}>
+          {LANGS.map(l => <option key={l.c} value={l.c}>{l.na} — {l.n}</option>)}
+        </select>
+
+        {/* Surah picker */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Surah</div>
+        <select value={audioSurah} onChange={e => setAudioSurah(parseInt(e.target.value))} disabled={audioPlaying}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 16, background: audioPlaying ? "#f4f4f4" : "#fff" }}>
+          {SURAHS.map(s => <option key={s.n} value={s.n}>{s.n}. {s.name} ({s.verses} verses)</option>)}
+        </select>
+
+        {audioNoVoice && (
+          <div style={{ padding: "10px 12px", background: "#fff3cd", border: ".5px solid #ffc107", borderRadius: 9, fontSize: 12, color: "#856404", marginBottom: 14 }}>
+            ⚠️ Your device has no voice installed for this language yet. On Android: Settings → System → Languages → Text-to-speech → Install voice data for this language. On iPhone: Settings → Accessibility → Spoken Content → Voices → download this language.
+          </div>
+        )}
+
+        {audioPlaying && (
+          <div style={{ padding: "10px 12px", background: "#f0faf5", border: `.5px solid ${G}`, borderRadius: 9, fontSize: 12, color: G, fontWeight: 600, marginBottom: 14, textAlign: "center" }}>
+            🔊 Playing Verse {audioCurrentVerse}...
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          {!audioPlaying ? (
+            <button onClick={playAudioSurah}
+              style={{ flex: 1, padding: "12px", borderRadius: 10, background: G, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              ▶ Play
+            </button>
+          ) : (
+            <button onClick={stopAudioPlayback}
+              style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#c0392b", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              ⏹ Stop
+            </button>
+          )}
+          <button onClick={() => { stopAudioPlayback(); setShowAudioSheet(false); }}
+            style={{ padding: "12px 20px", borderRadius: 10, background: "#f4f4f4", color: "#333", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+
   const HomeScreen = () => (
     <div className="fade" style={{ paddingBottom: 80 }}>
       {/* Header */}
@@ -1262,11 +1398,12 @@ export default function QuranLife() {
           <div style={{ fontSize: 11, color: "rgba(255,255,255,.65)" }}>{lastRead ? `Verse ${lastRead.verse}` : "The Opening"}</div>
           {lastRead && <div style={{ height: 3, background: "rgba(255,255,255,.18)", borderRadius: 2, marginTop: 4 }}><div style={{ height: "100%", width: "30%", background: "#e8b84b", borderRadius: 2 }} /></div>}
         </div>
-        {/* 4 mini tiles */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+        {/* 5 mini tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7 }}>
           {[
             { icon: "🎓", label: "Kids\nLearn", bg: "linear-gradient(135deg,#e67e22,#f39c12)", shadow: "rgba(230,126,34,.25)", action: () => { setScreen("kids"); setNavTab("kids"); setKidLetter(null); } },
             { icon: "🔖", label: `${bookmarks.length}\nSaved`, bg: "linear-gradient(135deg,#8e44ad,#9b59b6)", shadow: "rgba(142,68,173,.25)", action: () => setShowBkSheet(true) },
+            { icon: "🔊", label: "Meaning\nAudio", bg: "linear-gradient(135deg,#c0392b,#e74c3c)", shadow: "rgba(192,57,43,.25)", action: () => setShowAudioSheet(true) },
             { icon: "📚", label: "Juz\nIndex", bg: "linear-gradient(135deg,#2980b9,#3498db)", shadow: "rgba(41,128,185,.25)", action: () => setShowJuz(true) },
             { icon: "📄", label: "Go To\nPage", bg: "linear-gradient(135deg,#16a085,#1abc9c)", shadow: "rgba(22,160,133,.25)", action: () => setShowGoto(true) },
           ].map(({ icon, label, bg, shadow, action }) => (
@@ -1344,7 +1481,7 @@ export default function QuranLife() {
       </div>
       <div style={{ height: 14 }} />
       <Nav />
-      {SettingsSheet()}{LangSheet()}{QariSheet()}{PrayerSheet()}{JuzSheet()}{GotoSheet()}{BkSheet()}
+      {SettingsSheet()}{LangSheet()}{QariSheet()}{PrayerSheet()}{JuzSheet()}{GotoSheet()}{BkSheet()}{AudioSheet()}
     </div>
   );
 
@@ -1512,19 +1649,10 @@ export default function QuranLife() {
                       loadTabContent(verse, "translation");
                     }
                     return (
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                        <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8 }}>
-                          {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
-                          {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
-                          {tEntry.text && tEntry.text}
-                        </div>
-                        {tEntry.text && (
-                          <button onClick={() => speakInLang(tEntry.text, lang)}
-                            title={`Listen in ${curLang.n}`}
-                            style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            🔊
-                          </button>
-                        )}
+                      <div style={{ fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, marginBottom: 6 }}>
+                        {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
+                        {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
+                        {tEntry.text && tEntry.text}
                       </div>
                     );
                   })()}
