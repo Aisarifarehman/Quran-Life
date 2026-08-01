@@ -383,6 +383,398 @@ const SPEECH_LOCALE = {
   tg:"tg-TJ",jv:"jv-ID",ku:"ku-TR",
 };
 
+// REAL recorded human-voice translation audio — verified from everyayah.com
+// One MP3 per verse, male reciter, continuous professional quality (same
+// hosting model as our Arabic Qari audio). File pattern: SSSVVV.mp3
+// e.g. Surah 1 Verse 1 = 001001.mp3
+const REAL_AUDIO_TRANSLATIONS = {
+  ur: { base: "https://everyayah.com/data/translations/urdu_shamshad_ali_khan_46kbps/", reciter: "Shamshad Ali Khan" },
+  fa: { base: "https://everyayah.com/data/translations/Fooladvand_Hedayatfar_40Kbps/", reciter: "Hedayatfar" },
+  bs: { base: "https://everyayah.com/data/translations/besim_korkut_ajet_po_ajet/", reciter: "Besim Korkut" },
+  en: { base: "https://everyayah.com/data/English/Sahih_Intnl_Ibrahim_Walk_192kbps/", reciter: "Ibrahim Walk" },
+  az: { base: "https://everyayah.com/data/translations/azerbaijani/balayev/", reciter: "Balayev" },
+};
+
+function realAudioUrl(langCode, surahNum, verseNum) {
+  const entry = REAL_AUDIO_TRANSLATIONS[langCode];
+  if (!entry) return null;
+  const s = String(surahNum).padStart(3, "0");
+  const v = String(verseNum).padStart(3, "0");
+  return `${entry.base}${s}${v}.mp3`;
+}
+
+// PER-SURAH real recorded translation audio — verified from archive.org.
+// These play the WHOLE Surah as one continuous file (not per-verse), by a
+// real human reciter. Used for languages where no per-verse recording exists.
+const BANGLA_SURAH_FILES = {
+  1: "001%20SURA%20FATIHA%20AND%20OPENING.mp3",
+  2: "002%20SURA%20%20BAQARA.mp3",
+  3: "003%20%20SURA%20%20AL%20%20IMRAN.mp3",
+  4: "004%20SURA%20%20AN%20%20NISA.mp3",
+  5: "005%20SURA%20%20AL%20%20MAIDA.mp3",
+  6: "006%20%20SURA%20%20AL%20%20ANAM.mp3",
+  7: "007%20SURA%20AL%20%20ARAF.mp3",
+  8: "008%20SURA%20%20AN%20FAL.mp3",
+  9: "009%20SURA%20%20TAWBA.mp3",
+  10: "010%20%20SURA%20%20YUNUS.mp3",
+  11: "011%20%20SURA%20%20HUD.mp3",
+  12: "012%20%20SURA%20%20USUF.mp3",
+  13: "013%20%20SURA%20%20RAAD.mp3",
+  14: "014%20SURA%20%20IBRAHIM.mp3",
+  15: "015%20%20SURA%20%20AL%20%20HI%20JR.mp3",
+  16: "016%20%20SURA%20%20AN%20%20NAHAL.mp3",
+  17: "017%20SURA%20%20BANI%20%20ISRAIEL.mp3",
+  18: "018%20%20SURA%20%20AL%20%20KAHAF.mp3",
+  19: "019%20%20SURA%20%20MARIYAM.mp3",
+  20: "020%20%20SURA%20%20TOAHA.mp3",
+  21: "021%20SURA%20%20AMBIA.mp3",
+  22: "022%20%20SURA%20AL%20HAZZ.mp3",
+  23: "023%20%20SURA%20%20MOMINOON.mp3",
+  24: "024%20SURA%20AN%20NOOR.mp3",
+  25: "025%20SURA%20AL%20FOORCAN.mp3",
+  26: "026%20SURA%20%20AS%20SOOARA.mp3",
+  27: "027%20SURA%20AN%20NAMAL.mp3",
+  28: "028%20SURA%20AL%20KASAS.mp3",
+  29: "029%20SURA%20AL%20%20ANKABOOT.mp3",
+  30: "030%20SURA%20%20RA%20ROOM.mp3",
+  31: "031%20SURA%20%20LOOKMAN.mp3",
+  32: "032%20SURA%20AS%20SASDA.mp3",
+  33: "033%20SURA%20AL%20AHZAB.mp3",
+  34: "034%20%20SURA%20%20SABA.mp3",
+  35: "035%20%20SURA%20%20FATIR.mp3",
+  36: "036%20%20SURA%20%20YASIN.mp3",
+  37: "037%20%20SURA%20%20ASSAFFAT.mp3",
+  38: "038%20SURA%20%20SWAD.mp3",
+  39: "039%20SURA%20AZ%20%20ZOOMAR.mp3",
+  40: "040%20SURA%20AL%20%20MOMIN.mp3",
+  41: "041%20SURA%20HAMIM%20AS%20SASDA.mp3",
+  42: "042%20%20SURA%20AS%20SURA.mp3",
+  43: "043%20%20SURA%20%20AZZOKROOF.mp3",
+  44: "044%20SURA%20ADDOKHAN.mp3",
+  45: "045%20%20SURA%20%20ZASYA.mp3",
+  46: "046%20SURA%20AL%20AHKAB.mp3",
+  47: "047%20%20SURA%20%20MOHAMMED.mp3",
+  48: "048%20%20SURA%20%20FATTAH.mp3",
+  49: "049%20%20SURA%20AL%20HUZURAT.mp3",
+  50: "050%20SURA%20KAAF.mp3",
+  51: "051%20%20SURA%20%20ZARIAT.mp3",
+  52: "052%20SURA%20%20ATTOOR.mp3",
+  53: "053%20SURA%20ANNZAM.mp3",
+  54: "054%20SURA%20KAMAR.mp3",
+  55: "055%20SURA%20AR%20RAHMAN.mp3",
+  56: "056%20SURA%20%20WAKEYA.mp3",
+  57: "057%20SURA%20%20HADID.mp3",
+  58: "058%20%20SURA%20%20AL%20%20MUZADALA.mp3",
+  59: "059%20SURA%20AL%20HASHOR.mp3",
+  60: "060%20SURA%20AL%20MOMTAHANA.mp3",
+  61: "061%20%20SURA%20%20ASSAF.mp3",
+  62: "062%20SURA%20AL%20%20%20ZOOMA.mp3",
+  63: "063%20SURA%20MONAFEKOON.mp3",
+  64: "064%20%20SURA%20%20ATTAGABOON.mp3",
+  65: "065%20SURA%20%20ATTALAK.mp3",
+  66: "066%20SURA%20%20ATTAHRIM.mp3",
+  67: "067%20SURA%20AL%20MULK.mp3",
+  68: "068%20SURA%20AL%20KALAM.mp3",
+  69: "069%20SURA%20AL%20HAKKA.mp3",
+  70: "070%20SURA%20AL%20MAAREZ.mp3",
+  71: "071%20SURA%20%20NOAH.mp3",
+  72: "072%20%20SURA%20%20AL%20JINN.mp3",
+  73: "073%20SURA%20AL%20MUZZAMMIL.mp3",
+  74: "074%20SURA%20AL%20MUDDATHTHIR.mp3",
+  75: "075%20SURA%20AL%20QIYAMA.mp3",
+  76: "076%20SURA%20ADDAHOR.mp3",
+  77: "077%20SURA%20AL%20MURSALAT.mp3",
+  78: "078%20SURA%20AN%20NABA.mp3",
+  79: "079%20%20SURA%20%20ANNAZIAT.mp3",
+  80: "080%20SURA%20ABASA.mp3",
+  81: "081%20SURA%20%20AT%20TAKWIR.mp3",
+  82: "082%20SURA%20%20%20AL%20INFITOR.mp3",
+  83: "083%20%20SURA%20%20%20AL%20MUTAFFIFIN.mp3",
+  84: "084%20%20SURA%20%20%20AL%20%20INSHIQAQ.mp3",
+  85: "085%20%20SURA%20%20%20AL%20BURUJ.mp3",
+  86: "086%20SURA%20%20%20ATTARIQ.mp3",
+  87: "087%20%20SURA%20%20%20AL%20A%27%20LA.mp3",
+  88: "088%20%20SURA%20%20%20AL%20%20GHASHIYA.mp3",
+  89: "089%20SURA%20%20%20AL%20%20FAJAR.mp3",
+  90: "090%20%20SURA%20%20%20AL%20%20BALAD.mp3",
+  91: "091%20SURA%20%20%20AL%20SHAMS.mp3",
+  92: "092%20%20SURA%20%20%20AL%20LAYL.mp3",
+  93: "093%20%20SURA%20%20%20AL%20DUHA.mp3",
+  94: "094%20SURA%20%20%20AL%20%20INSHIRAH.mp3",
+  95: "095%20SURA%20%20%20AL%20TIN.mp3",
+  96: "096%20SURA%20%20%20AL%20ALAQ.mp3",
+  97: "097%20%20SURA%20%20%20AL%20%20QADAR.mp3",
+  98: "098%20%20SURA%20%20%20AL%20%20BAYYINA.mp3",
+  99: "099%20%20SURA%20%20%20AL%20ZALZAL.mp3",
+  100: "100%20%20SURA%20%20%20AL%20%20%20ADIYAT.mp3",
+  101: "101%20%20SURA%20%20%20AL%20%20%20QARIA.mp3",
+  102: "102%20%20SURA%20%20%20AL%20%20%20TAKATHUR.mp3",
+  103: "103%20%20SURA%20%20%20AL%20%20ASR.mp3",
+  104: "104%20%20SURA%20%20%20AL%20HUMAZA.mp3",
+  105: "105%20%20SURA%20%20%20AL%20FIL.mp3",
+  106: "106%20%20SURA%20%20QURAYSH.mp3",
+  107: "107%20%20SURA%20%20AL%20MA%27%20UN.mp3",
+  108: "108%20%20SURA%20%20AL%20KAWSHAR.mp3",
+  109: "109%20%20SURA%20%20AL%20KAFIRUN.mp3",
+  110: "110%20%20SURA%20%20AL%20NASR.mp3",
+  111: "111%20%20SURA%20%20LAHAB.mp3",
+  112: "112%20%20SURA%20%20AL%20IKHLAS.mp3",
+  113: "113%20%20%20SURA%20%20AL%20FALAQ.mp3",
+  114: "114%20%20SURA%20AL%20NAS.mp3",
+};
+const HINDI_SURAH_FILES = {
+  1: "001%20Al-Fatiha%20%28The%20Opening%29.mp3",
+  2: "002%20Al-Baqarah%20%28The%20Cow%29.mp3",
+  3: "003%20Al-Imran%20%28The%20Family%20of%20Imran%29.mp3",
+  4: "004%20An-Nissa%20%28The%20Women%29.mp3",
+  5: "005%20Al-Maidah%20%28The%20Table%20Spread%29.mp3",
+  6: "006%20Al-An_am%20%28The%20Cattle%29.mp3",
+  7: "007%20Al-A_raf%20%28The%20Heights%29.mp3",
+  8: "008%20Al-Anfal%20%28The%20Spoils%20of%20War%29.mp3",
+  9: "009%20Al-Tauba%20%28The%20Repentance%29.mp3",
+  10: "010%20Yunus%20%28Jonah%29.mp3",
+  11: "011%20Hud%20%28The%20Prophet%20Hud%29.mp3",
+  12: "012%20Yusuf%20%28Joseph%29.mp3",
+  13: "013%20Ar-Rad%20%28The%20Thunder%29.mp3",
+  14: "014%20Ibrahim%20%28Abraham%29.mp3",
+  15: "015%20Al-Hijr%20%28The%20Rocky%20Tract%29.mp3",
+  16: "016%20An-Nahl%20%28The%20Bee%29.mp3",
+  17: "017%20Al-Isra%20%28The%20Journey%20by%20Night%29.mp3",
+  18: "018%20Al-Kahf%20%28The%20Cave%29.mp3",
+  19: "019%20Maryam%20%28Mary%29.mp3",
+  20: "020%20Ta-Ha%20%28Twa-Ha%29.mp3",
+  21: "021%20Al-Anbiya%20%28The%20Prophets%29.mp3",
+  22: "022%20Al-Hajj%20%28The%20Pilgrimage%29.mp3",
+  23: "023%20Al-Muminun%20%28The%20Believers%29.mp3",
+  24: "024%20Al-Nour%20%28The%20Light%29.mp3",
+  25: "025%20Al-Furqan%20%28The%20Criterion%29.mp3",
+  26: "026%20Ash-Shuara%20%28The%20Poets%29.mp3",
+  27: "027%20An-Naml%20%28The%20Ants%29.mp3",
+  28: "028%20Al-Qasas%20%28The%20Narration%29.mp3",
+  29: "029%20Al-Ankabut%20%28The%20Spider%29.mp3",
+  30: "030%20Ar-Rum%20%28The%20Romans%29.mp3",
+  31: "031%20Luqman%20%28Luqman%29.mp3",
+  32: "032%20As-Sajdah%20%28The%20Prostration%29.mp3",
+  33: "033%20Al-Ahzab%20%28The%20Confederates%29.mp3",
+  34: "034%20Saba%20%28Sheba%29.mp3",
+  35: "035%20Fatir%20%28The%20Originator%20of%20Creation%29.mp3",
+  36: "036%20Ya-Sin%20%28Ya-Sin%29.mp3",
+  37: "037%20As-Saffat%20%28The%20Rangers%29.mp3",
+  38: "038%20Suad%20%28Saad%29.mp3",
+  39: "039%20Az-Zumar%20%28The%20Groups%29.mp3",
+  40: "040%20Ghafir%20%28The%20Forgiver%29.mp3",
+  41: "041%20Fussilat%20%28Explained%20in%20Detail%29.mp3",
+  42: "042%20Ash-Shura%20%28The%20Consultation%29.mp3",
+  43: "043%20Az-Zukhruf%20%28The%20Gold%20Adornments%29.mp3",
+  44: "044%20Ad-Dukhan%20%28The%20Smoke%29.mp3",
+  45: "045%20Al-Jathiya%20%28The%20Kneeling%29.mp3",
+  46: "046%20Al-Ahqaf%20%28The%20Curved%20Sandhills%29.mp3",
+  47: "047%20Muhammad%20%28Muhammad%29.mp3",
+  48: "048%20Al-Fath%20%28The%20Victory%29.mp3",
+  49: "049%20Al-Hujurat%20%28The%20Dwellings%29.mp3",
+  50: "050%20Qaf%20%28Qaf%29.mp3",
+  51: "051%20Az-Zariyat%20%28The%20Winds%20that%20Scatter%29.mp3",
+  52: "052%20At-Tur%20%28The%20Mount%29.mp3",
+  53: "053%20An-Najm%20%28The%20Star%29.mp3",
+  54: "054%20Al-Qamar%20%28The%20Moon%29.mp3",
+  55: "055%20Ar-Rahman%20%28The%20Most%20Beneficent%29.mp3",
+  56: "056%20Al-Waqia%20%28The%20Event%29.mp3",
+  57: "057%20Al-Hadid%20%28Iron%29.mp3",
+  58: "058%20Al-Mujadilah%20%28The%20Disputation%29.mp3",
+  59: "059%20Al-Hashr%20%28The%20Gathering%29.mp3",
+  60: "060%20Al-Mumtahinah%20%28The%20Examined%20One%29.mp3",
+  61: "061%20As-Saff.mp3",
+  62: "062%20Al-Jumuah%20%28Friday%29.mp3",
+  63: "063%20Al-Munafiqun%20%28The%20Hypocrites%29.mp3",
+  64: "064%20At-Taghabun%20%28Loss%20and%20Gain%29.mp3",
+  65: "065%20At-Talaq%20%28The%20Divorce%29.mp3",
+  66: "066%20At-Tahrem%20%28The%20Banning%29.mp3",
+  67: "067%20Al-Mulk%20%28Dominion%29.mp3",
+  68: "068%20Al-Qalam%20%28The%20Pen%29.mp3",
+  69: "069%20Al-Haqqah%20%28The%20Reality%29.mp3",
+  70: "070%20Al-Ma_arig%20%28The%20Ways%20of%20Ascent%29.mp3",
+  71: "071%20Nuh%20%28Noah%29.mp3",
+  72: "072%20Al-Jinn%20%28The%20Jinn%29.mp3",
+  73: "073%20Al-Muzzammil%20%28Folded%20in%20Garments%29.mp3",
+  74: "074%20Al-Muddaththir%20%28The%20One%20Enveloped%29.mp3",
+  75: "075%20Al-Qiyamah%20%28The%20Resurrection%29.mp3",
+  76: "076%20Al-Insan%20%28Man%29.mp3",
+  77: "077%20Al-Mursalat%20%28Those%20Sent%20Forth%29.mp3",
+  78: "078%20An-Nab%20%28The%20Great%20News%29.mp3",
+  79: "079%20An-Naziat%20%28Those%20Who%20Pull%20Out%29.mp3",
+  80: "080%20Abasa%20%28He%20Frowned%29.mp3",
+  81: "081%20At-Takwir%20%28The%20Folding%20Up%29.mp3",
+  82: "082%20Al-Infitar%20%28The%20Cleaving%29.mp3",
+  83: "083%20Al-Mutaffifin%20%28Those%20Who%20Deal%20in%20Fraud%29.mp3",
+  84: "084%20Al-Inshiqaq%20%28The%20Splitting%20Asunder%29.mp3",
+  85: "085%20Al-Buruj%20%28The%20Big%20Stars%29.mp3",
+  86: "086%20At-Tariq%20%28The%20Night-Comer%29.mp3",
+  87: "087%20Al-A_la%20%28The%20Most%20High%29.mp3",
+  88: "088%20Al-Ghashiyah%20%28The%20Overwhelming%29.mp3",
+  89: "089%20Al-Fajr%20%28The%20Dawn%29.mp3",
+  90: "090%20Al-Balad%20%28The%20City%29.mp3",
+  91: "091%20Ash-Shams%20%28The%20Sun%29.mp3",
+  92: "092%20Al-Lail%20%28The%20Night%29.mp3",
+  93: "093%20Ad-Duha%20%28The%20ForenoonAfter%20Sunrise%29.mp3",
+  94: "094%20Ash-Sharh%20%28The%20Opening%20Forth%29.mp3",
+  95: "095%20At-Tin%20%28The%20Fig%29.mp3",
+  96: "096%20Al-Alaq%20%28The%20Clot%29.mp3",
+  97: "097%20Al-Qadr%20%28The%20Night%20of%20Decree%29.mp3",
+  98: "098%20Al-Baiyinah%20%28The%20Clear%20Evidence%29.mp3",
+  99: "099%20Az-Zalzalah%20%28The%20Earthquake%29.mp3",
+  100: "100%20Al-_Adiyat%20%28Those%20That%20Run%29.mp3",
+  101: "101%20Al-Qari_ah%20%28The%20Striking%20Hour%29.mp3",
+  102: "102%20At-Takathur%20%28The%20Piling%20Up%29.mp3",
+  103: "103%20Al-_Asr%20%28The%20Time%29.mp3",
+  104: "104%20Al-Humazah%20%28The%20Slanderer%29.mp3",
+  105: "105%20Al-Fil%20%28The%20Elephant%29.mp3",
+  106: "106%20Quraish%20%28Quraish%29.mp3",
+  107: "107%20Al-Ma_un%20%28The%20Small%20Kindnesses%29.mp3",
+  108: "108%20Al-Kauthar%20%28A%20River%20in%20Paradise%29.mp3",
+  109: "109%20Al-Kafirun%20%28The%20Disbelievers%29.mp3",
+  110: "110%20An-Nasr%20%28The%20Help%29.mp3",
+  111: "111%20Al-Masad%20%28The%20Palm%20Fiber%29.mp3",
+  112: "112%20Al-Ikhlas%20%28The%20Purity%29.mp3",
+  113: "113%20Al-Falaq%20%28The%20Day%20Break%29.mp3",
+  114: "114%20An-Nas%20%28The%20Mankind%29.mp3",
+};
+
+const RUSSIAN_SURAH_FILES = {
+  1: "%D0%A1%D1%83%D1%80%D0%B0%20001%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%90%D0%A2%D0%98%D0%A5%D0%90%20%28%D0%9E%D1%82%D0%BA%D1%80%D1%8B%D0%B2%D0%B0%D1%8E%D1%89%D0%B0%D1%8F%20%D0%9A%D0%BE%D1%80%D0%B0%D0%BD%29.mp3",
+  2: "%D0%A1%D1%83%D1%80%D0%B0%20002%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%91%D0%90%D0%9A%D0%90%D0%A0%D0%90%20%28%D0%9A%D0%BE%D1%80%D0%BE%D0%B2%D0%B0%29.mp3",
+  3: "%D0%A1%D1%83%D1%80%D0%B0%20003%20%E2%80%94%20%D0%90%D0%90%D0%9B%D0%98%20%D0%98%D0%9C%D0%A0%D0%90%D0%9D%20%28%D0%A1%D0%B5%D0%BC%D0%B5%D0%B9%D1%81%D1%82%D0%B2%D0%BE%20%D0%98%D0%BC%D1%80%D0%B0%D0%BD%D0%B0%29.mp3",
+  4: "%D0%A1%D1%83%D1%80%D0%B0%20004%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%98%D0%A1%D0%90%20%28%D0%96%D0%B5%D0%BD%D1%89%D0%B8%D0%BD%D1%8B%29.mp3",
+  5: "%D0%A1%D1%83%D1%80%D0%B0%20005%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%90%D0%98%D0%94%D0%90%20%28%D0%A2%D1%80%D0%B0%D0%BF%D0%B5%D0%B7%D0%B0%29.mp3",
+  6: "%D0%A1%D1%83%D1%80%D0%B0%20006%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9D%D0%90%D0%9C%20%28%D0%A1%D0%BA%D0%BE%D1%82%29.mp3",
+  7: "%D0%A1%D1%83%D1%80%D0%B0%20007%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%A0%D0%90%D0%A4%20%28%D0%9E%D0%B3%D1%80%D0%B0%D0%B4%D1%8B%29.mp3",
+  8: "%D0%A1%D1%83%D1%80%D0%B0%20008%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9D%D0%A4%D0%90%D0%9B%D0%AC%20%28%D0%A2%D1%80%D0%BE%D1%84%D0%B5%D0%B8%29.mp3",
+  9: "%D0%A1%D1%83%D1%80%D0%B0%20009%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%A3%D0%91%D0%90%20%28%D0%9F%D0%BE%D0%BA%D0%B0%D1%8F%D0%BD%D0%B8%D0%B5%29.mp3",
+  10: "%D0%A1%D1%83%D1%80%D0%B0%20010%20%E2%80%94%20%D0%99%D0%A3%D0%9D%D0%A3%D0%A1%20%28%D0%98%D0%BE%D0%BD%D0%B0%29.mp3",
+  11: "%D0%A1%D1%83%D1%80%D0%B0%20011%20%E2%80%94%20%D0%A5%D0%A3%D0%94%20%28%D0%A5%D1%83%D0%B4%29.mp3",
+  12: "%D0%A1%D1%83%D1%80%D0%B0%20012%20%E2%80%94%20%D0%99%D0%A3%D0%A1%D0%A3%D0%A4%20%28%D0%98%D0%BE%D1%81%D0%B8%D1%84%29.mp3",
+  13: "%D0%A1%D1%83%D1%80%D0%B0%20013%20%E2%80%94%20%D0%90%D0%A0-%D0%A0%D0%90%D0%90%D0%94%20%28%D0%93%D1%80%D0%BE%D0%BC%29.mp3",
+  14: "%D0%A1%D1%83%D1%80%D0%B0%20014%20%E2%80%94%20%D0%98%D0%91%D0%A0%D0%90%D0%A5%D0%98%D0%9C%20%28%D0%90%D0%B2%D1%80%D0%B0%D0%B0%D0%BC%29.mp3",
+  15: "%D0%A1%D1%83%D1%80%D0%B0%20015%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%98%D0%94%D0%96%D0%A0%20%28%D0%A5%D0%B8%D0%B4%D0%B6%D1%80%29.mp3",
+  16: "%D0%A1%D1%83%D1%80%D0%B0%20016%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%A5%D0%9B%D0%AC%20%28%D0%9F%D1%87%D0%B5%D0%BB%D1%8B%29.mp3",
+  17: "%D0%A1%D1%83%D1%80%D0%B0%20017%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%A1%D0%A0%D0%90%20%28%D0%9D%D0%BE%D1%87%D0%BD%D0%BE%D0%B9%20%D0%9F%D0%B5%D1%80%D0%B5%D0%BD%D0%BE%D1%81%29.mp3",
+  18: "%D0%A1%D1%83%D1%80%D0%B0%20018%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%A5%D0%A4%20%28%D0%9F%D0%B5%D1%89%D0%B5%D1%80%D0%B0%29.mp3",
+  19: "%D0%A1%D1%83%D1%80%D0%B0%20019%20%E2%80%94%20%D0%9C%D0%90%D0%A0%D0%AC%D0%AF%D0%9C%20%28%D0%9C%D0%B0%D1%80%D0%B8%D1%8F%29.mp3",
+  20: "%D0%A1%D1%83%D1%80%D0%B0%20020%20%E2%80%94%20%D0%A2%D0%90%20%D0%A5%D0%90%20%28%D0%A2%D0%B0%20%D0%A5%D0%B0%29.mp3",
+  21: "%D0%A1%D1%83%D1%80%D0%B0%20021%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9D%D0%91%D0%98%D0%99%D0%90%20%28%D0%9F%D1%80%D0%BE%D1%80%D0%BE%D0%BA%D0%B8%29.mp3",
+  22: "%D0%A1%D1%83%D1%80%D0%B0%20022%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%90%D0%94%D0%96%D0%96%20%28%D0%9F%D0%B0%D0%BB%D0%BE%D0%BC%D0%BD%D0%B8%D1%87%D0%B5%D1%81%D1%82%D0%B2%D0%BE%29.mp3",
+  23: "%D0%A1%D1%83%D1%80%D0%B0%20023%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%9C%D0%98%D0%9D%D0%A3%D0%9D%20%28%D0%92%D0%B5%D1%80%D1%83%D1%8E%D1%89%D0%B8%D0%B5%29.mp3",
+  24: "%D0%A1%D1%83%D1%80%D0%B0%20024%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%A3%D0%A0%20%28%D0%A1%D0%B2%D0%B5%D1%82%29.mp3",
+  25: "%D0%A1%D1%83%D1%80%D0%B0%20025%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%A3%D0%A0%D0%9A%D0%90%D0%9D%20%28%D0%A0%D0%B0%D0%B7%D0%BB%D0%B8%D1%87%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  26: "%D0%A1%D1%83%D1%80%D0%B0%20026%20%E2%80%94%20%D0%90%D0%A8-%D0%A8%D0%A3%D0%90%D0%A0%D0%90%20%28%D0%9F%D0%BE%D1%8D%D1%82%D1%8B%29.mp3",
+  27: "%D0%A1%D1%83%D1%80%D0%B0%20027%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%9C%D0%9B%D0%AC%20%28%D0%9C%D1%83%D1%80%D0%B0%D0%B2%D1%8C%D0%B8%29.mp3",
+  28: "%D0%A1%D1%83%D1%80%D0%B0%20028%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%A1%D0%90%D0%A1%20%28%D0%A0%D0%B0%D1%81%D1%81%D0%BA%D0%B0%D0%B7%29.mp3",
+  29: "%D0%A1%D1%83%D1%80%D0%B0%20029%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9D%D0%9A%D0%90%D0%91%D0%A3%D0%A2%20%28%D0%9F%D0%B0%D1%83%D0%BA%29.mp3",
+  30: "%D0%A1%D1%83%D1%80%D0%B0%20030%20%E2%80%94%20%D0%90%D0%A0-%D0%A0%D0%A3%D0%9C%20%28%D0%A0%D0%B8%D0%BC%D0%BB%D1%8F%D0%BD%D0%B5%29.mp3",
+  31: "%D0%A1%D1%83%D1%80%D0%B0%20031%20%E2%80%94%20%D0%9B%D0%A3%D0%9A%D0%9C%D0%90%D0%9D%20%28%D0%9B%D1%83%D0%BA%D0%BC%D0%B0%D0%BD%29.mp3",
+  32: "%D0%A1%D1%83%D1%80%D0%B0%20032%20%E2%80%94%20%D0%90%D0%A1-%D0%A1%D0%90%D0%94%D0%96%D0%94%D0%90%20%28%D0%97%D0%B5%D0%BC%D0%BD%D0%BE%D0%B9%20%D0%9F%D0%BE%D0%BA%D0%BB%D0%BE%D0%BD%29.mp3",
+  33: "%D0%A1%D1%83%D1%80%D0%B0%20033%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%A5%D0%97%D0%90%D0%91%20%28%D0%A1%D0%BE%D1%8E%D0%B7%D0%BD%D0%B8%D0%BA%D0%B8%29.mp3",
+  34: "%D0%A1%D1%83%D1%80%D0%B0%20034%20%E2%80%94%20%D0%A1%D0%90%D0%91%D0%90%20%28%D0%A1%D0%B0%D0%B2%D0%B0%29.mp3",
+  35: "%D0%A1%D1%83%D1%80%D0%B0%20035%20%E2%80%94%20%D0%A4%D0%90%D0%A2%D0%AB%D0%A0%20%28%D0%A2%D0%B2%D0%BE%D1%80%D0%B5%D1%86%29.mp3",
+  36: "%D0%A1%D1%83%D1%80%D0%B0%20036%20%E2%80%94%20%D0%99%D0%90%20%D0%A1%D0%98%D0%9D%20%28%D0%99%D0%B0%20%D0%A1%D0%B8%D0%BD%29.mp3",
+  37: "%D0%A1%D1%83%D1%80%D0%B0%20037%20%E2%80%94%20%D0%90%D0%A1-%D0%A1%D0%90%D0%A4%D0%A4%D0%90%D0%A2%20%28%D0%92%D1%8B%D1%81%D1%82%D1%80%D0%BE%D0%B8%D0%B2%D1%88%D0%B8%D0%B5%D1%81%D1%8F%29.mp3",
+  38: "%D0%A1%D1%83%D1%80%D0%B0%20038%20%E2%80%94%20%D0%A1%D0%90%D0%94%20%28%D0%A1%D0%B0%D0%B4%29.mp3",
+  39: "%D0%A1%D1%83%D1%80%D0%B0%20039%20%E2%80%94%20%D0%90%D0%97-%D0%97%D0%A3%D0%9C%D0%90%D0%A0%20%28%D0%A2%D0%BE%D0%BB%D0%BF%D1%8B%29.mp3",
+  40: "%D0%A1%D1%83%D1%80%D0%B0%20040%20%E2%80%94%20%D0%93%D0%90%D0%A4%D0%98%D0%A0%20%28%D0%9F%D1%80%D0%BE%D1%89%D0%B0%D1%8E%D1%89%D0%B8%D0%B9%29.mp3",
+  41: "%D0%A1%D1%83%D1%80%D0%B0%20041%20%E2%80%94%20%D0%A4%D0%A3%D0%A1%D0%A1%D0%AB%D0%9B%D0%90%D0%A2%20%28%D0%A0%D0%B0%D0%B7%D1%8A%D1%8F%D1%81%D0%BD%D0%B5%D0%BD%D1%8B%29.mp3",
+  42: "%D0%A1%D1%83%D1%80%D0%B0%20042%20%E2%80%94%20%D0%90%D0%A8-%D0%A8%D0%A3%D0%A0%D0%90%20%28%D0%A1%D0%BE%D0%B2%D0%B5%D1%82%29.mp3",
+  43: "%D0%A1%D1%83%D1%80%D0%B0%20043%20%E2%80%94%20%D0%90%D0%97-%D0%97%D0%A3%D0%A5%D0%A0%D0%A3%D0%A4%20%28%D0%A3%D0%BA%D1%80%D0%B0%D1%88%D0%B5%D0%BD%D0%B8%D1%8F%29.mp3",
+  44: "%D0%A1%D1%83%D1%80%D0%B0%20044%20%E2%80%94%20%D0%90%D0%94-%D0%94%D0%A3%D0%A5%D0%90%D0%9D%20%28%D0%94%D1%8B%D0%BC%29.mp3",
+  45: "%D0%A1%D1%83%D1%80%D0%B0%20045%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%94%D0%96%D0%90%D0%A1%D0%98%D0%99%D0%90%20%28%D0%9A%D0%BE%D0%BB%D0%B5%D0%BD%D0%BE%D0%BF%D1%80%D0%B5%D0%BA%D0%BB%D0%BE%D0%BD%D0%B5%D0%BD%D0%BD%D1%8B%D0%B5%29.mp3",
+  46: "%D0%A1%D1%83%D1%80%D0%B0%20046%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%A5%D0%9A%D0%90%D0%A4%20%28%D0%91%D0%B0%D1%80%D1%85%D0%B0%D0%BD%D1%8B%29.mp3",
+  47: "%D0%A1%D1%83%D1%80%D0%B0%20047%20%E2%80%94%20%D0%9C%D0%A3%D0%A5%D0%90%D0%9C%D0%9C%D0%90%D0%94%20%28%D0%9C%D1%83%D1%85%D0%B0%D0%BC%D0%BC%D0%B0%D0%B4%29.mp3",
+  48: "%D0%A1%D1%83%D1%80%D0%B0%20048%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%90%D0%A2%D0%A5%20%28%D0%9F%D0%BE%D0%B1%D0%B5%D0%B4%D0%B0%29.mp3",
+  49: "%D0%A1%D1%83%D1%80%D0%B0%20049%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%A3%D0%94%D0%96%D0%A3%D0%A0%D0%90%D0%A2%20%28%D0%9A%D0%BE%D0%BC%D0%BD%D0%B0%D1%82%D1%8B%29.mp3",
+  50: "%D0%A1%D1%83%D1%80%D0%B0%20050%20%E2%80%94%20%D0%9A%D0%90%D0%A4%20%28%D0%9A%D0%B0%D1%84%29.mp3",
+  51: "%D0%A1%D1%83%D1%80%D0%B0%20051%20%E2%80%94%20%D0%90%D0%97-%D0%97%D0%90%D0%A0%D0%98%D0%99%D0%90%D0%A2%20%28%D0%A0%D0%B0%D1%81%D1%81%D0%B5%D0%B8%D0%B2%D0%B0%D1%8E%D1%89%D0%B8%D0%B5%20%D0%9F%D1%80%D0%B0%D1%85%29.mp3",
+  52: "%D0%A1%D1%83%D1%80%D0%B0%20052%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%A3%D0%A0%20%28%D0%93%D0%BE%D1%80%D0%B0%29.mp3",
+  53: "%D0%A1%D1%83%D1%80%D0%B0%20053%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%94%D0%96%D0%9C%20%28%D0%97%D0%B2%D0%B5%D0%B7%D0%B4%D0%B0%29.mp3",
+  54: "%D0%A1%D1%83%D1%80%D0%B0%20054%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%9C%D0%90%D0%A0%20%28%D0%9C%D0%B5%D1%81%D1%8F%D1%86%29.mp3",
+  55: "%D0%A1%D1%83%D1%80%D0%B0%20055%20%E2%80%94%20%D0%90%D0%A0-%D0%A0%D0%90%D0%A5%D0%9C%D0%90%D0%9D%20%28%D0%9C%D0%B8%D0%BB%D0%BE%D1%81%D1%82%D0%B8%D0%B2%D1%8B%D0%B9%29.mp3",
+  56: "%D0%A1%D1%83%D1%80%D0%B0%20056%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%92%D0%90%D0%9A%D0%98%D0%90%20%28%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5%29.mp3",
+  57: "%D0%A1%D1%83%D1%80%D0%B0%20057%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%90%D0%94%D0%98%D0%94%20%28%D0%96%D0%B5%D0%BB%D0%B5%D0%B7%D0%BE%29.mp3",
+  58: "%D0%A1%D1%83%D1%80%D0%B0%20058%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%94%D0%96%D0%90%D0%94%D0%98%D0%9B%D0%90%20%28%D0%9F%D1%80%D0%B5%D0%BF%D0%B8%D1%80%D0%B0%D1%8E%D1%89%D0%B0%D1%8F%D1%81%D1%8F%29.mp3",
+  59: "%D0%A1%D1%83%D1%80%D0%B0%20059%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%90%D0%A8%D0%A0%20%28%D0%A1%D0%B1%D0%BE%D1%80%29.mp3",
+  60: "%D0%A1%D1%83%D1%80%D0%B0%20060%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%9C%D0%A2%D0%90%D0%A5%D0%90%D0%9D%D0%90%20%28%D0%98%D1%81%D0%BF%D1%8B%D1%82%D1%83%D0%B5%D0%BC%D0%B0%D1%8F%29.mp3",
+  61: "%D0%A1%D1%83%D1%80%D0%B0%20061%20%E2%80%94%20%D0%90%D0%A1-%D0%A1%D0%90%D0%A4%D0%A4%20%28%D0%A0%D1%8F%D0%B4%D1%8B%29.mp3",
+  62: "%D0%A1%D1%83%D1%80%D0%B0%20062%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%94%D0%96%D0%A3%D0%9C%D0%A3%D0%90%20%28%D0%A1%D0%BE%D0%B1%D1%80%D0%B0%D0%BD%D0%B8%D0%B5%29.mp3",
+  63: "%D0%A1%D1%83%D1%80%D0%B0%20063%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%9D%D0%90%D0%A4%D0%98%D0%9A%D0%A3%D0%9D%20%28%D0%9B%D0%B8%D1%86%D0%B5%D0%BC%D0%B5%D1%80%D1%8B%29.mp3",
+  64: "%D0%A1%D1%83%D1%80%D0%B0%20064%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%93%D0%90%D0%91%D0%A3%D0%9D%20%28%D0%92%D0%B7%D0%B0%D0%B8%D0%BC%D0%BD%D0%BE%D0%B5%20%D0%9E%D0%B1%D0%B4%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  65: "%D0%A1%D1%83%D1%80%D0%B0%20065%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%9B%D0%90%D0%9A%20%28%D0%A0%D0%B0%D0%B7%D0%B2%D0%BE%D0%B4%29.mp3",
+  66: "%D0%A1%D1%83%D1%80%D0%B0%20066%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%A5%D0%A0%D0%98%D0%9C%20%28%D0%97%D0%B0%D0%BF%D1%80%D0%B5%D1%89%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  67: "%D0%A1%D1%83%D1%80%D0%B0%20067%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%9B%D0%AC%D0%9A%20%28%D0%92%D0%BB%D0%B0%D1%81%D1%82%D1%8C%29.mp3",
+  68: "%D0%A1%D1%83%D1%80%D0%B0%20068%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%9B%D0%90%D0%9C%20%28%D0%9F%D0%B8%D1%81%D1%8C%D0%BC%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%20%D0%A2%D1%80%D0%BE%D1%81%D1%82%D1%8C%29.mp3",
+  69: "%D0%A1%D1%83%D1%80%D0%B0%20069%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%90%D0%9A%D0%9A%D0%90%20%28%D0%9D%D0%B5%D0%BC%D0%B8%D0%BD%D1%83%D0%B5%D0%BC%D0%BE%D0%B5%29.mp3",
+  70: "%D0%A1%D1%83%D1%80%D0%B0%20070%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%90%D0%90%D0%A0%D0%98%D0%94%D0%96%20%28%D0%A1%D1%82%D1%83%D0%BF%D0%B5%D0%BD%D0%B8%29.mp3",
+  71: "%D0%A1%D1%83%D1%80%D0%B0%20071%20%E2%80%94%20%D0%9D%D0%A3%D0%A5%20%28%D0%9D%D0%BE%D0%B9%29.mp3",
+  72: "%D0%A1%D1%83%D1%80%D0%B0%20072%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%94%D0%96%D0%98%D0%9D%D0%9D%20%28%D0%94%D0%B6%D0%B8%D0%BD%D0%BD%D1%8B%29.mp3",
+  73: "%D0%A1%D1%83%D1%80%D0%B0%20073%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%97%D0%97%D0%90%D0%9C%D0%9C%D0%98%D0%9B%D0%AC%20%28%D0%97%D0%B0%D0%BA%D1%83%D1%82%D0%B0%D0%B2%D1%88%D0%B8%D0%B9%D1%81%D1%8F%29.mp3",
+  74: "%D0%A1%D1%83%D1%80%D0%B0%20074%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%94%D0%94%D0%90%D0%A1%D0%A1%D0%98%D0%A0%20%28%D0%97%D0%B0%D0%B2%D0%B5%D1%80%D0%BD%D1%83%D0%B2%D1%88%D0%B8%D0%B9%D1%81%D1%8F%29.mp3",
+  75: "%D0%A1%D1%83%D1%80%D0%B0%20075%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%98%D0%99%D0%90%D0%9C%D0%90%20%28%D0%92%D0%BE%D1%81%D0%BA%D1%80%D0%B5%D1%81%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  76: "%D0%A1%D1%83%D1%80%D0%B0%20076%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%9D%D0%A1%D0%90%D0%9D%20%28%D0%A7%D0%B5%D0%BB%D0%BE%D0%B2%D0%B5%D0%BA%29.mp3",
+  77: "%D0%A1%D1%83%D1%80%D0%B0%20077%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%A0%D0%A1%D0%90%D0%9B%D0%90%D0%A2%20%28%D0%9F%D0%BE%D1%81%D1%8B%D0%BB%D0%B0%D0%B5%D0%BC%D1%8B%D0%B5%29.mp3",
+  78: "%D0%A1%D1%83%D1%80%D0%B0%20078%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%91%D0%90%20%28%D0%92%D0%B5%D1%81%D1%82%D1%8C%29.mp3",
+  79: "%D0%A1%D1%83%D1%80%D0%B0%20079%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%97%D0%98%D0%90%D0%A2%20%28%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B3%D0%B0%D1%8E%D1%89%D0%B8%D0%B5%29.mp3",
+  80: "%D0%A1%D1%83%D1%80%D0%B0%20080%20%E2%80%94%20%D0%90%D0%91%D0%90%D0%A1%D0%90%20%28%D0%9D%D0%B0%D1%85%D0%BC%D1%83%D1%80%D0%B8%D0%BB%D1%81%D1%8F%29.mp3",
+  81: "%D0%A1%D1%83%D1%80%D0%B0%20081%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%9A%D0%92%D0%98%D0%A0%20%28%D0%A1%D0%BA%D1%80%D1%83%D1%87%D0%B8%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5%29.mp3",
+  82: "%D0%A1%D1%83%D1%80%D0%B0%20082%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%9D%D0%A4%D0%98%D0%A2%D0%90%D0%A0%20%28%D0%A0%D0%B0%D1%81%D0%BA%D0%B0%D0%BB%D1%8B%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5%29.mp3",
+  83: "%D0%A1%D1%83%D1%80%D0%B0%20083%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%A3%D0%A2%D0%90%D0%A4%D0%A4%D0%98%D0%A4%D0%98%D0%9D%20%28%D0%9E%D0%B1%D0%B2%D0%B5%D1%88%D0%B8%D0%B2%D0%B0%D1%8E%D1%89%D0%B8%D0%B5%29.mp3",
+  84: "%D0%A1%D1%83%D1%80%D0%B0%20084%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%9D%D0%A8%D0%98%D0%9A%D0%90%D0%9A%20%28%D0%A0%D0%B0%D0%B7%D0%B2%D0%B5%D1%80%D0%B7%D0%BD%D0%B5%D1%82%D1%81%D1%8F%29.mp3",
+  85: "%D0%A1%D1%83%D1%80%D0%B0%20085%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%91%D0%A3%D0%A0%D0%A3%D0%94%D0%96%20%28%D0%A1%D0%BE%D0%B7%D0%B2%D0%B5%D0%B7%D0%B4%D0%B8%D1%8F%20%D0%97%D0%BE%D0%B4%D0%B8%D0%B0%D0%BA%D0%B0%29.mp3",
+  86: "%D0%A1%D1%83%D1%80%D0%B0%20086%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%A0%D0%98%D0%9A%20%28%D0%9D%D0%BE%D1%87%D0%BD%D0%BE%D0%B9%20%D0%9F%D1%83%D1%82%D0%BD%D0%B8%D0%BA%29.mp3",
+  87: "%D0%A1%D1%83%D1%80%D0%B0%20087%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9B%D0%AF%20%28%D0%92%D1%81%D0%B5%D0%B2%D1%8B%D1%88%D0%BD%D0%B8%D0%B9%29.mp3",
+  88: "%D0%A1%D1%83%D1%80%D0%B0%20088%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%93%D0%90%D0%A8%D0%98%D0%99%D0%90%20%28%D0%9F%D0%BE%D0%BA%D1%80%D1%8B%D0%B2%D0%B0%D1%8E%D1%89%D0%B5%D0%B5%29.mp3",
+  89: "%D0%A1%D1%83%D1%80%D0%B0%20089%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%90%D0%94%D0%96%D0%A0%20%28%D0%97%D0%B0%D1%80%D1%8F%29.mp3",
+  90: "%D0%A1%D1%83%D1%80%D0%B0%20090%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%91%D0%90%D0%9B%D0%90%D0%94%20%28%D0%93%D0%BE%D1%80%D0%BE%D0%B4%29.mp3",
+  91: "%D0%A1%D1%83%D1%80%D0%B0%20091%20%E2%80%94%20%D0%90%D0%A8-%D0%A8%D0%90%D0%9C%D0%A1%20%28%D0%A1%D0%BE%D0%BB%D0%BD%D1%86%D0%B5%29.mp3",
+  92: "%D0%A1%D1%83%D1%80%D0%B0%20092%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9B%D0%95%D0%99%D0%9B%20%28%D0%9D%D0%BE%D1%87%D1%8C%29.mp3",
+  93: "%D0%A1%D1%83%D1%80%D0%B0%20093%20%E2%80%94%20%D0%90%D0%94-%D0%94%D0%A3%D0%A5%D0%90%20%28%D0%A3%D1%82%D1%80%D0%BE%29.mp3",
+  94: "%D0%A1%D1%83%D1%80%D0%B0%20094%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%9D%D0%A8%D0%98%D0%A0%D0%90%D0%A5%20%28%D0%A0%D0%B0%D1%81%D0%BA%D1%80%D1%8B%D1%82%D0%B8%D0%B5%29.mp3",
+  95: "%D0%A1%D1%83%D1%80%D0%B0%20095%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%98%D0%9D%20%28%D0%A1%D0%BC%D0%BE%D0%BA%D0%BE%D0%B2%D0%BD%D0%B8%D1%86%D0%B0%29.mp3",
+  96: "%D0%A1%D1%83%D1%80%D0%B0%20096%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%9B%D0%90%D0%9A%20%28%D0%A1%D0%B3%D1%83%D1%81%D1%82%D0%BE%D0%BA%20%D0%9A%D1%80%D0%BE%D0%B2%D0%B8%29.mp3",
+  97: "%D0%A1%D1%83%D1%80%D0%B0%20097%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%94%D0%A0%20%28%D0%9F%D1%80%D0%B5%D0%B4%D0%BE%D0%BF%D1%80%D0%B5%D0%B4%D0%B5%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  98: "%D0%A1%D1%83%D1%80%D0%B0%20098%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%91%D0%95%D0%99%D0%99%D0%98%D0%9D%D0%90%20%28%D0%AF%D1%81%D0%BD%D0%BE%D0%B5%20%D0%97%D0%BD%D0%B0%D0%BC%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  99: "%D0%A1%D1%83%D1%80%D0%B0%20099%20%E2%80%94%20%D0%90%D0%97-%D0%97%D0%90%D0%9B%D0%97%D0%90%D0%9B%D0%90%20%28%D0%A1%D0%BE%D1%82%D1%80%D1%8F%D1%81%D0%B5%D0%BD%D0%B8%D0%B5%29.mp3",
+  100: "%D0%A1%D1%83%D1%80%D0%B0%20100%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%94%D0%98%D0%99%D0%90%D0%A2%20%28%D0%A1%D0%BA%D0%B0%D1%87%D1%83%D1%89%D0%B8%D0%B5%29.mp3",
+  101: "%D0%A1%D1%83%D1%80%D0%B0%20101%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%A0%D0%98%D0%90%20%28%D0%92%D0%B5%D0%BB%D0%B8%D0%BA%D0%BE%D0%B5%20%D0%91%D0%B5%D0%B4%D1%81%D1%82%D0%B2%D0%B8%D0%B5%29.mp3",
+  102: "%D0%A1%D1%83%D1%80%D0%B0%20102%20%E2%80%94%20%D0%90%D0%A2-%D0%A2%D0%90%D0%9A%D0%90%D0%A1%D0%A3%D0%A0%20%28%D0%A1%D1%82%D1%80%D0%B0%D1%81%D1%82%D1%8C%20%D0%9A%20%D0%9F%D1%80%D0%B8%D1%83%D0%BC%D0%BD%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%29.mp3",
+  103: "%D0%A1%D1%83%D1%80%D0%B0%20103%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%90%D0%A1%D0%A0%20%28%D0%9F%D1%80%D0%B5%D0%B4%D0%B2%D0%B5%D1%87%D0%B5%D1%80%D0%BD%D0%B5%D0%B5%20%D0%92%D1%80%D0%B5%D0%BC%D1%8F%29.mp3",
+  104: "%D0%A1%D1%83%D1%80%D0%B0%20104%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A5%D0%A3%D0%9C%D0%90%D0%97%D0%90%20%28%D0%A5%D1%83%D0%BB%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%29.mp3",
+  105: "%D0%A1%D1%83%D1%80%D0%B0%20105%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%98%D0%9B%D0%AC%20%28%D0%A1%D0%BB%D0%BE%D0%BD%29.mp3",
+  106: "%D0%A1%D1%83%D1%80%D0%B0%20106%20%E2%80%94%20%D0%9A%D0%A3%D0%A0%D0%95%D0%99%D0%A8%20%28%D0%9A%D1%83%D1%80%D0%B5%D0%B9%D1%88%D0%B8%D1%82%D1%8B%29.mp3",
+  107: "%D0%A1%D1%83%D1%80%D0%B0%20107%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%90%D0%A3%D0%9D%20%28%D0%9C%D0%B5%D0%BB%D0%BE%D1%87%D1%8C%29.mp3",
+  108: "%D0%A1%D1%83%D1%80%D0%B0%20108%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%A3%D0%A1%D0%90%D0%A0%20%28%D0%98%D0%B7%D0%BE%D0%B1%D0%B8%D0%BB%D0%B8%D0%B5%29.mp3",
+  109: "%D0%A1%D1%83%D1%80%D0%B0%20109%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9A%D0%90%D0%A4%D0%98%D0%A0%D0%A3%D0%9D%20%28%D0%9D%D0%B5%D0%B2%D0%B5%D1%80%D1%83%D1%8E%D1%89%D0%B8%D0%B5%29.mp3",
+  110: "%D0%A1%D1%83%D1%80%D0%B0%20110%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%A1%D0%A0%20%28%D0%9F%D0%BE%D0%BC%D0%BE%D1%89%D1%8C%29.mp3",
+  111: "%D0%A1%D1%83%D1%80%D0%B0%20111%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%9C%D0%90%D0%A1%D0%90%D0%94%20%28%D0%9F%D0%B0%D0%BB%D1%8C%D0%BC%D0%BE%D0%B2%D1%8B%D0%B5%20%D0%92%D0%BE%D0%BB%D0%BE%D0%BA%D0%BD%D0%B0%29.mp3",
+  112: "%D0%A1%D1%83%D1%80%D0%B0%20112%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%98%D0%A5%D0%9B%D0%90%D0%A1%20%28%D0%9E%D1%87%D0%B8%D1%89%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%92%D0%B5%D1%80%D1%8B%29.mp3",
+  113: "%D0%A1%D1%83%D1%80%D0%B0%20113%20%E2%80%94%20%D0%90%D0%9B%D0%AC-%D0%A4%D0%90%D0%9B%D0%AF%D0%9A%20%28%D0%A0%D0%B0%D1%81%D1%81%D0%B2%D0%B5%D1%82%29.mp3",
+  114: "%D0%A1%D1%83%D1%80%D0%B0%20114%20%E2%80%94%20%D0%90%D0%9D-%D0%9D%D0%90%D0%A1%20%28%D0%9B%D1%8E%D0%B4%D0%B8%29.mp3",
+};
+
+const SURAH_AUDIO_SOURCES = {
+  bn: { base: "https://archive.org/download/alquranwithbanglaaudio/", files: BANGLA_SURAH_FILES, reciter: "Sayed Ismat Toha" },
+  hi: { base: "https://archive.org/download/hindi-translation-of-the-holy-quran-audio/", files: HINDI_SURAH_FILES, reciter: "Abdul Basit / Mohammed Jalandhari" },
+  ru: { base: "https://archive.org/download/russian-translation-al-quran-audio/", files: RUSSIAN_SURAH_FILES, reciter: "Elmir Kuliev" },
+};
+
+function surahAudioUrl(langCode, surahNum) {
+  const src = SURAH_AUDIO_SOURCES[langCode];
+  if (!src) return null;
+  const fname = src.files[surahNum];
+  if (!fname) return null;
+  return `${src.base}${fname}`;
+}
+
+// True if this language has ANY real recorded human audio (per-verse or per-Surah)
+function hasRealVoice(langCode) {
+  return !!REAL_AUDIO_TRANSLATIONS[langCode] || !!SURAH_AUDIO_SOURCES[langCode];
+}
+
 // Find the best MALE voice for a language — falls back to any available voice
 // Common male-voice name hints across Chrome/Edge/Android/iOS voice packs
 const MALE_HINTS = ["male", "david", "mark", "daniel", "james", "george", "fred", "alex", "rishi", "arjun", "hemant", "ravi", "puneet", "hamed", "guy", "matthew"];
@@ -607,6 +999,7 @@ export default function QuranLife() {
   const [audioCurrentVerse, setAudioCurrentVerse] = useState(0);
   const [audioNoVoice, setAudioNoVoice] = useState(false);
   const audioStopRef = useRef(false);
+  const meaningAudioElRef = useRef(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [lastRead, setLastRead] = useState(null);
   const [kidLetter, setKidLetter] = useState(null);
@@ -1208,35 +1601,91 @@ export default function QuranLife() {
   const stopAudioPlayback = useCallback(() => {
     audioStopRef.current = true;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (meaningAudioElRef.current) { meaningAudioElRef.current.pause(); meaningAudioElRef.current = null; }
     setAudioPlaying(false);
     setAudioCurrentVerse(0);
   }, []);
 
+  // Play one real MP3 verse, resolving when it finishes — mirrors the
+  // proven Arabic-audio continuous-playback pattern (ended + timeupdate +
+  // duration-timer safety net, never silently stalls)
+  const playRealAudioVerse = useCallback((url) => {
+    return new Promise((resolve) => {
+      const audio = new Audio(url);
+      meaningAudioElRef.current = audio;
+      let fallbackTimer = null;
+      let finished = false;
+      const done = (ok) => {
+        if (finished) return;
+        finished = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        meaningAudioElRef.current = null;
+        resolve(ok);
+      };
+      audio.addEventListener("loadedmetadata", () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          fallbackTimer = setTimeout(() => done(true), (audio.duration * 1000) + 500);
+        }
+      });
+      audio.addEventListener("ended", () => done(true));
+      audio.addEventListener("error", () => done(false));
+      audio.play().catch(() => done(false));
+    });
+  }, []);
+
   const playAudioSurah = useCallback(async () => {
-    if (!("speechSynthesis" in window)) return;
     audioStopRef.current = false;
     setAudioPlaying(true);
     setAudioNoVoice(false);
 
-    // Check if a voice exists for this language at all
+    const surahVerses = await fetchVerses(audioSurah, "en", null);
+    const hasRealAudio = !!REAL_AUDIO_TRANSLATIONS[audioLang];
+    const hasSurahAudio = !!SURAH_AUDIO_SOURCES[audioLang];
+
+    // ── PATH 1: Real recorded human male voice, per verse (best quality) ──
+    if (hasRealAudio) {
+      for (let i = 0; i < surahVerses.length; i++) {
+        if (audioStopRef.current) break;
+        const v = surahVerses[i];
+        setAudioCurrentVerse(v.number);
+        const url = realAudioUrl(audioLang, audioSurah, v.number);
+        const ok = await playRealAudioVerse(url);
+        if (!ok && !audioStopRef.current) {
+          // A verse file was missing/broken — skip forward rather than stall
+          continue;
+        }
+      }
+      if (!audioStopRef.current) { setAudioPlaying(false); setAudioCurrentVerse(0); }
+      return;
+    }
+
+    // ── PATH 1B: Real recorded human male voice, whole Surah in one file ──
+    if (hasSurahAudio) {
+      const url = surahAudioUrl(audioLang, audioSurah);
+      setAudioCurrentVerse(1);
+      if (url) await playRealAudioVerse(url);
+      if (!audioStopRef.current) { setAudioPlaying(false); setAudioCurrentVerse(0); }
+      return;
+    }
+
+    // ── PATH 2: No real recording exists — strict male-voice-only TTS ──
+    if (!("speechSynthesis" in window)) { setAudioPlaying(false); return; }
     const voices = window.speechSynthesis.getVoices();
     const locale = SPEECH_LOCALE[audioLang] || "en-US";
-    const hasVoice = voices.some(v => v.lang === locale || v.lang.startsWith(audioLang));
-    if (!hasVoice && audioLang !== "en") {
+    const hasAnyVoice = voices.some(v => v.lang === locale || v.lang.startsWith(audioLang));
+    const hasMaleVoice = !!findMaleVoice(audioLang);
+    if (!hasAnyVoice || !hasMaleVoice) {
+      // Never fall back to a female voice — refuse clearly instead
       setAudioNoVoice(true);
       setAudioPlaying(false);
       return;
     }
 
-    const surahVerses = await fetchVerses(audioSurah, "en", null); // Arabic text base, English fallback
     const sName = SURAHS.find(s => s.n === audioSurah)?.name || "";
-
     for (let i = 0; i < surahVerses.length; i++) {
       if (audioStopRef.current) break;
       const v = surahVerses[i];
       setAudioCurrentVerse(v.number);
-
-      // Get translation — reuse existing cache/AI if available, else translate now
       const key = `${audioSurah}-${v.number}-translation-${audioLang}`;
       let text = cache[key]?.text;
       if (!text) {
@@ -1248,38 +1697,34 @@ export default function QuranLife() {
       }
       if (audioStopRef.current) break;
       if (!text) continue;
-
-      // Speak and wait for it to finish before moving to next verse
-      await new Promise(resolve => {
-        speakInLang(text, audioLang, resolve);
-      });
+      await new Promise(resolve => { speakInLang(text, audioLang, resolve); });
     }
     if (!audioStopRef.current) { setAudioPlaying(false); setAudioCurrentVerse(0); }
-  }, [audioLang, audioSurah, cache]);
+  }, [audioLang, audioSurah, cache, playRealAudioVerse]);
 
   const AudioSheet = () => showAudioSheet ? (
     <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) { stopAudioPlayback(); setShowAudioSheet(false); } }}>
       <div className="sheet">
         <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🔊 Meaning Audio</div>
-        <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 16 }}>Listen to the verse translation read aloud in your chosen language — continuously, until you press Stop.</div>
+        <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 16 }}>Languages marked 🎙️ use a real recorded human reciter, continuous like the Arabic audio. Others use your device's male voice only — never female.</div>
 
         {/* Language picker */}
         <div style={{ fontSize: 11, fontWeight: 700, color: G, marginBottom: 6, textTransform: "uppercase", letterSpacing: .5 }}>Language</div>
         <select value={audioLang} onChange={e => {
           const newLang = e.target.value;
           setAudioLang(newLang);
-          if ("speechSynthesis" in window && newLang !== "en") {
-            const voices = window.speechSynthesis.getVoices();
-            const locale = SPEECH_LOCALE[newLang] || "en-US";
-            const hasVoice = voices.some(v => v.lang === locale || v.lang.startsWith(newLang));
-            setAudioNoVoice(!hasVoice);
-          } else {
+          if (hasRealVoice(newLang)) {
+            // Real recording exists — always works, no device voice needed
             setAudioNoVoice(false);
+          } else if ("speechSynthesis" in window) {
+            setAudioNoVoice(!findMaleVoice(newLang));
+          } else {
+            setAudioNoVoice(true);
           }
         }} disabled={audioPlaying}
           style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 14, background: audioPlaying ? "#f4f4f4" : "#fff" }}>
-          {LANGS.map(l => <option key={l.c} value={l.c}>{l.na} — {l.n}</option>)}
+          {LANGS.map(l => <option key={l.c} value={l.c}>{hasRealVoice(l.c) ? "🎙️ " : ""}{l.na} — {l.n}{hasRealVoice(l.c) ? " (Real Voice)" : ""}</option>)}
         </select>
 
         {/* Surah picker */}
@@ -1291,7 +1736,7 @@ export default function QuranLife() {
 
         {audioNoVoice && (
           <div style={{ padding: "10px 12px", background: "#fff3cd", border: ".5px solid #ffc107", borderRadius: 9, fontSize: 12, color: "#856404", marginBottom: 14 }}>
-            ⚠️ No voice recording exists for this language on your device yet. Please select another language, or install this language's voice pack: Android → Settings → System → Languages → Text-to-speech → Install voice data. iPhone → Settings → Accessibility → Spoken Content → Voices → download this language.
+            ⚠️ No male voice available for this language — no real recording exists, and your device has no male voice installed. We never substitute a female voice. Please select another language (look for 🎙️ Real Voice options — those are always available), or install a male voice pack: Android → Settings → System → Languages → Text-to-speech. iPhone → Settings → Accessibility → Spoken Content → Voices.
           </div>
         )}
 
