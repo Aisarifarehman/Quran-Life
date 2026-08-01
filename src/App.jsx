@@ -191,6 +191,51 @@ const LANGS = [
   {c:"jv",n:"Javanese",na:"Basa Jawa"},
 ];
 
+// ─── COUNTRIES → LANGUAGES (only codes that exist in LANGS) ───
+const COUNTRIES = [
+  {id:"in",flag:"🇮🇳",name:"India",langs:["hi","ur","bn","ta","te","ml","gu","pa","en"]},
+  {id:"pk",flag:"🇵🇰",name:"Pakistan",langs:["ur","pa","sd","ps","en"]},
+  {id:"bd",flag:"🇧🇩",name:"Bangladesh",langs:["bn","en"]},
+  {id:"sa",flag:"🇸🇦",name:"Saudi Arabia",langs:["ar"]},
+  {id:"ae",flag:"🇦🇪",name:"UAE",langs:["ar","en","ur","hi","ml","tl"]},
+  {id:"id",flag:"🇮🇩",name:"Indonesia",langs:["id","jv"]},
+  {id:"my",flag:"🇲🇾",name:"Malaysia",langs:["ms","en","ta","zh"]},
+  {id:"tr",flag:"🇹🇷",name:"Turkey",langs:["tr"]},
+  {id:"ir",flag:"🇮🇷",name:"Iran",langs:["fa"]},
+  {id:"af",flag:"🇦🇫",name:"Afghanistan",langs:["ps","fa","uz"]},
+  {id:"ng",flag:"🇳🇬",name:"Nigeria",langs:["ha","yo","en"]},
+  {id:"eg",flag:"🇪🇬",name:"Egypt",langs:["ar"]},
+  {id:"us",flag:"🇺🇸",name:"USA / UK",langs:["en","es"]},
+  {id:"fr",flag:"🇫🇷",name:"France",langs:["fr","ar"]},
+  {id:"de",flag:"🇩🇪",name:"Germany",langs:["de","tr"]},
+  {id:"es",flag:"🇪🇸",name:"Spain",langs:["es"]},
+  {id:"cn",flag:"🇨🇳",name:"China",langs:["zh"]},
+  {id:"jp",flag:"🇯🇵",name:"Japan",langs:["ja"]},
+  {id:"kr",flag:"🇰🇷",name:"South Korea",langs:["ko"]},
+  {id:"ru",flag:"🇷🇺",name:"Russia",langs:["ru"]},
+  {id:"br",flag:"🇧🇷",name:"Brazil / Portugal",langs:["pt"]},
+  {id:"it",flag:"🇮🇹",name:"Italy",langs:["it"]},
+  {id:"np",flag:"🇳🇵",name:"Nepal",langs:["ne","hi"]},
+  {id:"mm",flag:"🇲🇲",name:"Myanmar",langs:["my"]},
+  {id:"so",flag:"🇸🇴",name:"Somalia",langs:["so","ar"]},
+  {id:"ke",flag:"🇰🇪",name:"Kenya / Tanzania",langs:["sw","en"]},
+  {id:"al",flag:"🇦🇱",name:"Albania / Kosovo",langs:["sq"]},
+  {id:"ua",flag:"🇺🇦",name:"Ukraine",langs:["uk","ru"]},
+  {id:"gr",flag:"🇬🇷",name:"Greece",langs:["el"]},
+  {id:"il",flag:"🇮🇱",name:"Israel / Palestine",langs:["he","ar"]},
+  {id:"fi",flag:"🇫🇮",name:"Finland",langs:["fi","sv"]},
+  {id:"se",flag:"🇸🇪",name:"Sweden",langs:["sv"]},
+  {id:"ph",flag:"🇵🇭",name:"Philippines",langs:["tl","en"]},
+  {id:"et",flag:"🇪🇹",name:"Ethiopia",langs:["am","so"]},
+  {id:"za",flag:"🇿🇦",name:"South Africa",langs:["zu","af","en"]},
+  {id:"ba",flag:"🇧🇦",name:"Bosnia",langs:["bs"]},
+  {id:"kz",flag:"🇰🇿",name:"Kazakhstan",langs:["kk","ru"]},
+  {id:"uz",flag:"🇺🇿",name:"Uzbekistan",langs:["uz","ru"]},
+  {id:"mn",flag:"🇲🇳",name:"Mongolia",langs:["mn"]},
+  {id:"kh",flag:"🇰🇭",name:"Cambodia",langs:["km"]},
+  {id:"tj",flag:"🇹🇯",name:"Tajikistan",langs:["tg","ru"]},
+];
+
 const QARIS = [
   {id:"ar.alafasy",name:"Mishary Alafasy",short:"Mishary",origin:"Kuwait"},
   {id:"ar.abdurrahmanassudais",name:"Abdul Rahman Al-Sudais",short:"Al-Sudais",origin:"Saudi Arabia"},
@@ -484,6 +529,7 @@ export default function QuranLife() {
   const [kidLetter, setKidLetter] = useState(null);
   const [learned, setLearned] = useState([]);
   const [langSearch, setLangSearch] = useState("");
+  const [langCountry, setLangCountry] = useState("all");
   const [gotoPage, setGotoPage] = useState("");
   const audioRef = useRef(null);
 
@@ -492,9 +538,11 @@ export default function QuranLife() {
   const curSurah = SURAHS.find(s => s.n === surahNum);
   const nextPrayer = getNextPrayer();
 
+  const countryLangCodes = langCountry === "all" ? null : (COUNTRIES.find(c => c.id === langCountry)?.langs || null);
   const filteredLangs = LANGS.filter(l =>
-    l.n.toLowerCase().includes(langSearch.toLowerCase()) ||
-    l.na.toLowerCase().includes(langSearch.toLowerCase())
+    (!countryLangCodes || countryLangCodes.includes(l.c)) &&
+    (l.n.toLowerCase().includes(langSearch.toLowerCase()) ||
+     l.na.toLowerCase().includes(langSearch.toLowerCase()))
   );
 
   const filtered = SURAHS.filter(s => {
@@ -899,7 +947,7 @@ export default function QuranLife() {
             <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
               style={{ width: 36, height: 36, borderRadius: "50%", background: G, color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>A-</button>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div className="ar" style={{ fontSize: fontSize, color: G, lineHeight: 1.4 }}>بِسْمِ اللَّهِ</div>
+              <div className="ar" style={{ fontSize: fontSize, color: G, lineHeight: 1.4 }}>بِسْمِ ٱللَّهِ</div>
               <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 4 }}>Size: {fontSize}px</div>
             </div>
             <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
@@ -920,6 +968,19 @@ export default function QuranLife() {
       <div className="sheet">
         <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🌍 Select Language</div>
+        {/* Country filter dropdown */}
+        <select value={langCountry} onChange={e => { setLangCountry(e.target.value); setLangSearch(""); }}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${langCountry !== "all" ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 8, background: langCountry !== "all" ? "#f0faf5" : "#fff", color: "#1a1a1a", fontWeight: langCountry !== "all" ? 600 : 400, cursor: "pointer" }}>
+          <option value="all">🌐 All Countries — show every language</option>
+          {COUNTRIES.map(c => (
+            <option key={c.id} value={c.id}>{c.flag} {c.name}</option>
+          ))}
+        </select>
+        {langCountry !== "all" && (
+          <div style={{ fontSize: 11, color: G, fontWeight: 600, marginBottom: 8 }}>
+            Showing {filteredLangs.length} language{filteredLangs.length !== 1 ? "s" : ""} of {COUNTRIES.find(c => c.id === langCountry)?.name}
+          </div>
+        )}
         <input placeholder="Search language..." value={langSearch} onChange={e => setLangSearch(e.target.value)}
           style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 10 }} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: "55vh", overflowY: "auto" }}>
@@ -1039,9 +1100,17 @@ export default function QuranLife() {
         {bookmarks.length === 0
           ? <div style={{ padding: "24px 0", textAlign: "center", color: "#9ba5b0", fontSize: 13 }}>No bookmarks yet. Tap 🔖 on any verse while reading.</div>
           : bookmarks.map((b, i) => (
-            <div key={i} onClick={() => { openSurah(b.sn); setShowBkSheet(false); }}
-              style={{ padding: "10px 12px", borderRadius: 10, background: "#fdf8ff", border: ".5px solid #d8b4fe", marginBottom: 8, cursor: "pointer" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#8e44ad", marginBottom: 4 }}>{b.sname} · Verse {b.vn}</div>
+            <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "#fdf8ff", border: ".5px solid #d8b4fe", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#8e44ad" }}>{b.sname} · Verse {b.vn}</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button onClick={() => { openSurah(b.sn); setShowBkSheet(false); }}
+                    style={{ fontSize: 11, padding: "4px 12px", borderRadius: 12, background: G, color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}>Read</button>
+                  <button onClick={e => { e.stopPropagation(); toggleBk(b.sn, b.sname, b.vn, b.arabic, b.translation); }}
+                    title="Remove this bookmark"
+                    style={{ width: 24, height: 24, borderRadius: "50%", background: "#fee2e2", border: ".5px solid #fca5a5", color: "#dc2626", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                </div>
+              </div>
               <div className="ar" style={{ fontSize: 16, color: "#1a1a1a", direction: "rtl", textAlign: "right", lineHeight: 1.9 }}>{b.arabic}</div>
             </div>
           ))
@@ -1219,7 +1288,7 @@ export default function QuranLife() {
       </div>
       <div style={{ height: 14 }} />
       <Nav />
-      <SettingsSheet /><LangSheet /><QariSheet /><PrayerSheet /><JuzSheet /><GotoSheet /><BkSheet />
+      {SettingsSheet()}{LangSheet()}{QariSheet()}{PrayerSheet()}{JuzSheet()}{GotoSheet()}{BkSheet()}
     </div>
   );
 
@@ -1272,7 +1341,7 @@ export default function QuranLife() {
         {/* Bismillah */}
         {s.n !== 1 && s.n !== 9 && (
           <div style={{ textAlign: "center", padding: "13px 0 9px", background: mushafMode ? "#fdf6e3" : "#fff", borderBottom: ".5px solid #e4e8e2" }}>
-            <div className="ar" style={{ fontSize: 22, color: mushafMode ? "#8b6914" : G }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+            <div className="ar" style={{ fontSize: 22, color: mushafMode ? "#8b6914" : G }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>
           </div>
         )}
 
@@ -1483,7 +1552,7 @@ export default function QuranLife() {
           })}
         </div>
         <Nav readOn />
-        <SettingsSheet /><LangSheet /><QariSheet /><BkSheet />
+        {SettingsSheet()}{LangSheet()}{QariSheet()}{BkSheet()}
 
         {/* Continue Dialog — small toast near bottom, not full screen */}
         {continueDialog && (
