@@ -129,7 +129,6 @@ const SURAHS = [
 ];
 
 // Language → Quran.com translation ID mapping
-// Dynamically loaded from Quran.com API on startup — no hardcoded guesses
 const LANG_TRANSLATIONS = { en: 131, ar: null };
 
 // Preferred author keywords per language for picking best translation
@@ -139,7 +138,7 @@ const PREF = {
   ms:["basmeih","malay"],bn:["bengali"],fa:["makarem","ansarian"],
   ru:["kuliev","osmanov"],zh:["makin","chinese"],pt:["nasr"],it:["piccardo"],
   nl:["keyzer"],pl:["bielawski"],ko:["korean"],ja:["japanese"],
-  sw:["swahili"],bs:["korkut"],uk:["ukrainian"],
+  sw:["swahili"],bs:["korkut"],uk:["ukrainian"],ne:["nepali"]
 };
 
 async function loadTranslationIDs() {
@@ -147,14 +146,12 @@ async function loadTranslationIDs() {
     const r = await fetch("https://api.quran.com/api/v4/resources/translations");
     if (!r.ok) return;
     const d = await r.json();
-    // Group by language name
     const byLang = {};
     for (const t of (d.translations || [])) {
       const lc = (t.language_name || "").toLowerCase();
       if (!byLang[lc]) byLang[lc] = [];
       byLang[lc].push(t);
     }
-    // Language code -> API language name mapping
     const MAP = {
       ur:"urdu", hi:"hindi", fr:"french", de:"german", es:"spanish",
       tr:"turkish", id:"indonesian", ms:"malay", bn:"bengali", fa:"persian",
@@ -182,9 +179,8 @@ async function loadTranslationIDs() {
       if (!best) best = list[0];
       if (best) LANG_TRANSLATIONS[code] = best.id;
     }
-  } catch (e) { /* silently fail — English always works */ }
+  } catch (e) { /* silently fail */ }
 }
-// Run immediately when app loads
 loadTranslationIDs();
 
 const LANGS = [
@@ -238,7 +234,6 @@ const LANGS = [
   {c:"jv",n:"Javanese",na:"Basa Jawa"},
 ];
 
-// ─── COUNTRIES → LANGUAGES (only codes that exist in LANGS) ───
 const COUNTRIES = [
   {id:"in",flag:"🇮🇳",name:"India",langs:["hi","ur","bn","ta","te","ml","gu","pa","en"]},
   {id:"pk",flag:"🇵🇰",name:"Pakistan",langs:["ur","pa","sd","ps","en"]},
@@ -277,7 +272,7 @@ const COUNTRIES = [
   {id:"za",flag:"🇿🇦",name:"South Africa",langs:["zu","af","en"]},
   {id:"ba",flag:"🇧🇦",name:"Bosnia",langs:["bs"]},
   {id:"kz",flag:"🇰🇿",name:"Kazakhstan",langs:["kk","ru"]},
-  {id:"uz",flag:"🇺🇿",name:"Uzbekistan",langs:["uz","ru"]},
+  {id:"uz",flag:"🇺ℤ",name:"Uzbekistan",langs:["uz","ru"]},
   {id:"mn",flag:"🇲🇳",name:"Mongolia",langs:["mn"]},
   {id:"kh",flag:"🇰🇭",name:"Cambodia",langs:["km"]},
   {id:"tj",flag:"🇹🇯",name:"Tajikistan",langs:["tg","ru"]},
@@ -290,8 +285,6 @@ const QARIS = [
   {id:"ar.saadalghamdi",name:"Saad Al-Ghamdi",short:"Al-Ghamdi",origin:"Saudi Arabia"},
 ];
 
-// ─── 15 SAJDAH VERSES ────────────────────────────────────────
-// These are the 14 obligatory + 1 recommended Sajdah verses in the Quran
 const SAJDAH_VERSES = [
   {surah:7, verse:206, type:"wajib"},
   {surah:13, verse:15, type:"wajib"},
@@ -354,7 +347,6 @@ const ARABIC_ALPHA = [
   {l:"ي",n:"Ya",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
 ];
 
-// ─── VERSE CACHE ─────────────────────────────────────────────
 const verseCache = {};
 
 const LANG_NAMES = {
@@ -401,8 +393,9 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  // ALWAYS fetch English 131 — the only verified translation ID
-  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+  const transId = LANG_TRANSLATIONS[langCode] || 131;
+  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=${langCode}&words=false&per_page=300&translations=${transId}&fields=text_uthmani`;
+  
   const r = await fetch(url);
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d = await r.json();
@@ -417,9 +410,7 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
   verseCache[cacheKey] = verses;
 
-  // Every language except English & Arabic: AI translates from English
-  // Chunked (25 verses per call) so even Al-Baqarah (286) translates fully
-  if (langCode !== "en" && langCode !== "ar") {
+  if (!LANG_TRANSLATIONS[langCode] && langCode !== "en" && langCode !== "ar") {
     const langName = LANG_NAMES[langCode] || langCode;
     const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
     if (apiKey) {
@@ -445,7 +436,6 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
   return verses;
 }
-
 
 // ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
 async function askAI(prompt, langName) {
@@ -474,9 +464,7 @@ async function askAI(prompt, langName) {
   return (d.content?.[0]?.text || "").trim();
 }
 
-// ─── AUDIO — 2 fallback URLs ─────────────────────────────────
-// Correct global verse start numbers for each surah (1-indexed)
-// Surah 1 starts at verse 1, Surah 2 starts at verse 8, etc.
+// ─── AUDIO ───────────────────────────────────────────────────
 const SURAH_VERSE_STARTS = {
   1:1, 2:8, 3:294, 4:494, 5:670, 6:790, 7:955, 8:1161, 9:1236, 10:1365,
   11:1474, 12:1597, 13:1708, 14:1751, 15:1804, 16:1902, 17:2030, 18:2141,
@@ -496,20 +484,16 @@ const SURAH_VERSE_STARTS = {
 };
 
 function getAudioUrls(qariId, surahNum, verseNum) {
-  // Calculate correct global verse number
   const startVerse = SURAH_VERSE_STARTS[surahNum] || 1;
   const globalNum = startVerse + verseNum - 1;
   
-  // URL 1: Best — global verse number (verified working)
   const url1 = `https://cdn.islamic.network/quran/audio/128/${qariId}/${globalNum}.mp3`;
-  // URL 2: Everyayah format
   const url2 = `https://everyayah.com/data/${qariId.replace("ar.","")}/${String(surahNum).padStart(3,"0")}${String(verseNum).padStart(3,"0")}.mp3`;
-  // URL 3: mp3quran
   const url3 = `https://server8.mp3quran.net/afs/${String(surahNum).padStart(3,"0")}.mp3`;
   return [url1, url2, url3];
 }
 
-// ─── PRAYER TIMES (approximate) ─────────────────────────────
+// ─── PRAYER TIMES ─────────────────────────────────────────────
 const PRAYER_NAMES = ["Fajr","Sunrise","Dhuhr","Asr","Maghrib","Isha"];
 const PRAYER_TIMES = ["05:12","06:38","12:15","15:45","18:52","20:18"];
 function getNextPrayer() {
@@ -524,12 +508,12 @@ function getNextPrayer() {
 
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
-  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
+  const [screen, setScreen] = useState("home"); 
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
   const [continueDialog, setContinueDialog] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [fontSize, setFontSize] = useState(24); // Arabic font size
+  const [fontSize, setFontSize] = useState(24); 
   const [lang, setLang] = useState("en");
   const [qari, setQari] = useState("ar.alafasy");
   const [verses, setVerses] = useState([]);
@@ -538,9 +522,9 @@ export default function QuranLife() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
-  const [openPanel, setOpenPanel] = useState(null); // verseNum
-  const [activeTab, setActiveTab] = useState("tafsir");
-  const [cache, setCache] = useState({}); // AI content cache
+  const [openPanel, setOpenPanel] = useState(null); 
+  const [activeTab, setActiveTab] = useState("meaning");
+  const [cache, setCache] = useState({}); 
   const [playKey, setPlayKey] = useState(null);
   const [showLang, setShowLang] = useState(false);
   const [showQari, setShowQari] = useState(false);
@@ -590,8 +574,6 @@ export default function QuranLife() {
     setContinueDialog(null);
   }, []);
 
-  // mode: "single" = play one verse only (inside reader)
-  //       "surah"  = play full surah continuously (from home list)
   const playVerse = useCallback((sn, vn, mode = "single", allVerses = null) => {
     stopAudio();
     setContinueDialog(null);
@@ -600,10 +582,10 @@ export default function QuranLife() {
     setPlayKey(key);
 
     let fallbackTimer = null;
-    let finished = false; // prevent double-firing
+    let finished = false;
 
     function handleFinished() {
-      if (finished) return; // already handled
+      if (finished) return; 
       finished = true;
       if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
       setPlayKey(null);
@@ -616,14 +598,12 @@ export default function QuranLife() {
         }
       } else if (mode === "single" && allVerses && allVerses.length > 0) {
           const idx = allVerses.findIndex(v => v.number === vn);
-          // Only show dialog if there IS a next verse
           if (idx >= 0 && idx < allVerses.length - 1) {
             const nextVn = allVerses[idx + 1].number;
             const surahName = SURAHS.find(s => s.n === sn)?.name || "";
             const sajdah = isSajdahVerse(sn, vn);
             setContinueDialog({ sn, vn, nextVn, surahName, sajdah });
           }
-          // Last verse — just stop quietly
         }
     }
 
@@ -631,11 +611,8 @@ export default function QuranLife() {
       const audio = new Audio(url);
       audioRef.current = audio;
 
-      // When metadata loads, set a fallback timer based on duration
-      // This ensures ended always fires even if audio API misses it
       audio.addEventListener("loadedmetadata", () => {
         if (audio.duration && isFinite(audio.duration)) {
-          // Add 800ms buffer after duration
           fallbackTimer = setTimeout(() => {
             if (audioRef.current === audio) handleFinished();
           }, (audio.duration * 1000) + 800);
@@ -647,7 +624,6 @@ export default function QuranLife() {
       });
 
       audio.addEventListener("timeupdate", () => {
-        // Extra safety — if within 0.3s of end, trigger finish
         if (audio.duration && isFinite(audio.duration) &&
             audio.currentTime >= audio.duration - 0.3) {
           if (audioRef.current === audio) handleFinished();
@@ -674,9 +650,7 @@ export default function QuranLife() {
         }
       });
     }
-    // Play Bismillah before verse 1 of any Surah
-    // EXCEPT: Al-Fatiha (1) — its verse 1 IS the Bismillah already
-    // EXCEPT: At-Tawbah (9) — has no Bismillah
+
     if (vn === 1 && sn !== 9 && sn !== 1) {
       const bismillahUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/1.mp3`;
       const bismillah = new Audio(bismillahUrl);
@@ -714,7 +688,6 @@ export default function QuranLife() {
     }
   }, [lang, stopAudio]);
 
-  // Reload verses when language changes while reading
   useEffect(() => {
     if (screen === "read" && surahNum) {
       setVerses([]);
@@ -761,7 +734,7 @@ export default function QuranLife() {
   const openDeepPanel = useCallback((verse) => {
     if (openPanel === verse.number) { setOpenPanel(null); return; }
     setOpenPanel(verse.number);
-    setActiveTab("tafsir");
+    setActiveTab("meaning");
   }, [openPanel]);
 
   const switchTab = useCallback((verse, tab) => {
@@ -769,12 +742,10 @@ export default function QuranLife() {
     if (tab !== "meaning") loadTabContent(verse, tab);
   }, [loadTabContent]);
 
-  // When language changes, clear AI cache for current panel
   const changeLang = useCallback((code) => {
     setLang(code);
     setShowLang(false);
     setLangSearch("");
-    // Clear cached AI content so it reloads in new language
     setCache({});
   }, []);
 
@@ -841,7 +812,6 @@ export default function QuranLife() {
     .fc{padding:5px 12px;border-radius:18px;border:.5px solid #ddd;background:linear-gradient(180deg,#fff 0%,#f0f0f0 100%);color:#5a6472;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 0 #ccc;transition:all .12s}
     .fc:hover{transform:translateY(1px);box-shadow:0 1px 0 #ccc}
     .fc.on{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);border-color:#0f5132;color:#fff;box-shadow:0 2px 0 #072b1a}
-    /* 3D BULGE BUTTONS */
     .btn-3d{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:20px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;position:relative;border:none;outline:none;white-space:nowrap}
     .btn-3d-green{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 60%,#0a3d26 100%);color:#fff;box-shadow:0 4px 0 #072b1a,0 6px 12px rgba(15,81,50,.35);text-shadow:0 1px 2px rgba(0,0,0,.3)}
     .btn-3d-green:hover{transform:translateY(1px);box-shadow:0 3px 0 #072b1a,0 4px 10px rgba(15,81,50,.3)}
@@ -855,7 +825,6 @@ export default function QuranLife() {
     .btn-3d-outline{background:linear-gradient(180deg,#f5fcf7 0%,#e8f5ee 100%);color:#0f5132;box-shadow:0 3px 0 #0f5132,0 5px 10px rgba(15,81,50,.2);border:.5px solid #0f5132}
     .btn-3d-outline:hover{transform:translateY(1px);box-shadow:0 2px 0 #0f5132}
     .btn-3d-outline:active{transform:translateY(3px);box-shadow:0 0px 0 #0f5132}
-    /* Quick links grid — no overflow */
     .ql-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
     .qpill{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:linear-gradient(180deg,#fff 0%,#f5fcf7 100%);border-radius:12px;border:.5px solid #d4e8da;cursor:pointer;text-align:center;transition:all .12s;box-shadow:0 3px 0 #0f513222,0 5px 10px rgba(15,81,50,.08)}
     .qpill:hover{transform:translateY(1px);box-shadow:0 2px 0 #0f513222,0 3px 7px rgba(15,81,50,.08)}
@@ -907,7 +876,7 @@ export default function QuranLife() {
     return null;
   };
 
-  const Nav = ({ readOn = false }) => (
+  const Nav = () => (
     <div className="nav">
       {[["🏠","Home","home"],["📖","Read","read"],["🎓","Kids","kids"],["🔖","Saved","bookmarks"],["⚙️","More","more"]].map(([icon, label, id]) => (
         <div key={id} className={`ni${navTab === id ? " on" : ""}`} onClick={() => {
@@ -930,7 +899,6 @@ export default function QuranLife() {
         <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 16px" }} />
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>⚙️ Settings</div>
 
-        {/* Language */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🌍 Language</div>
           <button onClick={() => { setShowSettings(false); setShowLang(true); }}
@@ -940,7 +908,6 @@ export default function QuranLife() {
           </button>
         </div>
 
-        {/* Qari */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🎙 Reciter (Qari)</div>
           <button onClick={() => { setShowSettings(false); setShowQari(true); }}
@@ -950,7 +917,6 @@ export default function QuranLife() {
           </button>
         </div>
 
-        {/* Display */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🎨 Display</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -965,7 +931,6 @@ export default function QuranLife() {
           </div>
         </div>
 
-        {/* Font Size */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🔡 Arabic Font Size</div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, border: ".5px solid #e2e8e4", background: "#fafafa" }}>
@@ -993,7 +958,6 @@ export default function QuranLife() {
       <div className="sheet">
         <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🌍 Select Language</div>
-        {/* Country filter dropdown */}
         <select value={langCountry} onChange={e => { setLangCountry(e.target.value); setLangSearch(""); }}
           style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${langCountry !== "all" ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 8, background: langCountry !== "all" ? "#f0faf5" : "#fff", color: "#1a1a1a", fontWeight: langCountry !== "all" ? 600 : 400, cursor: "pointer" }}>
           <option value="all">🌐 All Countries — show every language</option>
@@ -1071,7 +1035,7 @@ export default function QuranLife() {
         <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
           {Array.from({ length: 30 }, (_, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 4px", borderBottom: ".5px solid #f0f0ec", cursor: "pointer" }}
-              onClick={() => { setShowJuz(false); /* In full app navigate to juz */ }}>
+              onClick={() => { setShowJuz(false); }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>Juz {i + 1}</div>
@@ -1147,13 +1111,11 @@ export default function QuranLife() {
   // ── HOME SCREEN ─────────────────────────────────────────────
   const HomeScreen = () => (
     <div className="fade" style={{ paddingBottom: 80 }}>
-      {/* Header */}
       <div style={{ background: `linear-gradient(165deg,#051a0e 0%,${G} 50%,#1a7a45 100%)`, padding: "14px 14px 0", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, opacity: .04 }}>
           <svg width="100%" height="100%"><defs><pattern id="p" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse"><polygon points="25,2 47,14 47,36 25,48 3,36 3,14" fill="none" stroke="#fff" strokeWidth=".6" /></pattern></defs><rect width="100%" height="100%" fill="url(#p)" /></svg>
         </div>
         <div style={{ position: "relative", zIndex: 2 }}>
-          {/* Top bar */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${GOLD},#e8b84b)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>📖</div>
@@ -1168,7 +1130,6 @@ export default function QuranLife() {
               <button className="chip" style={{ fontSize: 10, padding: "4px 8px" }} onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
             </div>
           </div>
-          {/* Prayer bar */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(0,0,0,.15)", borderRadius: 10, marginBottom: 14 }}>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,.6)" }}>{new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}</div>
             <div style={{ textAlign: "right" }}>
@@ -1176,13 +1137,11 @@ export default function QuranLife() {
               <div style={{ fontSize: 13, fontWeight: 700, color: "#e8b84b" }}>{PRAYER_NAMES[nextPrayer]} · {PRAYER_TIMES[nextPrayer]}</div>
             </div>
           </div>
-          {/* Daily verse */}
           <div style={{ textAlign: "center", paddingBottom: 18 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 18, background: "rgba(201,148,58,.18)", border: ".5px solid rgba(201,148,58,.32)", color: "#e8b84b", fontSize: 10, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>✨ Daily Verse · Al-Fatiha 5</div>
             <div className="ar" style={{ fontSize: 26, color: "#e8b84b", lineHeight: 1.8, marginBottom: 5 }}>إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,.6)", fontStyle: "italic" }}>"It is You we worship and You we ask for help."</div>
           </div>
-          {/* Stats */}
           <div style={{ display: "flex", borderTop: ".5px solid rgba(255,255,255,.1)", background: "rgba(0,0,0,.12)" }}>
             {[["114","Surahs"],["6,236","Verses"],["30","Juz"],["48+","Languages"]].map(([n, l]) => (
               <div key={l} style={{ flex: 1, padding: "10px 0", textAlign: "center", borderRight: ".5px solid rgba(255,255,255,.08)" }}>
@@ -1194,516 +1153,285 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — butter smooth */}
       <div style={{ padding: "12px 13px 8px", position: "relative" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search Surah name, meaning, number... 🧈"
-            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", transition: "border-color .2s" }}
-            onFocus={e => e.target.style.borderColor = G} onBlur={e => e.target.style.borderColor = "#ddd"} />
-          {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>}
-        </div>
-        {/* Live search dropdown */}
-        {query && filtered.length > 0 && (
-          <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
-            {filtered.slice(0, 8).map(s => (
-              <div key={s.n} onClick={() => { openSurah(s.n); setQuery(""); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec", transition: "background .1s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.meaning} · {s.verses} verses</div>
-                </div>
-                <div className="ar" style={{ fontSize: 16, color: G }}>{s.ar}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Feature tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, padding: "4px 13px 10px" }}>
-        {/* Resume / Start reading */}
-        <div onClick={() => openSurah(lastRead?.surahN || 1)}
-          style={{ background: `linear-gradient(135deg,${G},#1a7a45)`, borderRadius: 13, padding: 13, cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, boxShadow: "0 4px 14px rgba(15,81,50,.2)" }}>
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,.6)", textTransform: "uppercase", letterSpacing: .8 }}>{lastRead ? "▶ Resume Reading" : "📖 Start Reading"}</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{lastRead ? lastRead.surahName : "Al-Fatiha"}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,.65)" }}>{lastRead ? `Verse ${lastRead.verse}` : "The Opening"}</div>
-          {lastRead && <div style={{ height: 3, background: "rgba(255,255,255,.18)", borderRadius: 2, marginTop: 4 }}><div style={{ height: "100%", width: "30%", background: "#e8b84b", borderRadius: 2 }} /></div>}
-        </div>
-        {/* 4 mini tiles */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          {[
-            { icon: "🎓", label: "Kids\nLearn", bg: "linear-gradient(135deg,#e67e22,#f39c12)", shadow: "rgba(230,126,34,.25)", action: () => { setScreen("kids"); setNavTab("kids"); setKidLetter(null); } },
-            { icon: "🔖", label: `${bookmarks.length}\nSaved`, bg: "linear-gradient(135deg,#8e44ad,#9b59b6)", shadow: "rgba(142,68,173,.25)", action: () => setShowBkSheet(true) },
-            { icon: "📚", label: "Juz\nIndex", bg: "linear-gradient(135deg,#2980b9,#3498db)", shadow: "rgba(41,128,185,.25)", action: () => setShowJuz(true) },
-            { icon: "📄", label: "Go To\nPage", bg: "linear-gradient(135deg,#16a085,#1abc9c)", shadow: "rgba(22,160,133,.25)", action: () => setShowGoto(true) },
-          ].map(({ icon, label, bg, shadow, action }) => (
-            <div key={label} onClick={action} style={{ background: bg, borderRadius: 12, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, boxShadow: `0 3px 10px ${shadow}` }}>
-              <div style={{ fontSize: 22 }}>{icon}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.3, whiteSpace: "pre-line" }}>{label}</div>
-            </div>
-          ))}
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search Surah name, meaning, number..."
+            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff" }} />
+          {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", color: "#9ba5b0", fontSize: 16, cursor: "pointer" }}>✕</button>}
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div style={{ padding: "2px 13px 10px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>⚡ Quick Links</div>
-        <div className="ql-grid">
-          {QUICK_LINKS.map(q => (
-            <div key={q.name} className="qpill" onClick={() => openSurah(q.surah)}>
-              <div style={{ fontSize: 20 }}>{q.icon}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }}>{q.name}</div>
-              <div className="ar" style={{ fontSize: 12, color: G }}>{q.ar}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 6, padding: "4px 13px 8px", overflowX: "auto" }}>
-        {[["all","All 114"],["meccan","Meccan"],["medinan","Medinan"],["juz30","Juz 30"],["short","Short"],["long","Long"]].map(([v, l]) => (
-          <button key={v} className={`fc${filter === v ? " on" : ""}`} onClick={() => setFilter(v)}>{l}</button>
+      <div style={{ display: "flex", gap: 6, padding: "0 13px 10px", overflowX: "auto" }}>
+        {[["all","All 114"],["meccan","Meccan"],["medinan","Medinan"],["juz30","Juz 30"],["short","Short ≤20"],["long","Long ≥100"]].map(([id, lbl]) => (
+          <button key={id} className={`fc${filter === id ? " on" : ""}`} onClick={() => setFilter(id)}>{lbl}</button>
         ))}
       </div>
 
-      {/* Surah list */}
-      <div style={{ padding: "0 13px 4px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9 }}>All Surahs</div>
-        <div style={{ fontSize: 11, color: "#9ba5b0" }}>{filtered.length} surahs</div>
-      </div>
-      <div style={{ margin: "0 13px", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,.06)" }}>
-        {filtered.length === 0
-          ? <div style={{ padding: "24px 0", textAlign: "center", color: "#9ba5b0", fontSize: 13 }}>No surahs match your search</div>
-          : filtered.map((s, i) => (
-            <div key={s.n} className="srow" style={{ borderBottom: i < filtered.length - 1 ? ".5px solid #f0f0ec" : "none" }}>
-              {/* Number diamond */}
-              <div style={{ width: 32, height: 32, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute" }}><polygon points="16,1.5 30,9 30,23 16,30.5 2,23 2,9" fill="none" stroke={G} strokeWidth="1.1" /></svg>
-                <span style={{ position: "relative", zIndex: 1, fontSize: 10, fontWeight: 700, color: G }}>{s.n}</span>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>
-                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: s.type === "Meccan" ? "#e8f4ee" : "#e8eef8", color: s.type === "Meccan" ? "#1a6b3c" : "#1a4b8c", marginRight: 4 }}>{s.type}</span>
-                  {s.verses}v · Juz {s.juz}
-                </div>
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0, marginRight: 6 }}>
-                <div className="ar" style={{ fontSize: 17, color: G, lineHeight: 1.4 }}>{s.ar}</div>
-                <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
-              </div>
-              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                <button className="pbtn" onClick={async e => {
-                  e.stopPropagation();
-                  stopAudio();
-                  setContinueDialog(null);
-                  // Load verses silently without opening read screen
-                  try {
-                    const v = await fetchVerses(s.n, lang, null);
-                    playVerse(s.n, 1, "surah", v);
-                  } catch(e) {}
-                }}>▶ Play</button>
-                <button className="rbtn" onClick={() => openSurah(s.n)}>Read</button>
-              </div>
+      <div style={{ padding: "0 13px 12px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9ba5b0", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>⚡ Quick Links</div>
+        <div className="ql-grid">
+          {QUICK_LINKS.map(q => (
+            <div key={q.name} className="qpill" onClick={() => openSurah(q.surah)}>
+              <span style={{ fontSize: 18 }}>{q.icon}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: G }}>{q.name}</span>
+              <span className="ar" style={{ fontSize: 12, color: GOLD }}>{q.ar}</span>
             </div>
-          ))
-        }
+          ))}
+        </div>
       </div>
-      <div style={{ height: 14 }} />
-      <Nav />
-      {SettingsSheet()}{LangSheet()}{QariSheet()}{PrayerSheet()}{JuzSheet()}{GotoSheet()}{BkSheet()}
+
+      {lastRead && (
+        <div style={{ margin: "0 13px 12px", padding: "10px 14px", borderRadius: 12, background: "linear-gradient(135deg,#f0faf5,#e6f7ee)", border: `.5px solid ${G}33`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 10, color: G, fontWeight: 700, textTransform: "uppercase" }}>📌 Continue Reading</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{lastRead.surahName} · Verse {lastRead.verse}</div>
+          </div>
+          <button className="btn-3d btn-3d-green" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => openSurah(lastRead.surahN)}>Resume ›</button>
+        </div>
+      )}
+
+      <div style={{ padding: "0 13px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9ba5b0", textTransform: "uppercase", letterSpacing: .8 }}>Surahs ({filtered.length})</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowJuz(true)} style={{ fontSize: 11, color: G, fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}>📚 Juz</button>
+          <button onClick={() => setShowGoto(true)} style={{ fontSize: 11, color: G, fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}>📄 Page</button>
+        </div>
+      </div>
+
+      <div style={{ margin: "0 13px", borderRadius: 14, overflow: "hidden", border: ".5px solid #e2e8e4", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.03)" }}>
+        {filtered.map(s => (
+          <div key={s.n} className="srow" onClick={() => openSurah(s.n)}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: "#f0faf5", border: `.5px solid ${G}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: G, flexShrink: 0 }}>{s.n}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{s.name}</span>
+                <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 8, background: s.type === "Meccan" ? "#fef3c7" : "#dcfce7", color: s.type === "Meccan" ? "#d97706" : "#15803d", fontWeight: 600 }}>{s.type}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 2 }}>{s.meaning} · {s.verses} v</div>
+            </div>
+            <div className="ar" style={{ fontSize: 18, color: G, flexShrink: 0, marginLeft: 8 }}>{s.ar}</div>
+            <button className="pbtn" style={{ marginLeft: 6 }} onClick={e => { e.stopPropagation(); openSurah(s.n, true); }}>▶</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
   // ── READ SCREEN ─────────────────────────────────────────────
-  const ReadScreen = () => {
-    const s = curSurah || SURAHS[0];
-    return (
-      <div className="fade" style={{ paddingBottom: 80 }}>
-        {/* Header */}
-        <div style={{ background: `linear-gradient(135deg,#051a0e,${G},#1a7a45)`, padding: "12px 13px 13px", position: "sticky", top: 0, zIndex: 40 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <button onClick={() => { stopAudio(); setScreen("home"); setNavTab("home"); }}
-              style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff", flexShrink: 0, cursor: "pointer" }}>←</button>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{s.name}</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>{s.type} · {s.verses} verses · Juz {s.juz} · Page {s.page}</div>
-            </div>
-            <div className="ar" style={{ fontSize: 19, color: "#e8b84b", marginRight: 4 }}>{s.ar}</div>
-            <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
-            <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na}</button>
-            <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length}</button>
+  const ReadScreen = () => (
+    <div className="fade" style={{ paddingBottom: 90 }}>
+      <div style={{ background: `linear-gradient(165deg,#051a0e 0%,${G} 50%,#1a7a45 100%)`, padding: "12px 14px", sticky: "top", top: 0, zIndex: 50, color: "#fff" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <button onClick={() => { stopAudio(); setScreen("home"); setNavTab("home"); }} style={{ border: "none", background: "rgba(255,255,255,.15)", color: "#fff", width: 30, height: 30, borderRadius: "50%", fontSize: 14, cursor: "pointer" }}>←</button>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{curSurah?.name} <span className="ar" style={{ fontSize: 17, color: GOLD }}>{curSurah?.ar}</span></div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,.6)" }}>{curSurah?.meaning} · {curSurah?.verses} Verses · {curSurah?.type}</div>
           </div>
-          {/* Reading mode toggle + controls */}
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: ".5px solid rgba(255,255,255,.15)" }}>
-            {/* Row 1: Mode buttons */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📋 Normal</button>
-              <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📖 Mushaf</button>
-              <div style={{ flex: 1 }} />
-              {/* Dark mode toggle */}
-              <button onClick={() => setDarkMode(d => !d)}
-                style={{ padding: "5px 12px", borderRadius: 16, background: darkMode ? "#e8b84b" : "rgba(255,255,255,.2)", border: ".5px solid rgba(255,255,255,.3)", color: darkMode ? "#1a0a00" : "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                {darkMode ? "☀️ Light" : "🌙 Dark"}
-              </button>
-            </div>
-            {/* Row 2: Font size controls */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,.5)" }}>Arabic Size:</span>
-              <button onClick={() => setFontSize(f => Math.max(16, f - 2))}
-                style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>A-</button>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", minWidth: 20, textAlign: "center" }}>{fontSize}</span>
-              <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
-                style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: ".5px solid rgba(255,255,255,.3)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>A+</button>
-              <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>🔍 Pinch to zoom</span>
-            </div>
-          </div>
+          <button onClick={() => setShowSettings(true)} style={{ border: "none", background: "rgba(255,255,255,.15)", color: "#fff", width: 30, height: 30, borderRadius: "50%", fontSize: 14, cursor: "pointer" }}>⚙️</button>
         </div>
 
-        {/* Bismillah */}
-        {s.n !== 1 && s.n !== 9 && (
-          <div style={{ textAlign: "center", padding: "13px 0 9px", background: mushafMode ? "#fdf6e3" : "#fff", borderBottom: ".5px solid #e4e8e2" }}>
-            <div className="ar" style={{ fontSize: 22, color: mushafMode ? "#8b6914" : G }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "6px 0 2px" }}>
+          <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📖 Verse View</button>
+          <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📜 Mushaf Page</button>
+        </div>
+      </div>
+
+      <div style={{ padding: "10px 13px" }}>
+        {versesLoading ? (
+          <div style={{ padding: "40px 0", textAlign: "center" }}>
+            <Spinner label={`Loading ${curSurah?.name} in ${curLang.n}...`} />
           </div>
-        )}
-
-        <div style={{ padding: "10px 12px" }}>
-          {versesLoading && (
-            <div style={{ padding: "44px 0", textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 10 }}>
-                {[0, .15, .3].map((d, i) => <span key={i} className="bn" style={{ animationDelay: `${d}s` }} />)}
-              </div>
-              <div style={{ fontSize: 13, color: "#6b7280" }}>Loading {s.name} in {curLang.n}...</div>
+        ) : versesError ? (
+          <RetryRow msg={versesError} onRetry={() => openSurah(surahNum)} />
+        ) : mushafMode ? (
+          <div className="mushaf-wrap">
+            <div className="mushaf-text">
+              {verses.map(v => (
+                <span key={v.number}>
+                  {v.arabic} <span className="mushaf-num">{v.number}</span>{" "}
+                </span>
+              ))}
             </div>
-          )}
-          {versesError && (
-            <div style={{ padding: "32px 16px", textAlign: "center" }}>
-              <div style={{ fontSize: 13, color: "#dc2626", marginBottom: 12 }}>{versesError}</div>
-              <button onClick={() => openSurah(s.n)} style={{ padding: "8px 20px", background: G, color: "#fff", border: "none", borderRadius: 18, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↺ Retry</button>
-            </div>
-          )}
-
-          {/* ── MUSHAF STYLE MODE ── */}
-          {mushafMode && verses.length > 0 && (
-            <div>
-              <div className="mushaf-wrap">
-                <div className="mushaf-text zoom-arabic">
-                  {verses.map(v => (
-                    <span key={v.number}>
-                      {v.arabic}{" "}
-                      <span className="mushaf-num">{v.number}</span>{" "}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {/* Translations below Mushaf */}
-              <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginTop: 10, border: ".5px solid #e4e8e2" }}>
-                <div style={{ fontSize: 11, color: G, fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: .5 }}>
-                  Translation · {curLang.n}
-                </div>
-                {verses.map(v => (
-                  <div key={v.number} style={{ display: "flex", gap: 10, paddingBottom: 12, marginBottom: 12, borderBottom: ".5px solid #f4f4f4" }}>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: G, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 2 }}>{v.number}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: "#333", lineHeight: 1.75, marginBottom: 8 }}>{v.translation}</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button className={`lbtn${playKey === `${s.n}:${v.number}` ? " pl" : ""}`}
-                          onClick={() => playKey === `${s.n}:${v.number}` ? stopAudio() : playVerse(s.n, v.number, "single", verses)}
-                          style={{ fontSize: 11, padding: "3px 10px" }}>
-                          {playKey === `${s.n}:${v.number}` ? "⏸" : "▶"} Play
-                        </button>
-                        <button onClick={() => toggleBk(s.n, s.name, v.number, v.arabic, v.translation)}
-                          style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: isBk(s.n, v.number) ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("tafsir"); }}
-                          style={{ padding: "3px 10px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>📖 Deep Knowledge</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── NORMAL MODE ── */}
-          {!mushafMode && verses.map(verse => {
-            const pk = `${s.n}:${verse.number}`;
-            const isPlaying = playKey === pk;
-            const isOpen = openPanel === verse.number;
-            const bkd = isBk(s.n, verse.number);
-            const sajdah = isSajdahVerse(s.n, verse.number);
+          </div>
+        ) : (
+          verses.map(v => {
+            const isPlaying = playKey === `${surahNum}:${v.number}`;
+            const isOpen = openPanel === v.number;
+            const sajdah = isSajdahVerse(surahNum, v.number);
+            const bookmarked = isBk(surahNum, v.number);
 
             return (
-              <div key={verse.number} className="fade" style={{ background: darkMode ? "#1a1a1a" : "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : darkMode ? "#2a2a2a" : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
-                {/* Sajdah Banner */}
-                {sajdah && (
-                  <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", padding: "7px 13px", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 18 }}>🕌</span>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
-                        {sajdah.type === "wajib" ? "Sajdah Tilawah — Obligatory" : "Sajdah Tilawah — Recommended"}
-                      </div>
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.8)" }}>
-                        {sajdah.type === "wajib"
-                          ? "Performing Sajdah is obligatory after reading or hearing this verse"
-                          : "Performing Sajdah is recommended after reading or hearing this verse"}
-                      </div>
-                    </div>
+              <div key={v.number} style={{ background: darkMode ? "#1a1a1a" : "#fff", borderRadius: 12, padding: "14px 14px 10px", marginBottom: 10, border: `.5px solid ${isPlaying ? G : (darkMode ? "#2a2a2a" : "#e2e8e4")}`, boxShadow: isPlaying ? `0 0 0 1px ${G}` : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: G, color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{v.number}</div>
+                    {sajdah && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 8, background: "#fef3c7", color: "#d97706", fontWeight: 700 }}>۩ SAJDAH</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button className="bk-btn" onClick={() => toggleBk(surahNum, curSurah?.name, v.number, v.arabic, v.translation)} title="Bookmark">{bookmarked ? "🔖" : "📑"}</button>
+                    <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(surahNum, v.number, "single", verses)}>
+                      {isPlaying ? "⏸ Stop" : "🔊 Listen"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="zoom-arabic">
+                  <div className="ar" style={{ fontSize: fontSize, color: darkMode ? "#fff" : "#1a1a1a", direction: "rtl", textAlign: "right", lineHeight: 2, marginBottom: 8 }}>
+                    {v.arabic}
+                  </div>
+                </div>
+
+                {curLang.c !== "ar" && (
+                  <div style={{ fontSize: 13, color: darkMode ? "#ccc" : "#4a5568", lineHeight: 1.6, marginBottom: 10 }}>
+                    {v.translation}
                   </div>
                 )}
-                {/* Verse bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 11px", borderBottom: ".5px solid #f0f0f0", background: isOpen ? "#f0faf5" : "#fafafa", flexWrap: "wrap" }}>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: G, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{verse.number}</div>
-                  <div style={{ flex: 1, fontSize: 10, color: "#9ba5b0" }}>Verse {verse.number} of {s.verses} · {s.name}</div>
-                  <button className="bk-btn" title={bkd ? "Remove bookmark" : "Add bookmark"}
-                    onClick={() => toggleBk(s.n, s.name, verse.number, verse.arabic, verse.translation)}
-                    style={{ color: bkd ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                  <button className={`lbtn${isPlaying ? " pl" : ""}`} onClick={() => isPlaying ? stopAudio() : playVerse(s.n, verse.number, "single", verses)}>
-                    {isPlaying ? "⏸ Pause" : "▶ Play"}
+
+                <div style={{ borderTop: `.5px solid ${darkMode ? "#2a2a2a" : "#f0f0ec"}`, paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => openDeepPanel(v)}>
+                    💡 Deep Knowledge {isOpen ? "▲" : "▼"}
                   </button>
-                  <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
-                    if (openPanel === verse.number) { setOpenPanel(null); }
-                    else { setOpenPanel(verse.number); setActiveTab("tafsir"); }
-                  }}>📖 {isOpen ? "Close" : "Deep Knowledge"}</button>
+                  <span style={{ fontSize: 10, color: "#9ba5b0" }}>{curLang.n}</span>
                 </div>
 
-                {/* Arabic + translation */}
-                <div style={{ padding: "14px 14px 12px" }}>
-                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
-                    {verse.arabic}
-                  </div>
-                  {/* Translation line — always visible below Arabic */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                    <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr", fontStyle: verse.translation ? "normal" : "italic" }}>
-                      {verse.translation || <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
-                    </div>
-                    {verse.translation && (
-                      <button onClick={() => {
-                        if ("speechSynthesis" in window) {
-                          window.speechSynthesis.cancel();
-                          const u = new SpeechSynthesisUtterance(verse.translation);
-                          u.lang = lang; u.rate = 0.85;
-                          window.speechSynthesis.speak(u);
-                        }
-                      }} style={{ flexShrink: 0, padding: "4px 8px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 10, fontWeight: 600, cursor: "pointer", marginTop: 2 }}>
-                        🔊
-                      </button>
-                    )}
-                  </div>
-                  {/* Verse info small line */}
-                  <div style={{ fontSize: 10, color: "#9ba5b0", marginTop: 4 }}>
-                    {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
-                  </div>
-                </div>
-
-                {/* Deep Knowledge panel */}
                 {isOpen && (
-                  <div style={{ borderTop: ".5px solid rgba(15,81,50,.1)", background: "#fafffe", padding: 13 }}>
-                    {/* Tabs — no Meaning tab, translation already shows in verse card above */}
-                    <div style={{ display: "flex", gap: 5, marginBottom: 13, flexWrap: "wrap" }}>
-                      {[
-                        { id: "tafsir", label: "🕌 Tafsir" },
-                        { id: "revelation", label: "📜 Revelation" },
-                        { id: "science", label: "🔬 Science" },
-                        { id: "hadith", label: "📋 Hadith" },
-                      ].map(t => (
-                        <button key={t.id} className={`tab${activeTab === t.id ? " on" : ""}`}
-                          onClick={() => switchTab(verse, t.id)}>{t.label}</button>
+                  <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: darkMode ? "#111" : "#f8fafb", border: `.5px solid ${darkMode ? "#333" : "#e2e8e4"}` }}>
+                    <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 8, marginBottom: 8, borderBottom: `.5px solid ${darkMode ? "#333" : "#e2e8e4"}` }}>
+                      {[["meaning","Meaning"],["tafsir","Tafsir"],["revelation","Context"],["science","Science"],["hadith","Hadith"]].map(([t, lbl]) => (
+                        <button key={t} className={`tab${activeTab === t ? " on" : ""}`} onClick={() => switchTab(v, t)}>{lbl}</button>
                       ))}
                     </div>
 
-                    {/* AI tabs — plain text, retry on fail */}
-                    {(() => {
-                      const key = `${surahNum}-${verse.number}-${activeTab}-${lang}`;
-                      const entry = cache[key] || {};
-                      if (!entry.text && !entry.loading && !entry.error) {
-                        // Auto-trigger load
-                        loadTabContent(verse, activeTab);
-                      }
-                      return (
-                        <div>
-                          <div style={{ fontSize: 11, color: G, fontWeight: 600, textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>
-                            {activeTab === "tafsir" ? "Tafsir" : activeTab === "revelation" ? "Revelation History" : activeTab === "science" ? "Scientific Connection" : "Hadith & Authenticity"} · {curLang.n}
-                          </div>
-                          {entry.loading && <Spinner label={`Loading in ${curLang.n}...`} />}
-                          {entry.error && <RetryRow msg={entry.error} onRetry={() => loadTabContent(verse, activeTab, true)} />}
-                          {entry.text && (
-                            <div className="aitext" style={{ background: "#f8fafb", borderRadius: 9, padding: 12, border: ".5px solid #e2e8e4" }}>
-                              {entry.text}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {activeTab === "meaning" && (
+                      <div style={{ fontSize: 13, lineHeight: 1.7, color: darkMode ? "#ddd" : "#2d3748" }}>
+                        <div style={{ fontWeight: 600, color: G, marginBottom: 4 }}>Verse Meaning ({curLang.n}):</div>
+                        {v.translation}
+                      </div>
+                    )}
+
+                    {activeTab !== "meaning" && (
+                      <AIBlock 
+                        cacheKey={`${surahNum}-${v.number}-${activeTab}-${lang}`} 
+                        onRetry={() => loadTabContent(v, activeTab, true)} 
+                      />
+                    )}
                   </div>
                 )}
               </div>
             );
-          })}
-        </div>
-        <Nav readOn />
-        {SettingsSheet()}{LangSheet()}{QariSheet()}{BkSheet()}
+          })
+        )}
+      </div>
 
-        {/* Continue Dialog — small toast near bottom, not full screen */}
-        {continueDialog && (
-          <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 28px)", maxWidth: 490, zIndex: 300, animation: "pop .2s ease" }}>
-            {/* Sajdah reminder if applicable */}
-            {continueDialog.sajdah && (
-              <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", borderRadius: "12px 12px 0 0", padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>🕌</span>
-                <div style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
-                  {continueDialog.sajdah.type === "wajib"
-                    ? "Sajdah Tilawah is OBLIGATORY for this verse"
-                    : "Sajdah Tilawah is recommended for this verse"}
-                </div>
+      {continueDialog && (
+        <div style={{ position: "fixed", bottom: 65, left: "50%", transform: "translateX(-50%)", width: "92%", maxWidth: 480, background: "#1a1a1a", color: "#fff", padding: "12px 16px", borderRadius: 16, boxShadow: "0 10px 25px rgba(0,0,0,.3)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 11, color: GOLD, fontWeight: 700 }}>AUDIO FINISHED</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Play Verse {continueDialog.nextVn}?</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setContinueDialog(null)} style={{ padding: "6px 12px", borderRadius: 12, background: "#333", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>Dismiss</button>
+            <button onClick={() => playVerse(continueDialog.sn, continueDialog.nextVn, "single", verses)} style={{ padding: "6px 14px", borderRadius: 12, background: G, color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Play Next ▶</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── KIDS SCREEN ─────────────────────────────────────────────
+  const KidsScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80 }}>
+      <div style={{ background: "linear-gradient(135deg,#ff7e5f,#feb47b)", padding: "16px 14px", color: "#fff", borderRadius: "0 0 20px 20px", marginBottom: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>🎈 Kids Quran Academy</div>
+        <div style={{ fontSize: 12, opacity: .9 }}>Learn Arabic Alphabets with fun words and pictures!</div>
+      </div>
+
+      <div style={{ padding: "0 13px" }}>
+        {!kidLetter ? (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#9ba5b0", textTransform: "uppercase", marginBottom: 10 }}>Tap a letter to learn:</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+              {ARABIC_ALPHA.map(a => {
+                const isDone = learned.includes(a.l);
+                return (
+                  <div key={a.l} className="alpha-card" style={{ background: "#fff", border: `.5px solid ${a.color}44` }} onClick={() => setKidLetter(a)}>
+                    <div className="ar" style={{ fontSize: 28, color: a.color, fontWeight: 700 }}>{a.l}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#333" }}>{a.n}</div>
+                    {isDone && <span style={{ fontSize: 10, color: G, fontWeight: 700 }}>✓ Done</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 16, padding: 20, textStyle: "center", border: `.5px solid ${kidLetter.color}`, boxShadow: "0 4px 15px rgba(0,0,0,.05)" }}>
+            <button onClick={() => setKidLetter(null)} style={{ border: "none", background: "#f0f0f0", padding: "4px 12px", borderRadius: 12, fontSize: 12, cursor: "pointer", marginBottom: 14 }}>← Back to All Letters</button>
+            <div style={{ textAlign: "center" }}>
+              <div className="ar" style={{ fontSize: 72, color: kidLetter.color, fontWeight: 700, lineHeight: 1 }}>{kidLetter.l}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{kidLetter.n} ({kidLetter.s})</div>
+              
+              <div style={{ margin: "20px 0", padding: 16, background: "#fdf8f5", borderRadius: 14 }}>
+                <div style={{ fontSize: 48 }}>{kidLetter.e}</div>
+                <div className="ar" style={{ fontSize: 32, color: kidLetter.color, fontWeight: 700 }}>{kidLetter.w}</div>
+                <div style={{ fontSize: 16, color: "#555", fontWeight: 600 }}>{kidLetter.wm}</div>
               </div>
-            )}
-            <div style={{ background: "#1a1a1a", borderRadius: continueDialog.sajdah ? "0 0 16px 16px" : 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,.35)" }}>
-              <div style={{ fontSize: 18 }}>🎵</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>Verse {continueDialog.vn} done</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,.6)" }}>{continueDialog.surahName} · Next verse {continueDialog.nextVn}</div>
-              </div>
-              <button onClick={() => { setContinueDialog(null); stopAudio(); }}
-                style={{ padding: "7px 12px", borderRadius: 20, border: ".5px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.12)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                ⏹ Stop
-              </button>
-              <button onClick={() => { const d = continueDialog; setContinueDialog(null); playVerse(d.sn, d.nextVn, "single", verses); }}
-                style={{ padding: "7px 14px", borderRadius: 20, border: "none", background: "linear-gradient(180deg,#1a9a5c,#0f5132)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 0 #072b1a" }}>
-                ▶ Continue
+
+              <button className="btn-3d btn-3d-green" style={{ width: "100%", padding: 12, fontSize: 14 }} onClick={() => {
+                if (!learned.includes(kidLetter.l)) setLearned([...learned, kidLetter.l]);
+                setKidLetter(null);
+              }}>
+                I Learned This Letter! 🎉
               </button>
             </div>
           </div>
         )}
       </div>
-    );
-  };
-
-  // ── KIDS SCREEN ─────────────────────────────────────────────
-  const KidsScreen = () => (
-    <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#fff9f0,#f0fff4)", minHeight: "100vh" }}>
-      <div style={{ background: "linear-gradient(135deg,#e67e22,#f39c12)", padding: "16px 14px 20px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: .07, fontSize: 48, lineHeight: 1 }}>🌟⭐🌙✨</div>
-        <div style={{ position: "relative" }}>
-          <button onClick={() => { setScreen("home"); setNavTab("home"); setKidLetter(null); }}
-            style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Back</button>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 38, marginBottom: 6 }}>🎓</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Kids Arabic Corner</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.8)", marginTop: 4 }}>Learn Arabic Alphabet with Fun! 🎉</div>
-            <div style={{ marginTop: 10, padding: "5px 14px", background: "rgba(255,255,255,.2)", borderRadius: 18, display: "inline-block", fontSize: 12, color: "#fff" }}>
-              {learned.length} of {ARABIC_ALPHA.length} letters learned ⭐
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress */}
-      <div style={{ padding: "12px 14px 6px" }}>
-        <div style={{ height: 8, background: "#e2e8e4", borderRadius: 6, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${Math.round((learned.length / ARABIC_ALPHA.length) * 100)}%`, background: "linear-gradient(90deg,#e67e22,#f39c12)", borderRadius: 6, transition: "width .5s" }} />
-        </div>
-        <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 4, textAlign: "center" }}>{Math.round((learned.length / ARABIC_ALPHA.length) * 100)}% Complete</div>
-      </div>
-
-      {kidLetter !== null ? (
-        /* Letter detail */
-        <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 18, padding: 20, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }} className="pop">
-          <div style={{ fontSize: 72, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].e}</div>
-          <div className="ar" style={{ fontSize: 72, color: ARABIC_ALPHA[kidLetter].color, lineHeight: 1.2, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].l}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].n}</div>
-          <div style={{ fontSize: 16, color: "#6b7280", marginBottom: 14 }}>Sound: "{ARABIC_ALPHA[kidLetter].s}"</div>
-          <div style={{ background: "#f8f4ee", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-            <div className="ar" style={{ fontSize: 32, color: ARABIC_ALPHA[kidLetter].color, marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].w}</div>
-            <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 500 }}>{ARABIC_ALPHA[kidLetter].wm}</div>
-            <div style={{ fontSize: 12, color: "#9ba5b0" }}>Example word in Arabic</div>
-          </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => setKidLetter(null)} style={{ padding: "9px 20px", borderRadius: 20, border: ".5px solid #ddd", background: "#fff", fontSize: 13, cursor: "pointer" }}>← Back</button>
-            <button onClick={() => {
-              setLearned(prev => prev.includes(kidLetter) ? prev.filter(i => i !== kidLetter) : [...prev, kidLetter]);
-            }} style={{ padding: "9px 20px", borderRadius: 20, background: learned.includes(kidLetter) ? "#27ae60" : "#e67e22", color: "#fff", border: "none", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
-              {learned.includes(kidLetter) ? "✅ Learned!" : "Mark Learned ⭐"}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ padding: "8px 14px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 10 }}>🔤 Arabic Letters — Tap to Learn</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9 }}>
-            {ARABIC_ALPHA.map((a, i) => (
-              <div key={i} className="alpha-card" onClick={() => setKidLetter(i)}
-                style={{ background: `${a.color}18`, borderColor: learned.includes(i) ? G : "transparent" }}>
-                <div style={{ fontSize: 22 }}>{a.e}</div>
-                <div className="ar" style={{ fontSize: 28, color: a.color, fontWeight: 700, lineHeight: 1.2 }}>{a.l}</div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: "#5a6472" }}>{a.n}</div>
-                {learned.includes(i) && <div style={{ fontSize: 9, color: G, fontWeight: 700 }}>✓</div>}
-              </div>
-            ))}
-          </div>
-          {learned.length === ARABIC_ALPHA.length && (
-            <div style={{ marginTop: 16, padding: 16, background: "linear-gradient(135deg,#e67e22,#f39c12)", borderRadius: 14, textAlign: "center" }}>
-              <div style={{ fontSize: 30, marginBottom: 6 }}>🎉</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Congratulations!</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,.85)", marginTop: 4 }}>You learned all {ARABIC_ALPHA.length} Arabic letters!</div>
-            </div>
-          )}
-        </div>
-      )}
-      <Nav />
     </div>
   );
 
   // ── BOOKMARKS SCREEN ────────────────────────────────────────
   const BookmarksScreen = () => (
-    <div className="fade" style={{ paddingBottom: 80 }}>
-      <div style={{ background: "linear-gradient(135deg,#8e44ad,#9b59b6)", padding: "14px 14px 16px" }}>
-        <button onClick={() => { setScreen("home"); setNavTab("home"); }}
-          style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>🔖 Your Bookmarks</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,.65)", marginTop: 3 }}>{bookmarks.length} saved verses</div>
-      </div>
-      <div style={{ padding: "12px 13px" }}>
-        {bookmarks.length === 0 ? (
-          <div style={{ padding: "44px 0", textAlign: "center" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔖</div>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No bookmarks yet</div>
-            <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>While reading any Surah, tap 🔖 on any verse to save it here.</div>
-            <button onClick={() => openSurah(1)} style={{ marginTop: 14, padding: "9px 22px", background: G, color: "#fff", border: "none", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Start Reading</button>
-          </div>
-        ) : bookmarks.map((b, i) => (
-          <div key={i} style={{ background: "#fff", border: ".5px solid #d8b4fe", borderRadius: 13, marginBottom: 9, overflow: "hidden" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: ".5px solid #f0f0ec", background: "#fdf8ff" }}>
-              <div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#8e44ad" }}>{b.sname}</span>
-                <span style={{ fontSize: 11, color: "#9ba5b0", marginLeft: 6 }}>· Verse {b.vn}</span>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => openSurah(b.sn)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 12, background: G, color: "#fff", border: "none", cursor: "pointer" }}>Read</button>
-                <button onClick={() => toggleBk(b.sn, b.sname, b.vn, b.arabic, b.translation)} style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: "#dc2626" }}>×</button>
-              </div>
+    <div className="fade" style={{ padding: "14px 13px 80px" }}>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>🔖 Saved Verses ({bookmarks.length})</div>
+      {bookmarks.length === 0 ? (
+        <div style={{ padding: "40px 0", textAlign: "center", color: "#9ba5b0", fontSize: 13 }}>
+          No saved verses yet. Tap 📑 on any verse while reading to bookmark it.
+        </div>
+      ) : (
+        bookmarks.map((b, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: 12, padding: 12, marginBottom: 10, border: ".5px solid #e2e8e4" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: G }}>{b.sname} · Verse {b.vn}</span>
+              <button onClick={() => toggleBk(b.sn, b.sname, b.vn, b.arabic, b.translation)} style={{ border: "none", background: "none", color: "#dc2626", cursor: "pointer", fontSize: 12 }}>Remove ✕</button>
             </div>
-            <div style={{ padding: 12 }}>
-              <div className="ar" style={{ fontSize: 20, direction: "rtl", textAlign: "right", color: "#1a1a1a", lineHeight: 1.9, marginBottom: 8 }}>{b.arabic}</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>{b.translation}{b.translation.length >= 100 ? "..." : ""}</div>
-            </div>
+            <div className="ar" style={{ fontSize: 18, direction: "rtl", textAlign: "right", color: "#1a1a1a", marginBottom: 6 }}>{b.arabic}</div>
+            <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>{b.translation}</div>
+            <button className="rbtn" onClick={() => openSurah(b.sn)}>Read Surah ›</button>
           </div>
-        ))}
-      </div>
-      <Nav />
+        ))
+      )}
     </div>
   );
 
-  // ── ROOT RENDER ─────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%" }}>
+    <div style={{ maxWidth: 520, margin: "0 auto", background: darkMode ? "#0f0f0f" : "#f5f3ee", minHeight: "100vh", position: "relative" }}>
       <style>{css}</style>
+      
       {screen === "home" && <HomeScreen />}
       {screen === "read" && <ReadScreen />}
       {screen === "kids" && <KidsScreen />}
       {screen === "bookmarks" && <BookmarksScreen />}
+
+      <Nav />
+
+      <SettingsSheet />
+      <LangSheet />
+      <QariSheet />
+      <PrayerSheet />
+      <JuzSheet />
+      <GotoSheet />
+      <BkSheet />
     </div>
   );
 }
