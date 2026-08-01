@@ -130,14 +130,10 @@ const SURAHS = [
 
 // Language → Quran.com translation ID mapping
 const LANG_TRANSLATIONS = {
-  en: 131, ur: 97, fr: 136, de: 163, es: 83, tr: 77, id: 134,
-  ms: 39, bn: 161, hi: 122, sw: 56, fa: 135, ru: 79, zh: 109,
+  // ONLY verified ID: 131 = English (Dr. Mustafa Khattab, The Clear Quran)
+  // ALL other languages use AI translation from English — guarantees correct language
+  en: 131,
   ar: null, // Arabic is the original text
-  pt: 103, it: 153, nl: 144, pl: 180, ko: 112, ja: 120,
-  ta: 230, te: 231, ml: 37, gu: 217, ne: 203, my: 243,
-  ha: null, ps: null, ku: null, pa: null, sd: null,
-  so: null, zu: null, am: null, sq: null, bs: 125,
-  uk: 151, el: null, he: null, fi: null, sv: null, tl: null,
 };
 
 const LANGS = [
@@ -322,9 +318,8 @@ const LANG_NAMES = {
   tg:"Tajik",jv:"Javanese",ku:"Kurdish",
 };
 
-async function aiTranslateVerses(enVerses, langName, apiKey) {
-  if (!apiKey) return null;
-  const input = enVerses.map(v => `${v.number}: ${v.text}`).join("\n");
+async function aiTranslateChunk(chunk, langName, apiKey) {
+  const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -336,15 +331,15 @@ async function aiTranslateVerses(enVerses, langName, apiKey) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format. No extra text.\n\n${input}` }]
+        max_tokens: 4000,
+        messages: [{ role: "user", content: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}` }]
       })
     });
     if (!r.ok) return null;
     const d = await r.json();
     const result = {};
     (d.content?.[0]?.text || "").trim().split("\n").forEach(line => {
-      const m = line.match(/^(\d+):\s*(.+)/);
+      const m = line.match(/^(\d+)[:.]\s*(.+)/);
       if (m) result[parseInt(m[1])] = m[2].trim();
     });
     return Object.keys(result).length > 0 ? result : null;
@@ -355,54 +350,46 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  const transId = LANG_TRANSLATIONS[langCode];
-
-  // Build API URL — always get English (131), add language ID if different
-  let url;
-  if (langCode === "ar") {
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-  } else if (transId && transId !== 131) {
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId},131&fields=text_uthmani`;
-  } else {
-    // English (131) or language with no ID — just fetch English
-    url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-  }
-
+  // ALWAYS fetch English 131 — the only verified translation ID
+  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d = await r.json();
 
-  const verses = d.verses.map(v => {
-    const trans = v.translations || [];
-    let translation = "";
-    if (langCode === "ar") {
-      translation = v.text_uthmani;
-    } else if (transId && transId !== 131 && trans.length >= 1) {
-      translation = (trans[0]?.text || "").replace(/<[^>]+>/g, "").trim();
-      if (!translation && trans.length >= 2) {
-        translation = (trans[1]?.text || "").replace(/<[^>]+>/g, "").trim();
-      }
-    } else {
-      translation = (trans[0]?.text || "").replace(/<[^>]+>/g, "").trim();
-    }
-    return { number: v.verse_number, arabic: v.text_uthmani, translation };
-  });
+  const verses = d.verses.map(v => ({
+    number: v.verse_number,
+    arabic: v.text_uthmani,
+    translation: langCode === "ar"
+      ? v.text_uthmani
+      : ((v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "").trim()),
+  }));
 
   verseCache[cacheKey] = verses;
 
-  // Languages with NO translation ID — AI translates from English in background
-  const needsAI = !transId && langCode !== "ar" && langCode !== "en";
-  if (needsAI) {
+  // Every language except English & Arabic: AI translates from English
+  // Chunked (25 verses per call) so even Al-Baqarah (286) translates fully
+  if (langCode !== "en" && langCode !== "ar") {
     const langName = LANG_NAMES[langCode] || langCode;
     const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
-    const enVerses = verses.map(v => ({ number: v.number, text: v.translation }));
-    aiTranslateVerses(enVerses, langName, apiKey).then(result => {
-      if (result) {
-        const updated = verses.map(v => ({ ...v, translation: result[v.number] || v.translation }));
-        verseCache[cacheKey] = updated;
-        if (onAIReady) onAIReady(updated);
-      }
-    }).catch(() => {});
+    if (apiKey) {
+      (async () => {
+        const CHUNK = 25;
+        const current = [...verses];
+        for (let i = 0; i < current.length; i += CHUNK) {
+          const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
+          const result = await aiTranslateChunk(chunk, langName, apiKey);
+          if (result) {
+            for (let j = 0; j < current.length; j++) {
+              if (result[current[j].number]) {
+                current[j] = { ...current[j], translation: result[current[j].number] };
+              }
+            }
+            verseCache[cacheKey] = [...current];
+            if (onAIReady) onAIReady([...current]);
+          }
+        }
+      })();
+    }
   }
 
   return verses;
