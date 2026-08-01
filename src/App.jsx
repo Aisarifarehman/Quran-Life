@@ -324,34 +324,34 @@ const QUICK_LINKS = [
 ];
 
 const ARABIC_ALPHA = [
-  {l:"أ",n:"Alif",full:"أَلِف",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wm:"Lion"},
-  {l:"ب",n:"Ba",full:"بَاء",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wm:"Duck"},
-  {l:"ت",n:"Ta",full:"تَاء",s:"T",color:"#f39c12",e:"🍎",w:"تفاحة",wm:"Apple"},
-  {l:"ث",n:"Tha",full:"ثَاء",s:"Th",color:"#27ae60",e:"🐍",w:"ثعبان",wm:"Snake"},
-  {l:"ج",n:"Jim",full:"جِيم",s:"J",color:"#16a085",e:"🐪",w:"جمل",wm:"Camel"},
-  {l:"ح",n:"Ha",full:"حَاء",s:"H",color:"#2980b9",e:"🐎",w:"حصان",wm:"Horse"},
-  {l:"خ",n:"Kha",full:"خَاء",s:"Kh",color:"#8e44ad",e:"🐑",w:"خروف",wm:"Sheep"},
-  {l:"د",n:"Dal",full:"دَال",s:"D",color:"#c0392b",e:"🐻",w:"دب",wm:"Bear"},
-  {l:"ذ",n:"Dhal",full:"ذَال",s:"Dh",color:"#d35400",e:"🐺",w:"ذئب",wm:"Wolf"},
-  {l:"ر",n:"Ra",full:"رَاء",s:"R",color:"#7f8c8d",e:"🍇",w:"رمان",wm:"Pomegranate"},
-  {l:"ز",n:"Zay",full:"زَاي",s:"Z",color:"#2ecc71",e:"🌺",w:"زهرة",wm:"Flower"},
-  {l:"س",n:"Sin",full:"سِين",s:"S",color:"#1abc9c",e:"🐟",w:"سمكة",wm:"Fish"},
-  {l:"ش",n:"Shin",full:"شِين",s:"Sh",color:"#3498db",e:"☀️",w:"شمس",wm:"Sun"},
-  {l:"ص",n:"Sad",full:"صَاد",s:"S",color:"#9b59b6",e:"🦅",w:"صقر",wm:"Falcon"},
-  {l:"ض",n:"Dad",full:"ضَاد",s:"D",color:"#e91e63",e:"🐸",w:"ضفدع",wm:"Frog"},
-  {l:"ط",n:"Ta",full:"طَاء",s:"T",color:"#ff5722",e:"🥁",w:"طبل",wm:"Drum"},
-  {l:"ظ",n:"Dha",full:"ظَاء",s:"Dh",color:"#795548",e:"🦌",w:"ظبي",wm:"Deer"},
-  {l:"ع",n:"Ain",full:"عَين",s:"'A",color:"#607d8b",e:"🍇",w:"عنب",wm:"Grapes"},
-  {l:"غ",n:"Ghain",full:"غَين",s:"Gh",color:"#e74c3c",e:"🐦",w:"غراب",wm:"Crow"},
-  {l:"ف",n:"Fa",full:"فَاء",s:"F",color:"#e67e22",e:"🦋",w:"فراشة",wm:"Butterfly"},
-  {l:"ق",n:"Qaf",full:"قَاف",s:"Q",color:"#f39c12",e:"🐱",w:"قطة",wm:"Cat"},
-  {l:"ك",n:"Kaf",full:"كَاف",s:"K",color:"#27ae60",e:"🐶",w:"كلب",wm:"Dog"},
-  {l:"ل",n:"Lam",full:"لَام",s:"L",color:"#16a085",e:"🎮",w:"لعبة",wm:"Game"},
-  {l:"م",n:"Mim",full:"مِيم",s:"M",color:"#2980b9",e:"💧",w:"ماء",wm:"Water"},
-  {l:"ن",n:"Nun",full:"نُون",s:"N",color:"#8e44ad",e:"🌟",w:"نجمة",wm:"Star"},
-  {l:"ه",n:"Ha",full:"هَاء",s:"H",color:"#c0392b",e:"🌙",w:"هلال",wm:"Crescent"},
-  {l:"و",n:"Waw",full:"وَاو",s:"W",color:"#d35400",e:"🌹",w:"وردة",wm:"Rose"},
-  {l:"ي",n:"Ya",full:"يَاء",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
+  {l:"أ",n:"Alif",full:"ألف",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wm:"Lion"},
+  {l:"ب",n:"Ba",full:"باء",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wm:"Duck"},
+  {l:"ت",n:"Ta",full:"تاء",s:"T",color:"#f39c12",e:"🍎",w:"تفاحة",wm:"Apple"},
+  {l:"ث",n:"Tha",full:"ثاء",s:"Th",color:"#27ae60",e:"🐍",w:"ثعبان",wm:"Snake"},
+  {l:"ج",n:"Jim",full:"جيم",s:"J",color:"#16a085",e:"🐪",w:"جمل",wm:"Camel"},
+  {l:"ح",n:"Ha",full:"حاء",s:"H",color:"#2980b9",e:"🐎",w:"حصان",wm:"Horse"},
+  {l:"خ",n:"Kha",full:"خاء",s:"Kh",color:"#8e44ad",e:"🐑",w:"خروف",wm:"Sheep"},
+  {l:"د",n:"Dal",full:"دال",s:"D",color:"#c0392b",e:"🐻",w:"دب",wm:"Bear"},
+  {l:"ذ",n:"Dhal",full:"ذال",s:"Dh",color:"#d35400",e:"🐺",w:"ذئب",wm:"Wolf"},
+  {l:"ر",n:"Ra",full:"راء",s:"R",color:"#7f8c8d",e:"🍇",w:"رمان",wm:"Pomegranate"},
+  {l:"ز",n:"Zay",full:"زاي",s:"Z",color:"#2ecc71",e:"🌺",w:"زهرة",wm:"Flower"},
+  {l:"س",n:"Sin",full:"سين",s:"S",color:"#1abc9c",e:"🐟",w:"سمكة",wm:"Fish"},
+  {l:"ش",n:"Shin",full:"شين",s:"Sh",color:"#3498db",e:"☀️",w:"شمس",wm:"Sun"},
+  {l:"ص",n:"Sad",full:"صاد",s:"S",color:"#9b59b6",e:"🦅",w:"صقر",wm:"Falcon"},
+  {l:"ض",n:"Dad",full:"ضاد",s:"D",color:"#e91e63",e:"🐸",w:"ضفدع",wm:"Frog"},
+  {l:"ط",n:"Ta",full:"طاء",s:"T",color:"#ff5722",e:"🥁",w:"طبل",wm:"Drum"},
+  {l:"ظ",n:"Dha",full:"ظاء",s:"Dh",color:"#795548",e:"🦌",w:"ظبي",wm:"Deer"},
+  {l:"ع",n:"Ain",full:"عين",s:"'A",color:"#607d8b",e:"🍇",w:"عنب",wm:"Grapes"},
+  {l:"غ",n:"Ghain",full:"غين",s:"Gh",color:"#e74c3c",e:"🐦",w:"غراب",wm:"Crow"},
+  {l:"ف",n:"Fa",full:"فاء",s:"F",color:"#e67e22",e:"🦋",w:"فراشة",wm:"Butterfly"},
+  {l:"ق",n:"Qaf",full:"قاف",s:"Q",color:"#f39c12",e:"🐱",w:"قطة",wm:"Cat"},
+  {l:"ك",n:"Kaf",full:"كاف",s:"K",color:"#27ae60",e:"🐶",w:"كلب",wm:"Dog"},
+  {l:"ل",n:"Lam",full:"لام",s:"L",color:"#16a085",e:"🎮",w:"لعبة",wm:"Game"},
+  {l:"م",n:"Mim",full:"ميم",s:"M",color:"#2980b9",e:"💧",w:"ماء",wm:"Water"},
+  {l:"ن",n:"Nun",full:"نون",s:"N",color:"#8e44ad",e:"🌟",w:"نجمة",wm:"Star"},
+  {l:"ه",n:"Ha",full:"هاء",s:"H",color:"#c0392b",e:"🌙",w:"هلال",wm:"Crescent"},
+  {l:"و",n:"Waw",full:"واو",s:"W",color:"#d35400",e:"🌹",w:"وردة",wm:"Rose"},
+  {l:"ي",n:"Ya",full:"ياء",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
 ];
 
 // ─── VERSE CACHE ─────────────────────────────────────────────
@@ -825,7 +825,8 @@ function speakLetter(letterObj) {
   if (arabicVoice) {
     const u = new SpeechSynthesisUtterance(letterObj.full);
     u.lang = arabicVoice.lang;
-    u.rate = 0.75;
+    u.rate = 0.6;
+    u.pitch = 1;
     // Prefer a male Arabic voice if the device offers more than one
     const arMale = voices.find(v => v.lang.startsWith("ar") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
     u.voice = arMale || arabicVoice;
