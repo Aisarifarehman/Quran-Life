@@ -362,8 +362,9 @@ async function fetchVerses(surahNum, langCode) {
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
   // Always fetch English first
+  const needsDual = transId && transId !== 131; // avoid 131,131 duplicate
   const url = transId
-    ? `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId},131&fields=text_uthmani`
+    ? `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${transId}${needsDual ? ",131" : ""}&fields=text_uthmani`
     : `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
 
   const r = await fetch(url);
