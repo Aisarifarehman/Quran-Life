@@ -539,7 +539,7 @@ export default function QuranLife() {
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
   const [openPanel, setOpenPanel] = useState(null); // verseNum
-  const [activeTab, setActiveTab] = useState("tafsir");
+  const [activeTab, setActiveTab] = useState("translation");
   const [cache, setCache] = useState({}); // AI content cache
   const [playKey, setPlayKey] = useState(null);
   const [showLang, setShowLang] = useState(false);
@@ -747,7 +747,9 @@ export default function QuranLife() {
     const key = `${surahNum}-${verse.number}-${tab}-${lang}`;
     if (cache[key]?.text && !force) return;
     let prompt = "";
-    if (tab === "tafsir")
+    if (tab === "translation")
+      prompt = `Translate this Quran verse from Arabic into ${curLang.n} (${curLang.na}). Surah ${sn}, Verse ${verse.number}: "${verse.arabic}"\n\nGive ONLY the accurate, clear meaning translation in ${curLang.n}. No Arabic, no transliteration, no extra notes — just the translated meaning in ${curLang.n}.`;
+    else if (tab === "tafsir")
       prompt = `Provide tafsir for Surah ${sn} verse ${verse.number}: "${verse.arabic}" (meaning: "${verse.translation}"). Include: verse meaning, Ibn Kathir explanation, Al-Tabari, contemporary scholar view, simple explanation for any person.`;
     else if (tab === "revelation")
       prompt = `Explain the revelation context (Asbab al-Nuzul) of Surah ${sn} verse ${verse.number}: "${verse.arabic}". Cover: when it was revealed, why, to whom, and the historical event behind it.`;
@@ -761,7 +763,7 @@ export default function QuranLife() {
   const openDeepPanel = useCallback((verse) => {
     if (openPanel === verse.number) { setOpenPanel(null); return; }
     setOpenPanel(verse.number);
-    setActiveTab("tafsir");
+    setActiveTab("translation");
   }, [openPanel]);
 
   const switchTab = useCallback((verse, tab) => {
@@ -1417,7 +1419,7 @@ export default function QuranLife() {
                         </button>
                         <button onClick={() => toggleBk(s.n, s.name, v.number, v.arabic, v.translation)}
                           style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: isBk(s.n, v.number) ? "#8e44ad" : "#9ba5b0" }}>🔖</button>
-                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("tafsir"); }}
+                        <button onClick={() => { setMushafMode(false); setOpenPanel(v.number); setActiveTab("translation"); }}
                           style={{ padding: "3px 10px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>📖 Deep Knowledge</button>
                       </div>
                     </div>
@@ -1465,35 +1467,17 @@ export default function QuranLife() {
                   </button>
                   <button className={`dbtn${isOpen ? " op" : ""}`} onClick={() => {
                     if (openPanel === verse.number) { setOpenPanel(null); }
-                    else { setOpenPanel(verse.number); setActiveTab("tafsir"); }
+                    else { setOpenPanel(verse.number); setActiveTab("translation"); }
                   }}>📖 {isOpen ? "Close" : "Deep Knowledge"}</button>
                 </div>
 
-                {/* Arabic + translation */}
+                {/* Arabic only — translation now lives inside Deep Knowledge → Translation tab */}
                 <div style={{ padding: "14px 14px 12px" }}>
-                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
+                  <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 8 }}>
                     {verse.arabic}
                   </div>
-                  {/* Translation line — always visible below Arabic */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                    <div style={{ flex: 1, fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, direction: lang === "ar" || lang === "ur" || lang === "fa" || lang === "ps" || lang === "sd" ? "rtl" : "ltr", fontStyle: verse.translation ? "normal" : "italic" }}>
-                      {verse.translation || <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
-                    </div>
-                    {verse.translation && (
-                      <button onClick={() => {
-                        if ("speechSynthesis" in window) {
-                          window.speechSynthesis.cancel();
-                          const u = new SpeechSynthesisUtterance(verse.translation);
-                          u.lang = lang; u.rate = 0.85;
-                          window.speechSynthesis.speak(u);
-                        }
-                      }} style={{ flexShrink: 0, padding: "4px 8px", borderRadius: 12, border: `.5px solid ${G}`, background: "transparent", color: G, fontSize: 10, fontWeight: 600, cursor: "pointer", marginTop: 2 }}>
-                        🔊
-                      </button>
-                    )}
-                  </div>
                   {/* Verse info small line */}
-                  <div style={{ fontSize: 10, color: "#9ba5b0", marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: "#9ba5b0" }}>
                     {s.name} · Verse {verse.number} · Juz {s.juz} · Page {s.page}
                   </div>
                 </div>
@@ -1504,6 +1488,7 @@ export default function QuranLife() {
                     {/* Tabs — no Meaning tab, translation already shows in verse card above */}
                     <div style={{ display: "flex", gap: 5, marginBottom: 13, flexWrap: "wrap" }}>
                       {[
+                        { id: "translation", label: "🌐 Translation" },
                         { id: "tafsir", label: "🕌 Tafsir" },
                         { id: "revelation", label: "📜 Revelation" },
                         { id: "science", label: "🔬 Science" },
@@ -1525,7 +1510,7 @@ export default function QuranLife() {
                       return (
                         <div>
                           <div style={{ fontSize: 11, color: G, fontWeight: 600, textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>
-                            {activeTab === "tafsir" ? "Tafsir" : activeTab === "revelation" ? "Revelation History" : activeTab === "science" ? "Scientific Connection" : "Hadith & Authenticity"} · {curLang.n}
+                            {activeTab === "translation" ? "Translation" : activeTab === "tafsir" ? "Tafsir" : activeTab === "revelation" ? "Revelation History" : activeTab === "science" ? "Scientific Connection" : "Hadith & Authenticity"} · {curLang.n}
                           </div>
                           {entry.loading && <Spinner label={`Loading in ${curLang.n}...`} />}
                           {entry.error && <RetryRow msg={entry.error} onRetry={() => loadTabContent(verse, activeTab, true)} />}
