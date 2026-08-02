@@ -823,11 +823,13 @@ function speakLetter(letterObj) {
   const voices = window.speechSynthesis.getVoices();
   const arabicVoice = voices.find(v => v.lang.startsWith("ar"));
   if (arabicVoice) {
-    const u = new SpeechSynthesisUtterance(letterObj.full);
+    // Many phone Arabic voices spell out a single short isolated word letter
+    // by letter — but read the SAME word correctly when it sits inside a
+    // short natural sentence. "حرف باء" (letter Baa) instead of just "باء".
+    const u = new SpeechSynthesisUtterance(`حرف ${letterObj.full}`);
     u.lang = arabicVoice.lang;
-    u.rate = 0.6;
+    u.rate = 0.55;
     u.pitch = 1;
-    // Prefer a male Arabic voice if the device offers more than one
     const arMale = voices.find(v => v.lang.startsWith("ar") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
     u.voice = arMale || arabicVoice;
     window.speechSynthesis.speak(u);
@@ -840,6 +842,23 @@ function speakLetter(letterObj) {
     if (enMale) u.voice = enMale;
     window.speechSynthesis.speak(u);
   }
+}
+
+// Nursery-style "A for Apple" learning — letter + example word, FEMALE voice.
+// Speaks in English so it's clearly understandable to a young child:
+// "Alif — for Asad, Lion". Uses a real female voice if the device has one;
+// otherwise falls back to whatever voice is available (never silent).
+function speakWordNursery(letterObj) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const voices = window.speechSynthesis.getVoices();
+  const u = new SpeechSynthesisUtterance(`${letterObj.n}, for ${letterObj.wm}`);
+  u.lang = "en-US";
+  u.rate = 0.75;
+  u.pitch = 1.15; // slightly higher pitch — warmer, more nursery-friendly tone
+  const female = voices.find(v => v.lang.startsWith("en") && FEMALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  if (female) u.voice = female;
+  window.speechSynthesis.speak(u);
 }
 
 async function aiTranslateChunk(chunk, langName, apiKey) {
@@ -2301,7 +2320,11 @@ export default function QuranLife() {
           <div style={{ background: "#f8f4ee", borderRadius: 12, padding: 14, marginBottom: 16 }}>
             <div className="ar" style={{ fontSize: 32, color: ARABIC_ALPHA[kidLetter].color, marginBottom: 4 }}>{ARABIC_ALPHA[kidLetter].w}</div>
             <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 500 }}>{ARABIC_ALPHA[kidLetter].wm}</div>
-            <div style={{ fontSize: 12, color: "#9ba5b0" }}>Example word in Arabic</div>
+            <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 10 }}>Example word in Arabic</div>
+            <button onClick={() => speakWordNursery(ARABIC_ALPHA[kidLetter])}
+              style={{ padding: "8px 16px", borderRadius: 18, border: "1.5px solid #ec4899", background: "#fdf2f8", color: "#db2777", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              🔊 "{ARABIC_ALPHA[kidLetter].n} — for {ARABIC_ALPHA[kidLetter].wm}"
+            </button>
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={() => setKidLetter(null)} style={{ padding: "9px 20px", borderRadius: 20, border: ".5px solid #ddd", background: "#fff", fontSize: 13, cursor: "pointer" }}>← Back</button>
