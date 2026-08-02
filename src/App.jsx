@@ -324,34 +324,34 @@ const QUICK_LINKS = [
 ];
 
 const ARABIC_ALPHA = [
-  {l:"أ",n:"Alif",full:"ألف",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wm:"Lion"},
-  {l:"ب",n:"Ba",full:"باء",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wm:"Duck"},
-  {l:"ت",n:"Ta",full:"تاء",s:"T",color:"#f39c12",e:"🍎",w:"تفاحة",wm:"Apple"},
-  {l:"ث",n:"Tha",full:"ثاء",s:"Th",color:"#27ae60",e:"🐍",w:"ثعبان",wm:"Snake"},
-  {l:"ج",n:"Jim",full:"جيم",s:"J",color:"#16a085",e:"🐪",w:"جمل",wm:"Camel"},
-  {l:"ح",n:"Ha",full:"حاء",s:"H",color:"#2980b9",e:"🐎",w:"حصان",wm:"Horse"},
-  {l:"خ",n:"Kha",full:"خاء",s:"Kh",color:"#8e44ad",e:"🐑",w:"خروف",wm:"Sheep"},
-  {l:"د",n:"Dal",full:"دال",s:"D",color:"#c0392b",e:"🐻",w:"دب",wm:"Bear"},
-  {l:"ذ",n:"Dhal",full:"ذال",s:"Dh",color:"#d35400",e:"🐺",w:"ذئب",wm:"Wolf"},
-  {l:"ر",n:"Ra",full:"راء",s:"R",color:"#7f8c8d",e:"🍇",w:"رمان",wm:"Pomegranate"},
-  {l:"ز",n:"Zay",full:"زاي",s:"Z",color:"#2ecc71",e:"🌺",w:"زهرة",wm:"Flower"},
-  {l:"س",n:"Sin",full:"سين",s:"S",color:"#1abc9c",e:"🐟",w:"سمكة",wm:"Fish"},
-  {l:"ش",n:"Shin",full:"شين",s:"Sh",color:"#3498db",e:"☀️",w:"شمس",wm:"Sun"},
-  {l:"ص",n:"Sad",full:"صاد",s:"S",color:"#9b59b6",e:"🦅",w:"صقر",wm:"Falcon"},
-  {l:"ض",n:"Dad",full:"ضاد",s:"D",color:"#e91e63",e:"🐸",w:"ضفدع",wm:"Frog"},
-  {l:"ط",n:"Ta",full:"طاء",s:"T",color:"#ff5722",e:"🥁",w:"طبل",wm:"Drum"},
-  {l:"ظ",n:"Dha",full:"ظاء",s:"Dh",color:"#795548",e:"🦌",w:"ظبي",wm:"Deer"},
-  {l:"ع",n:"Ain",full:"عين",s:"'A",color:"#607d8b",e:"🍇",w:"عنب",wm:"Grapes"},
-  {l:"غ",n:"Ghain",full:"غين",s:"Gh",color:"#e74c3c",e:"🐦",w:"غراب",wm:"Crow"},
-  {l:"ف",n:"Fa",full:"فاء",s:"F",color:"#e67e22",e:"🦋",w:"فراشة",wm:"Butterfly"},
-  {l:"ق",n:"Qaf",full:"قاف",s:"Q",color:"#f39c12",e:"🐱",w:"قطة",wm:"Cat"},
-  {l:"ك",n:"Kaf",full:"كاف",s:"K",color:"#27ae60",e:"🐶",w:"كلب",wm:"Dog"},
-  {l:"ل",n:"Lam",full:"لام",s:"L",color:"#16a085",e:"🎮",w:"لعبة",wm:"Game"},
-  {l:"م",n:"Mim",full:"ميم",s:"M",color:"#2980b9",e:"💧",w:"ماء",wm:"Water"},
-  {l:"ن",n:"Nun",full:"نون",s:"N",color:"#8e44ad",e:"🌟",w:"نجمة",wm:"Star"},
-  {l:"ه",n:"Ha",full:"هاء",s:"H",color:"#c0392b",e:"🌙",w:"هلال",wm:"Crescent"},
-  {l:"و",n:"Waw",full:"واو",s:"W",color:"#d35400",e:"🌹",w:"وردة",wm:"Rose"},
-  {l:"ي",n:"Ya",full:"ياء",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wm:"Dove"},
+  {l:"أ",n:"Alif",full:"ألف",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wt:"Asad",wm:"Lion"},
+  {l:"ب",n:"Ba",full:"باء",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wt:"Batta",wm:"Duck"},
+  {l:"ت",n:"Ta",full:"تاء",s:"T",color:"#f39c12",e:"🍎",w:"تفاحة",wt:"Tuffaha",wm:"Apple"},
+  {l:"ث",n:"Tha",full:"ثاء",s:"Th",color:"#27ae60",e:"🐍",w:"ثعبان",wt:"Thu'ban",wm:"Snake"},
+  {l:"ج",n:"Jim",full:"جيم",s:"J",color:"#16a085",e:"🐪",w:"جمل",wt:"Jamal",wm:"Camel"},
+  {l:"ح",n:"Ha",full:"حاء",s:"H",color:"#2980b9",e:"🐎",w:"حصان",wt:"Hisan",wm:"Horse"},
+  {l:"خ",n:"Kha",full:"خاء",s:"Kh",color:"#8e44ad",e:"🐑",w:"خروف",wt:"Kharoof",wm:"Sheep"},
+  {l:"د",n:"Dal",full:"دال",s:"D",color:"#c0392b",e:"🐻",w:"دب",wt:"Dubb",wm:"Bear"},
+  {l:"ذ",n:"Dhal",full:"ذال",s:"Dh",color:"#d35400",e:"🐺",w:"ذئب",wt:"Dhi'b",wm:"Wolf"},
+  {l:"ر",n:"Ra",full:"راء",s:"R",color:"#7f8c8d",e:"🍇",w:"رمان",wt:"Rumman",wm:"Pomegranate"},
+  {l:"ز",n:"Zay",full:"زاي",s:"Z",color:"#2ecc71",e:"🌺",w:"زهرة",wt:"Zahra",wm:"Flower"},
+  {l:"س",n:"Sin",full:"سين",s:"S",color:"#1abc9c",e:"🐟",w:"سمكة",wt:"Samaka",wm:"Fish"},
+  {l:"ش",n:"Shin",full:"شين",s:"Sh",color:"#3498db",e:"☀️",w:"شمس",wt:"Shams",wm:"Sun"},
+  {l:"ص",n:"Sad",full:"صاد",s:"S",color:"#9b59b6",e:"🦅",w:"صقر",wt:"Saqr",wm:"Falcon"},
+  {l:"ض",n:"Dad",full:"ضاد",s:"D",color:"#e91e63",e:"🐸",w:"ضفدع",wt:"Difda'",wm:"Frog"},
+  {l:"ط",n:"Ta",full:"طاء",s:"T",color:"#ff5722",e:"🥁",w:"طبل",wt:"Tabl",wm:"Drum"},
+  {l:"ظ",n:"Dha",full:"ظاء",s:"Dh",color:"#795548",e:"🦌",w:"ظبي",wt:"Zabi",wm:"Deer"},
+  {l:"ع",n:"Ain",full:"عين",s:"'A",color:"#607d8b",e:"🍇",w:"عنب",wt:"Inab",wm:"Grapes"},
+  {l:"غ",n:"Ghain",full:"غين",s:"Gh",color:"#e74c3c",e:"🐦",w:"غراب",wt:"Ghurab",wm:"Crow"},
+  {l:"ف",n:"Fa",full:"فاء",s:"F",color:"#e67e22",e:"🦋",w:"فراشة",wt:"Farasha",wm:"Butterfly"},
+  {l:"ق",n:"Qaf",full:"قاف",s:"Q",color:"#f39c12",e:"🐱",w:"قطة",wt:"Qitta",wm:"Cat"},
+  {l:"ك",n:"Kaf",full:"كاف",s:"K",color:"#27ae60",e:"🐶",w:"كلب",wt:"Kalb",wm:"Dog"},
+  {l:"ل",n:"Lam",full:"لام",s:"L",color:"#16a085",e:"🎮",w:"لعبة",wt:"Lu'ba",wm:"Game"},
+  {l:"م",n:"Mim",full:"ميم",s:"M",color:"#2980b9",e:"💧",w:"ماء",wt:"Ma'",wm:"Water"},
+  {l:"ن",n:"Nun",full:"نون",s:"N",color:"#8e44ad",e:"🌟",w:"نجمة",wt:"Najma",wm:"Star"},
+  {l:"ه",n:"Ha",full:"هاء",s:"H",color:"#c0392b",e:"🌙",w:"هلال",wt:"Hilal",wm:"Crescent"},
+  {l:"و",n:"Waw",full:"واو",s:"W",color:"#d35400",e:"🌹",w:"وردة",wt:"Warda",wm:"Rose"},
+  {l:"ي",n:"Ya",full:"ياء",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wt:"Yamama",wm:"Dove"},
 ];
 
 // ─── VERSE CACHE ─────────────────────────────────────────────
@@ -852,7 +852,7 @@ function speakWordNursery(letterObj) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const voices = window.speechSynthesis.getVoices();
-  const u = new SpeechSynthesisUtterance(`${letterObj.n}, for ${letterObj.wm}`);
+  const u = new SpeechSynthesisUtterance(`${letterObj.n}, for ${letterObj.wt}`);
   u.lang = "en-US";
   u.rate = 0.75;
   u.pitch = 1.15; // slightly higher pitch — warmer, more nursery-friendly tone
@@ -2286,7 +2286,7 @@ export default function QuranLife() {
         <div style={{ position: "absolute", inset: 0, opacity: .07, fontSize: 48, lineHeight: 1 }}>🌟⭐🌙✨</div>
         <div style={{ position: "relative" }}>
           <button onClick={() => { setScreen("home"); setNavTab("home"); setKidLetter(null); }}
-            style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Back</button>
+            style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Home</button>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 38, marginBottom: 6 }}>🎓</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Kids Arabic Corner</div>
@@ -2323,11 +2323,11 @@ export default function QuranLife() {
             <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 10 }}>Example word in Arabic</div>
             <button onClick={() => speakWordNursery(ARABIC_ALPHA[kidLetter])}
               style={{ padding: "8px 16px", borderRadius: 18, border: "1.5px solid #ec4899", background: "#fdf2f8", color: "#db2777", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-              🔊 "{ARABIC_ALPHA[kidLetter].n} — for {ARABIC_ALPHA[kidLetter].wm}"
+              🔊 "{ARABIC_ALPHA[kidLetter].n} — for {ARABIC_ALPHA[kidLetter].wt}"
             </button>
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => setKidLetter(null)} style={{ padding: "9px 20px", borderRadius: 20, border: ".5px solid #ddd", background: "#fff", fontSize: 13, cursor: "pointer" }}>← Back</button>
+            <button onClick={() => setKidLetter(null)} style={{ padding: "9px 20px", borderRadius: 20, border: ".5px solid #ddd", background: "#fff", fontSize: 13, cursor: "pointer" }}>← All Letters</button>
             <button onClick={() => {
               setLearned(prev => prev.includes(kidLetter) ? prev.filter(i => i !== kidLetter) : [...prev, kidLetter]);
             }} style={{ padding: "9px 20px", borderRadius: 20, background: learned.includes(kidLetter) ? "#27ae60" : "#e67e22", color: "#fff", border: "none", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
