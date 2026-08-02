@@ -1054,6 +1054,7 @@ export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
+  const [juzMarker, setJuzMarker] = useState(null); // { juzNum, verseNum } — persists until dismissed or navigated away
   const pendingScrollVerseRef = useRef(null);
   const [continueDialog, setContinueDialog] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
@@ -1230,7 +1231,7 @@ export default function QuranLife() {
   }, [qari, stopAudio]);
 
   // ── OPEN SURAH ─────────────────────────────────────────────
-  const openSurah = useCallback(async (n, autoPlay = false, targetVerse = null) => {
+  const openSurah = useCallback(async (n, autoPlay = false, targetVerse = null, juzNum = null) => {
     stopAudio();
     setSurahNum(n);
     setScreen("read");
@@ -1241,6 +1242,8 @@ export default function QuranLife() {
     setVersesError(null);
     window.scrollTo(0, 0);
     pendingScrollVerseRef.current = targetVerse;
+    // Set the persistent Juz marker, or clear it if this navigation isn't from a Juz tap
+    setJuzMarker(juzNum ? { juzNum, verseNum: targetVerse } : null);
     try {
       const onAIReady = (updated) => setVerses([...updated]);
       const v = await fetchVerses(n, lang, onAIReady);
@@ -1253,12 +1256,7 @@ export default function QuranLife() {
       if (targetVerse) {
         setTimeout(() => {
           const el = document.getElementById(`verse-${targetVerse}`);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-            el.style.transition = "box-shadow .3s";
-            el.style.boxShadow = "0 0 0 3px rgba(15,81,50,.35)";
-            setTimeout(() => { el.style.boxShadow = ""; }, 2000);
-          }
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
           pendingScrollVerseRef.current = null;
         }, 300);
       }
@@ -1468,7 +1466,7 @@ export default function QuranLife() {
     <div className="nav">
       {[["🏠","Home","home"],["📖","Read","read"],["🎓","Kids","kids"],["🔖","Saved","bookmarks"],["⚙️","More","more"]].map(([icon, label, id]) => (
         <div key={id} className={`ni${navTab === id ? " on" : ""}`} onClick={() => {
-          if (id === "home") { stopAudio(); setScreen("home"); setNavTab("home"); }
+          if (id === "home") { stopAudio(); setScreen("home"); setNavTab("home"); setJuzMarker(null); }
           else if (id === "read") { if (surahNum) setScreen("read"); else openSurah(lastRead?.surahN || 1); setNavTab("read"); }
           else if (id === "kids") { setScreen("kids"); setNavTab("kids"); setKidLetter(null); }
           else if (id === "bookmarks") { setScreen("bookmarks"); setNavTab("bookmarks"); }
@@ -1631,7 +1629,7 @@ export default function QuranLife() {
               onClick={() => {
                 const start = JUZ_STARTS[i + 1];
                 setShowJuz(false);
-                if (start) openSurah(start.surah, false, start.verse);
+                if (start) openSurah(start.surah, false, start.verse, i + 1);
               }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1 }}>
@@ -2086,7 +2084,7 @@ export default function QuranLife() {
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg,#051a0e,${G},#1a7a45)`, padding: "12px 13px 13px", position: "sticky", top: 0, zIndex: 40 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <button onClick={() => { stopAudio(); setScreen("home"); setNavTab("home"); }}
+            <button onClick={() => { stopAudio(); setScreen("home"); setNavTab("home"); setJuzMarker(null); }}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff", flexShrink: 0, cursor: "pointer" }}>←</button>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{s.name}</div>
@@ -2198,6 +2196,24 @@ export default function QuranLife() {
 
             return (
               <div key={verse.number} id={`verse-${verse.number}`} className="fade" style={{ background: darkMode ? "#1a1a1a" : "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : darkMode ? "#2a2a2a" : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
+                {/* Juz Start Marker — persists until dismissed or navigated away */}
+                {juzMarker && juzMarker.verseNum === verse.number && (
+                  <div style={{ background: "linear-gradient(135deg,#0f5132,#1a7a4d)", padding: "9px 13px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+                        ⬇ Juz {juzMarker.juzNum} starts here
+                      </div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.8)" }}>
+                        This is the beginning of Part {juzMarker.juzNum} of 30
+                      </div>
+                    </div>
+                    <button onClick={() => setJuzMarker(null)}
+                      style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      ×
+                    </button>
+                  </div>
+                )}
                 {/* Sajdah Banner */}
                 {sajdah && (
                   <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", padding: "7px 13px", display: "flex", alignItems: "center", gap: 8 }}>
