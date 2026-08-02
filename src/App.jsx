@@ -1079,6 +1079,15 @@ export default function QuranLife() {
   const [showGoto, setShowGoto] = useState(false);
   const [showBkSheet, setShowBkSheet] = useState(false);
   const [showAudioSheet, setShowAudioSheet] = useState(false);
+  // Mushaf Reader — real page-by-page book view, 604 authentic pages
+  const [mushafPage, setMushafPage] = useState(1);
+  const [mushafData, setMushafData] = useState(null);
+  const [mushafLoading, setMushafLoading] = useState(false);
+  const [mushafError, setMushafError] = useState(null);
+  const [mushafDragX, setMushafDragX] = useState(0);
+  const [mushafAnimating, setMushafAnimating] = useState(false);
+  const mushafDragStartRef = useRef(null);
+  const mushafCacheRef = useRef({});
   const [audioLang, setAudioLang] = useState("en");
   const [audioLangCountry, setAudioLangCountry] = useState("all");
   const [audioLangSearch, setAudioLangSearch] = useState("");
@@ -1266,6 +1275,60 @@ export default function QuranLife() {
       setVersesLoading(false);
     }
   }, [lang, stopAudio]);
+
+  // ── MUSHAF READER — authentic page-by-page book, real Quran.com text ──
+  const fetchMushafPage = useCallback(async (pageNum) => {
+    if (mushafCacheRef.current[pageNum]) {
+      setMushafData(mushafCacheRef.current[pageNum]);
+      return;
+    }
+    setMushafLoading(true);
+    setMushafError(null);
+    try {
+      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&fields=text_uthmani`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`API ${r.status}`);
+      const d = await r.json();
+      const verses = (d.verses || []).map(v => ({
+        number: v.verse_number,
+        chapter: v.verse_key.split(":")[0],
+        arabic: v.text_uthmani,
+      }));
+      const firstChapter = verses.length ? parseInt(verses[0].chapter) : 1;
+      const firstVerseNum = verses.length ? verses[0].number : 1;
+      const surahInfo = SURAHS.find(s => s.n === firstChapter);
+      const globalPos = (SURAH_VERSE_STARTS[firstChapter] || 0) + firstVerseNum - 1;
+      let juzNum = 1;
+      for (let j = 1; j <= 30; j++) {
+        const js = JUZ_STARTS[j];
+        const jsPos = (SURAH_VERSE_STARTS[js.surah] || 0) + js.verse - 1;
+        if (jsPos <= globalPos) juzNum = j; else break;
+      }
+      const pageData = { pageNum, verses, surahName: surahInfo?.name || "", surahAr: surahInfo?.ar || "", juzNum };
+      mushafCacheRef.current[pageNum] = pageData;
+      setMushafData(pageData);
+    } catch (e) {
+      setMushafError("Could not load this page. Check your connection and try again.");
+    } finally {
+      setMushafLoading(false);
+    }
+  }, []);
+
+  const openMushafReader = useCallback((startPage = null) => {
+    const p = startPage || mushafPage || 1;
+    setMushafPage(p);
+    setScreen("mushaf");
+    setNavTab("home");
+    fetchMushafPage(p);
+  }, [mushafPage, fetchMushafPage]);
+
+  const mushafGoToPage = useCallback((newPage) => {
+    if (newPage < 1 || newPage > 604 || mushafAnimating) return;
+    setMushafAnimating(true);
+    setMushafPage(newPage);
+    fetchMushafPage(newPage);
+    setTimeout(() => { setMushafAnimating(false); setMushafDragX(0); }, 280);
+  }, [mushafAnimating, fetchMushafPage]);
 
   // Reload verses when language changes while reading
   useEffect(() => {
@@ -1657,8 +1720,13 @@ export default function QuranLife() {
           <button onClick={() => {
             const p = parseInt(gotoPage);
             if (p && p >= 1 && p <= 604) {
-              const s = SURAHS.slice().reverse().find(x => x.page <= p) || SURAHS[0];
-              openSurah(s.n); setShowGoto(false); setGotoPage("");
+              if (screen === "mushaf") {
+                mushafGoToPage(p);
+              } else {
+                const s = SURAHS.slice().reverse().find(x => x.page <= p) || SURAHS[0];
+                openSurah(s.n);
+              }
+              setShowGoto(false); setGotoPage("");
             }
           }} style={{ padding: "10px 16px", background: G, color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Go</button>
         </div>
@@ -1996,6 +2064,7 @@ export default function QuranLife() {
             { icon: "🔖", label: `${bookmarks.length}\nSaved`, bg: "linear-gradient(135deg,#8e44ad,#9b59b6)", shadow: "rgba(142,68,173,.25)", action: () => setShowBkSheet(true) },
             { icon: "🔊", label: "Meaning\nAudio", bg: "linear-gradient(135deg,#c0392b,#e74c3c)", shadow: "rgba(192,57,43,.25)", action: () => setShowAudioSheet(true) },
             { icon: "📚", label: "Juz\nIndex", bg: "linear-gradient(135deg,#2980b9,#3498db)", shadow: "rgba(41,128,185,.25)", action: () => setShowJuz(true) },
+            { icon: "📕", label: "Mushaf\nReader", bg: "linear-gradient(135deg,#6d4c1f,#8b6914)", shadow: "rgba(139,105,20,.25)", action: () => openMushafReader() },
             { icon: "📄", label: "Go To\nPage", bg: "linear-gradient(135deg,#16a085,#1abc9c)", shadow: "rgba(22,160,133,.25)", action: () => setShowGoto(true) },
           ].map(({ icon, label, bg, shadow, action }) => (
             <div key={label} onClick={action} style={{ background: bg, borderRadius: 12, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, boxShadow: `0 3px 10px ${shadow}` }}>
@@ -2546,6 +2615,110 @@ export default function QuranLife() {
     </div>
   );
 
+  // ── MUSHAF READER SCREEN — authentic page-by-page, swipe/drag to turn ──
+  const MushafReaderScreen = () => {
+    const handleDragStart = (clientX) => {
+      if (mushafAnimating) return;
+      mushafDragStartRef.current = clientX;
+    };
+    const handleDragMove = (clientX) => {
+      if (mushafDragStartRef.current === null || mushafAnimating) return;
+      setMushafDragX(clientX - mushafDragStartRef.current);
+    };
+    const handleDragEnd = () => {
+      if (mushafDragStartRef.current === null) return;
+      const threshold = 70;
+      if (mushafDragX < -threshold) {
+        mushafGoToPage(mushafPage + 1);
+      } else if (mushafDragX > threshold) {
+        mushafGoToPage(mushafPage - 1);
+      } else {
+        setMushafDragX(0);
+      }
+      mushafDragStartRef.current = null;
+    };
+
+    return (
+      <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#2a1a08,#1a1005)", minHeight: "100vh" }}>
+        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 9, position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#3d2410,#2a1a08)" }}>
+          <button onClick={() => { setScreen("home"); setNavTab("home"); }}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8" }}>{mushafData?.surahName || "Loading..."}</div>
+            <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604 {mushafData ? `· Juz ${mushafData.juzNum}` : ""}</div>
+          </div>
+          <button onClick={() => setShowGoto(true)}
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>#</button>
+        </div>
+
+        <div
+          style={{ margin: "14px", touchAction: "pan-y" }}
+          onTouchStart={e => handleDragStart(e.touches[0].clientX)}
+          onTouchMove={e => handleDragMove(e.touches[0].clientX)}
+          onTouchEnd={handleDragEnd}
+          onMouseDown={e => handleDragStart(e.clientX)}
+          onMouseMove={e => { if (mushafDragStartRef.current !== null) handleDragMove(e.clientX); }}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={() => { if (mushafDragStartRef.current !== null) handleDragEnd(); }}
+        >
+          <div style={{
+            background: "#faf6ec",
+            borderRadius: 14,
+            padding: "24px 20px",
+            minHeight: "60vh",
+            boxShadow: "0 10px 40px rgba(0,0,0,.4)",
+            border: "3px solid #8b6914",
+            transform: `translateX(${mushafDragX}px) rotate(${mushafDragX / 40}deg)`,
+            transition: mushafDragStartRef.current === null ? "transform .28s ease" : "none",
+            cursor: "grab",
+            userSelect: "none",
+          }}>
+            {mushafLoading && !mushafData && (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914" }}>Loading page...</div>
+            )}
+            {mushafError && (
+              <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{mushafError}</div>
+                <button onClick={() => fetchMushafPage(mushafPage)}
+                  style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Retry</button>
+              </div>
+            )}
+            {mushafData && !mushafError && (
+              <>
+                <div className="ar" style={{ fontSize: 22, lineHeight: 2.1, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a1a1a" }}>
+                  {mushafData.verses.map((v, i) => (
+                    <span key={i}>
+                      {v.arabic}
+                      <span style={{ fontSize: 14, color: "#8b6914", margin: "0 4px" }}>﴿{v.number}﴾</span>
+                      {" "}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ textAlign: "center", marginTop: 20, paddingTop: 12, borderTop: "1px solid #d4c4a0", fontSize: 12, color: "#8b6914", fontWeight: 600 }}>
+                  {mushafPage}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, padding: "0 14px", marginTop: 10 }}>
+          <button onClick={() => mushafGoToPage(mushafPage - 1)} disabled={mushafPage <= 1}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.14)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: "none", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
+            → Previous
+          </button>
+          <button onClick={() => mushafGoToPage(mushafPage + 1)} disabled={mushafPage >= 604}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.14)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: "none", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
+            Next ←
+          </button>
+        </div>
+        <div style={{ textAlign: "center", fontSize: 10, color: "#7a6a4a", marginTop: 10 }}>
+          Swipe or drag the page to turn · Text: Quran.com verified Uthmani script
+        </div>
+      </div>
+    );
+  };
+
   // ── ROOT RENDER ─────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%" }}>
@@ -2554,6 +2727,7 @@ export default function QuranLife() {
       {screen === "read" && <ReadScreen />}
       {screen === "kids" && <KidsScreen />}
       {screen === "bookmarks" && <BookmarksScreen />}
+      {screen === "mushaf" && <MushafReaderScreen />}
     </div>
   );
 }
