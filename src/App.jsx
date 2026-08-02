@@ -1054,6 +1054,9 @@ export default function QuranLife() {
   const [bookmarks, setBookmarks] = useState([]);
   const [lastRead, setLastRead] = useState(null);
   const [kidLetter, setKidLetter] = useState(null);
+  const [kidsAudioPlaying, setKidsAudioPlaying] = useState(false);
+  const [kidsAudioCurrent, setKidsAudioCurrent] = useState(null);
+  const kidsAudioStopRef = useRef(false);
   const [learned, setLearned] = useState([]);
   const [langSearch, setLangSearch] = useState("");
   const [langCountry, setLangCountry] = useState("all");
@@ -2279,13 +2282,56 @@ export default function QuranLife() {
     );
   };
 
+  // ── KIDS ALPHABET AUDIO — continuous Alif, Ba, Ta... playthrough ──
+  const stopKidsAudio = useCallback(() => {
+    kidsAudioStopRef.current = true;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setKidsAudioPlaying(false);
+    setKidsAudioCurrent(null);
+  }, []);
+
+  const playKidsAlphabetAudio = useCallback(async () => {
+    if (!("speechSynthesis" in window)) return;
+    kidsAudioStopRef.current = false;
+    setKidsAudioPlaying(true);
+    for (let i = 0; i < ARABIC_ALPHA.length; i++) {
+      if (kidsAudioStopRef.current) break;
+      setKidsAudioCurrent(i);
+      const letter = ARABIC_ALPHA[i];
+      await new Promise(resolve => {
+        window.speechSynthesis.cancel();
+        const voices = window.speechSynthesis.getVoices();
+        const arabicVoice = voices.find(v => v.lang.startsWith("ar"));
+        let u;
+        if (arabicVoice) {
+          u = new SpeechSynthesisUtterance(`حرف ${letter.full}`);
+          u.lang = arabicVoice.lang;
+          const arMale = voices.find(v => v.lang.startsWith("ar") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+          u.voice = arMale || arabicVoice;
+        } else {
+          u = new SpeechSynthesisUtterance(letter.n);
+          u.lang = "en-US";
+          const enMale = voices.find(v => v.lang.startsWith("en") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+          if (enMale) u.voice = enMale;
+        }
+        u.rate = 0.6;
+        u.onend = resolve;
+        u.onerror = resolve;
+        window.speechSynthesis.speak(u);
+      });
+      // Small pause between letters so it doesn't run together
+      if (!kidsAudioStopRef.current) await new Promise(r => setTimeout(r, 350));
+    }
+    if (!kidsAudioStopRef.current) { setKidsAudioPlaying(false); setKidsAudioCurrent(null); }
+  }, []);
+
   // ── KIDS SCREEN ─────────────────────────────────────────────
   const KidsScreen = () => (
     <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#fff9f0,#f0fff4)", minHeight: "100vh" }}>
       <div style={{ background: "linear-gradient(135deg,#e67e22,#f39c12)", padding: "16px 14px 20px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, opacity: .07, fontSize: 48, lineHeight: 1 }}>🌟⭐🌙✨</div>
         <div style={{ position: "relative" }}>
-          <button onClick={() => { setScreen("home"); setNavTab("home"); setKidLetter(null); }}
+          <button onClick={() => { stopKidsAudio(); setScreen("home"); setNavTab("home"); setKidLetter(null); }}
             style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Home</button>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 38, marginBottom: 6 }}>🎓</div>
@@ -2337,10 +2383,33 @@ export default function QuranLife() {
         </div>
       ) : (
         <div style={{ padding: "8px 14px" }}>
+          {/* Two mode buttons */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <div style={{ flex: 1, padding: "10px 12px", borderRadius: 12, background: "#e67e22", color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center" }}>
+              🔤 Tap to Learn
+            </div>
+            <button onClick={() => { if (kidsAudioPlaying) { stopKidsAudio(); } else { playKidsAlphabetAudio(); } }}
+              style={{ flex: 1, padding: "10px 12px", borderRadius: 12, background: kidsAudioPlaying ? "#c0392b" : "#f4f4f4", color: kidsAudioPlaying ? "#fff" : "#5a6472", fontSize: 12, fontWeight: 700, textAlign: "center", border: "none", cursor: "pointer" }}>
+              {kidsAudioPlaying ? "⏹ Stop" : "🔊 Audio A–Z"}
+            </button>
+          </div>
+
+          {kidsAudioPlaying && (
+            <div style={{ padding: "10px 12px", background: "#fff3cd", border: ".5px solid #f39c12", borderRadius: 10, marginBottom: 14, textAlign: "center" }}>
+              <div className="ar" style={{ fontSize: 24, color: "#e67e22", marginBottom: 2 }}>
+                {kidsAudioCurrent !== null ? ARABIC_ALPHA[kidsAudioCurrent].l : ""}
+              </div>
+              <div style={{ fontSize: 12, color: "#856404", fontWeight: 600 }}>
+                {kidsAudioCurrent !== null ? `${kidsAudioCurrent + 1} of ${ARABIC_ALPHA.length} — ${ARABIC_ALPHA[kidsAudioCurrent].n}` : ""}
+              </div>
+            </div>
+          )}
+
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 10 }}>🔤 Arabic Letters — Tap to Learn</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9 }}>
             {ARABIC_ALPHA.map((a, i) => (
               <div key={i} className="alpha-card" onClick={() => {
+                if (kidsAudioPlaying) stopKidsAudio();
                 setKidLetter(i);
                 speakLetter(a);
               }}
