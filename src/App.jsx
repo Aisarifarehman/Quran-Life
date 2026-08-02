@@ -987,6 +987,41 @@ const SURAH_VERSE_STARTS = {
   113:6226, 114:6231
 };
 
+// Standard Juz (Para) starting points — Surah number and Verse number where
+// each of the 30 Juz begins, per the standard Mushaf division
+const JUZ_STARTS = {
+  1: { surah: 1, verse: 1 },
+  2: { surah: 2, verse: 142 },
+  3: { surah: 2, verse: 253 },
+  4: { surah: 3, verse: 93 },
+  5: { surah: 4, verse: 24 },
+  6: { surah: 4, verse: 148 },
+  7: { surah: 5, verse: 82 },
+  8: { surah: 6, verse: 111 },
+  9: { surah: 7, verse: 88 },
+  10: { surah: 8, verse: 41 },
+  11: { surah: 9, verse: 93 },
+  12: { surah: 11, verse: 6 },
+  13: { surah: 12, verse: 53 },
+  14: { surah: 15, verse: 1 },
+  15: { surah: 17, verse: 1 },
+  16: { surah: 18, verse: 75 },
+  17: { surah: 21, verse: 1 },
+  18: { surah: 23, verse: 1 },
+  19: { surah: 25, verse: 21 },
+  20: { surah: 27, verse: 56 },
+  21: { surah: 29, verse: 46 },
+  22: { surah: 33, verse: 31 },
+  23: { surah: 36, verse: 28 },
+  24: { surah: 39, verse: 32 },
+  25: { surah: 41, verse: 47 },
+  26: { surah: 46, verse: 1 },
+  27: { surah: 51, verse: 31 },
+  28: { surah: 58, verse: 1 },
+  29: { surah: 67, verse: 1 },
+  30: { surah: 78, verse: 1 },
+};
+
 function getAudioUrls(qariId, surahNum, verseNum) {
   // Calculate correct global verse number
   const startVerse = SURAH_VERSE_STARTS[surahNum] || 1;
@@ -1019,6 +1054,7 @@ export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
+  const pendingScrollVerseRef = useRef(null);
   const [continueDialog, setContinueDialog] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [fontSize, setFontSize] = useState(24); // Arabic font size
@@ -1194,7 +1230,7 @@ export default function QuranLife() {
   }, [qari, stopAudio]);
 
   // ── OPEN SURAH ─────────────────────────────────────────────
-  const openSurah = useCallback(async (n, autoPlay = false) => {
+  const openSurah = useCallback(async (n, autoPlay = false, targetVerse = null) => {
     stopAudio();
     setSurahNum(n);
     setScreen("read");
@@ -1204,13 +1240,27 @@ export default function QuranLife() {
     setVersesLoading(true);
     setVersesError(null);
     window.scrollTo(0, 0);
+    pendingScrollVerseRef.current = targetVerse;
     try {
       const onAIReady = (updated) => setVerses([...updated]);
       const v = await fetchVerses(n, lang, onAIReady);
       setVerses(v);
-      setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: 1 });
+      setLastRead({ surahN: n, surahName: SURAHS.find(s => s.n === n)?.name || "", verse: targetVerse || 1 });
       if (autoPlay && v.length > 0) {
         setTimeout(() => playVerse(n, 1, "surah", v), 500);
+      }
+      // Scroll to the requested verse (e.g. Juz start) once rendered
+      if (targetVerse) {
+        setTimeout(() => {
+          const el = document.getElementById(`verse-${targetVerse}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.style.transition = "box-shadow .3s";
+            el.style.boxShadow = "0 0 0 3px rgba(15,81,50,.35)";
+            setTimeout(() => { el.style.boxShadow = ""; }, 2000);
+          }
+          pendingScrollVerseRef.current = null;
+        }, 300);
       }
     } catch (e) {
       setVersesError("Could not load verses. Please check your connection and tap Retry.");
@@ -1578,11 +1628,17 @@ export default function QuranLife() {
         <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
           {Array.from({ length: 30 }, (_, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 4px", borderBottom: ".5px solid #f0f0ec", cursor: "pointer" }}
-              onClick={() => { setShowJuz(false); /* In full app navigate to juz */ }}>
+              onClick={() => {
+                const start = JUZ_STARTS[i + 1];
+                setShowJuz(false);
+                if (start) openSurah(start.surah, false, start.verse);
+              }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>Juz {i + 1}</div>
-                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>Part {i + 1} of 30</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>
+                  {JUZ_STARTS[i + 1] ? `Starts at ${SURAHS.find(s => s.n === JUZ_STARTS[i + 1].surah)?.name || ""} ${JUZ_STARTS[i + 1].verse}` : `Part ${i + 1} of 30`}
+                </div>
               </div>
               <div className="ar" style={{ fontSize: 16, color: G }}>الجزء {i + 1}</div>
             </div>
@@ -2141,7 +2197,7 @@ export default function QuranLife() {
             const sajdah = isSajdahVerse(s.n, verse.number);
 
             return (
-              <div key={verse.number} className="fade" style={{ background: darkMode ? "#1a1a1a" : "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : darkMode ? "#2a2a2a" : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
+              <div key={verse.number} id={`verse-${verse.number}`} className="fade" style={{ background: darkMode ? "#1a1a1a" : "#fff", border: `.5px solid ${sajdah ? "#c9943a66" : bkd ? "#8e44ad44" : isOpen ? G : darkMode ? "#2a2a2a" : "#e2e8e4"}`, borderRadius: 13, marginBottom: 9, overflow: "hidden", boxShadow: isOpen ? `0 0 0 2px rgba(15,81,50,.09)` : sajdah ? "0 0 0 2px rgba(201,148,58,.15)" : "none" }}>
                 {/* Sajdah Banner */}
                 {sajdah && (
                   <div style={{ background: "linear-gradient(135deg,#8b6914,#c9943a)", padding: "7px 13px", display: "flex", alignItems: "center", gap: 8 }}>
