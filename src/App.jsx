@@ -2967,21 +2967,17 @@ export default function QuranLife() {
               )}
 
               {mushafData && !mushafError && (
-                <div style={{ display: "flex", gap: 0 }}>
+                <div style={{ display: "flex", gap: 4 }}>
 
                   {/* RIGHT SIDE MARGIN — Ruku & Sajdah markers */}
-                  <div style={{ width: 22, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
+                  <div style={{ width: 20, flexShrink: 0, direction: "rtl" }}>
                     {mushafData.verses.map((v, i) => {
                       const sajdah = isSajdahVerse(parseInt(v.chapter), v.number);
                       const ruku = isRukuStart(parseInt(v.chapter), v.number);
                       return (
-                        <div key={i} style={{ height: 38, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1 }}>
-                          {ruku && (
-                            <div style={{ fontSize: 13, color: "#0f5132", fontFamily: "'Amiri',serif", fontWeight: 700, lineHeight: 1, title: "Ruku start" }}>ع</div>
-                          )}
-                          {sajdah && (
-                            <div style={{ fontSize: 12, color: "#8b6914", lineHeight: 1, title: "Sajdah" }}>۩</div>
-                          )}
+                        <div key={i} style={{ minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 6 }}>
+                          {ruku && <div style={{ fontSize: 14, color: "#0f5132", fontFamily: "'Amiri',serif", fontWeight: 700, lineHeight: 1 }} title="Ruku start">ع</div>}
+                          {sajdah && <div style={{ fontSize: 13, color: "#8b6914", lineHeight: 1, marginTop: ruku ? 2 : 0 }} title="Sajdah">۩</div>}
                         </div>
                       );
                     })}
