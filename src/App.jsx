@@ -314,6 +314,25 @@ function isSajdahVerse(surahNum, verseNum) {
   return SAJDAH_VERSES.find(s => s.surah === surahNum && s.verse === verseNum) || null;
 }
 
+// ─── RUKU DATA — 558 Rukus in the Quran ──────────────────────
+// Each entry = { surah, verse } where a new Ruku starts
+const RUKU_STARTS = [
+  {s:1,v:1},{s:2,v:1},{s:2,v:8},{s:2,v:21},{s:2,v:30},{s:2,v:40},{s:2,v:47},{s:2,v:60},{s:2,v:62},{s:2,v:72},{s:2,v:83},{s:2,v:87},{s:2,v:97},{s:2,v:104},{s:2,v:113},{s:2,v:122},{s:2,v:130},{s:2,v:142},{s:2,v:153},{s:2,v:163},{s:2,v:168},{s:2,v:177},{s:2,v:183},{s:2,v:189},{s:2,v:197},{s:2,v:204},{s:2,v:211},{s:2,v:216},{s:2,v:220},{s:2,v:222},{s:2,v:229},{s:2,v:232},{s:2,v:235},{s:2,v:238},{s:2,v:243},{s:2,v:248},{s:2,v:253},{s:2,v:254},{s:2,v:258},{s:2,v:261},{s:2,v:267},{s:2,v:274},{s:2,v:277},{s:2,v:282},{s:3,v:1},{s:3,v:10},{s:3,v:21},{s:3,v:33},{s:3,v:42},{s:3,v:55},{s:3,v:64},{s:3,v:72},{s:3,v:80},{s:3,v:92},{s:3,v:102},{s:3,v:110},{s:3,v:121},{s:3,v:130},{s:3,v:137},{s:3,v:144},{s:3,v:149},{s:3,v:154},{s:3,v:156},{s:3,v:162},{s:3,v:169},{s:3,v:172},{s:3,v:178},{s:3,v:181},{s:3,v:187},{s:3,v:190},{s:4,v:1},{s:4,v:7},{s:4,v:11},{s:4,v:15},{s:4,v:19},{s:4,v:23},{s:4,v:26},{s:4,v:29},{s:4,v:34},{s:4,v:36},{s:4,v:43},{s:4,v:47},{s:4,v:51},{s:4,v:60},{s:4,v:65},{s:4,v:69},{s:4,v:77},{s:4,v:83},{s:4,v:86},{s:4,v:88},{s:4,v:92},{s:4,v:94},{s:4,v:97},{s:4,v:101},{s:4,v:105},{s:4,v:107},{s:4,v:110},{s:4,v:113},{s:4,v:116},{s:4,v:120},{s:4,v:123},{s:4,v:127},{s:4,v:130},{s:4,v:135},{s:4,v:141},{s:4,v:148},{s:4,v:153},{s:4,v:163},{s:4,v:172},{s:5,v:1},{s:5,v:6},{s:5,v:12},{s:5,v:18},{s:5,v:27},{s:5,v:35},{s:5,v:41},{s:5,v:51},{s:5,v:57},{s:5,v:67},{s:5,v:72},{s:5,v:78},{s:5,v:82},{s:5,v:87},{s:5,v:93},{s:5,v:97},{s:5,v:101},{s:5,v:105},{s:5,v:109},{s:5,v:116},{s:6,v:1},{s:6,v:11},{s:6,v:21},{s:6,v:31},{s:6,v:42},{s:6,v:51},{s:6,v:56},{s:6,v:61},{s:6,v:71},{s:6,v:74},{s:6,v:84},{s:6,v:91},{s:6,v:95},{s:6,v:101},{s:6,v:111},{s:6,v:122},{s:6,v:128},{s:6,v:136},{s:6,v:141},{s:6,v:151},{s:6,v:155},{s:7,v:1},{s:7,v:11},{s:7,v:26},{s:7,v:32},{s:7,v:40},{s:7,v:48},{s:7,v:54},{s:7,v:59},{s:7,v:65},{s:7,v:73},{s:7,v:80},{s:7,v:85},{s:7,v:94},{s:7,v:100},{s:7,v:103},{s:7,v:123},{s:7,v:127},{s:7,v:130},{s:7,v:138},{s:7,v:142},{s:7,v:148},{s:7,v:152},{s:7,v:158},{s:7,v:163},{s:7,v:168},{s:7,v:172},{s:7,v:182},{s:7,v:189},{s:7,v:196},{s:8,v:1},{s:8,v:5},{s:8,v:11},{s:8,v:20},{s:8,v:27},{s:8,v:29},{s:8,v:38},{s:8,v:45},{s:8,v:49},{s:8,v:55},{s:8,v:60},{s:8,v:65},{s:8,v:70},{s:9,v:1},{s:9,v:7},{s:9,v:17},{s:9,v:23},{s:9,v:25},{s:9,v:30},{s:9,v:36},{s:9,v:38},{s:9,v:43},{s:9,v:47},{s:9,v:60},{s:9,v:67},{s:9,v:73},{s:9,v:81},{s:9,v:90},{s:9,v:94},{s:9,v:100},{s:9,v:105},{s:9,v:111},{s:9,v:117},{s:9,v:123},{s:10,v:1},{s:10,v:11},{s:10,v:21},{s:10,v:31},{s:10,v:41},{s:10,v:54},{s:10,v:61},{s:10,v:71},{s:10,v:83},{s:10,v:98},{s:11,v:1},{s:11,v:6},{s:11,v:13},{s:11,v:17},{s:11,v:25},{s:11,v:36},{s:11,v:50},{s:11,v:61},{s:11,v:69},{s:11,v:77},{s:11,v:84},{s:11,v:96},{s:11,v:102},{s:11,v:109},{s:11,v:116},{s:12,v:1},{s:12,v:7},{s:12,v:21},{s:12,v:30},{s:12,v:36},{s:12,v:43},{s:12,v:50},{s:12,v:58},{s:12,v:69},{s:12,v:76},{s:12,v:80},{s:12,v:87},{s:12,v:94},{s:12,v:100},{s:13,v:1},{s:13,v:8},{s:13,v:19},{s:13,v:27},{s:13,v:32},{s:13,v:38},{s:14,v:1},{s:14,v:7},{s:14,v:13},{s:14,v:22},{s:14,v:28},{s:14,v:35},{s:14,v:42},{s:15,v:1},{s:15,v:16},{s:15,v:45},{s:15,v:61},{s:15,v:80},{s:16,v:1},{s:16,v:10},{s:16,v:22},{s:16,v:26},{s:16,v:35},{s:16,v:41},{s:16,v:51},{s:16,v:56},{s:16,v:61},{s:16,v:66},{s:16,v:71},{s:16,v:77},{s:16,v:80},{s:16,v:83},{s:16,v:90},{s:16,v:101},{s:16,v:111},{s:16,v:120},{s:17,v:1},{s:17,v:11},{s:17,v:23},{s:17,v:31},{s:17,v:41},{s:17,v:45},{s:17,v:53},{s:17,v:61},{s:17,v:71},{s:17,v:78},{s:17,v:85},{s:17,v:94},{s:17,v:101},{s:18,v:1},{s:18,v:9},{s:18,v:16},{s:18,v:23},{s:18,v:32},{s:18,v:45},{s:18,v:50},{s:18,v:60},{s:18,v:71},{s:18,v:83},{s:18,v:98},{s:18,v:102},{s:19,v:1},{s:19,v:16},{s:19,v:41},{s:19,v:51},{s:19,v:66},{s:19,v:83},{s:20,v:1},{s:20,v:25},{s:20,v:49},{s:20,v:77},{s:20,v:99},{s:20,v:116},{s:20,v:129},{s:21,v:1},{s:21,v:11},{s:21,v:30},{s:21,v:42},{s:21,v:51},{s:21,v:76},{s:21,v:83},{s:21,v:94},{s:22,v:1},{s:22,v:5},{s:22,v:11},{s:22,v:19},{s:22,v:23},{s:22,v:26},{s:22,v:34},{s:22,v:38},{s:22,v:42},{s:22,v:52},{s:22,v:60},{s:22,v:65},{s:22,v:73},{s:23,v:1},{s:23,v:12},{s:23,v:23},{s:23,v:33},{s:23,v:51},{s:23,v:57},{s:23,v:75},{s:23,v:93},{s:24,v:1},{s:24,v:11},{s:24,v:21},{s:24,v:27},{s:24,v:35},{s:24,v:41},{s:24,v:47},{s:24,v:54},{s:24,v:58},{s:24,v:62},{s:25,v:1},{s:25,v:10},{s:25,v:21},{s:25,v:35},{s:25,v:45},{s:25,v:53},{s:25,v:61},{s:26,v:1},{s:26,v:10},{s:26,v:53},{s:26,v:70},{s:26,v:105},{s:26,v:123},{s:26,v:141},{s:26,v:160},{s:26,v:176},{s:26,v:197},{s:26,v:214},{s:27,v:1},{s:27,v:15},{s:27,v:32},{s:27,v:45},{s:27,v:59},{s:27,v:67},{s:27,v:82},{s:28,v:1},{s:28,v:14},{s:28,v:22},{s:28,v:29},{s:28,v:43},{s:28,v:51},{s:28,v:61},{s:28,v:71},{s:28,v:76},{s:28,v:83},{s:29,v:1},{s:29,v:14},{s:29,v:23},{s:29,v:31},{s:29,v:41},{s:29,v:45},{s:29,v:52},{s:29,v:64},{s:30,v:1},{s:30,v:11},{s:30,v:20},{s:30,v:28},{s:30,v:33},{s:30,v:41},{s:30,v:54},{s:31,v:1},{s:31,v:6},{s:31,v:12},{s:31,v:20},{s:31,v:25},{s:32,v:1},{s:32,v:12},{s:32,v:23},{s:33,v:1},{s:33,v:9},{s:33,v:21},{s:33,v:28},{s:33,v:35},{s:33,v:41},{s:33,v:53},{s:33,v:59},{s:33,v:69},{s:34,v:1},{s:34,v:7},{s:34,v:15},{s:34,v:22},{s:34,v:31},{s:34,v:40},{s:34,v:46},{s:35,v:1},{s:35,v:8},{s:35,v:15},{s:35,v:27},{s:35,v:38},{s:36,v:1},{s:36,v:13},{s:36,v:33},{s:36,v:51},{s:36,v:68},{s:37,v:1},{s:37,v:22},{s:37,v:75},{s:37,v:114},{s:37,v:139},{s:37,v:171},{s:38,v:1},{s:38,v:17},{s:38,v:41},{s:38,v:65},{s:39,v:1},{s:39,v:8},{s:39,v:22},{s:39,v:32},{s:39,v:42},{s:39,v:53},{s:39,v:64},{s:40,v:1},{s:40,v:10},{s:40,v:21},{s:40,v:28},{s:40,v:38},{s:40,v:51},{s:40,v:61},{s:40,v:69},{s:40,v:79},{s:41,v:1},{s:41,v:9},{s:41,v:19},{s:41,v:26},{s:41,v:33},{s:41,v:38},{s:41,v:44},{s:41,v:47},{s:42,v:1},{s:42,v:10},{s:42,v:20},{s:42,v:26},{s:42,v:36},{s:42,v:44},{s:42,v:51},{s:43,v:1},{s:43,v:16},{s:43,v:26},{s:43,v:36},{s:43,v:46},{s:43,v:57},{s:43,v:68},{s:43,v:81},{s:44,v:1},{s:44,v:17},{s:44,v:30},{s:44,v:43},{s:45,v:1},{s:45,v:12},{s:45,v:22},{s:45,v:27},{s:46,v:1},{s:46,v:9},{s:46,v:21},{s:46,v:27},{s:47,v:1},{s:47,v:12},{s:47,v:20},{s:47,v:29},{s:48,v:1},{s:48,v:11},{s:48,v:18},{s:48,v:27},{s:49,v:1},{s:49,v:6},{s:49,v:11},{s:50,v:1},{s:50,v:16},{s:50,v:30},{s:51,v:1},{s:51,v:24},{s:51,v:47},{s:52,v:1},{s:52,v:29},{s:53,v:1},{s:53,v:26},{s:54,v:1},{s:54,v:23},{s:54,v:41},{s:55,v:1},{s:55,v:26},{s:55,v:46},{s:56,v:1},{s:56,v:57},{s:56,v:75},{s:57,v:1},{s:57,v:11},{s:57,v:20},{s:57,v:26},{s:58,v:1},{s:58,v:7},{s:58,v:14},{s:58,v:19},{s:59,v:1},{s:59,v:8},{s:59,v:11},{s:59,v:18},{s:60,v:1},{s:60,v:7},{s:60,v:10},{s:61,v:1},{s:61,v:10},{s:62,v:1},{s:62,v:9},{s:63,v:1},{s:63,v:9},{s:64,v:1},{s:64,v:11},{s:65,v:1},{s:65,v:8},{s:66,v:1},{s:66,v:8},{s:67,v:1},{s:67,v:15},{s:67,v:23},{s:68,v:1},{s:68,v:34},{s:69,v:1},{s:69,v:38},{s:70,v:1},{s:70,v:36},{s:71,v:1},{s:71,v:21},{s:72,v:1},{s:72,v:20},{s:73,v:1},{s:73,v:20},{s:74,v:1},{s:74,v:32},{s:75,v:1},{s:75,v:31},{s:76,v:1},{s:76,v:23},{s:77,v:1},{s:77,v:41},{s:78,v:1},{s:78,v:31},{s:79,v:1},{s:79,v:27},{s:80,v:1},{s:80,v:24},{s:81,v:1},{s:82,v:1},{s:83,v:1},{s:83,v:18},{s:84,v:1},{s:84,v:16},{s:85,v:1},{s:85,v:12},{s:86,v:1},{s:87,v:1},{s:88,v:1},{s:89,v:1},{s:89,v:21},{s:90,v:1},{s:91,v:1},{s:92,v:1},{s:93,v:1},{s:94,v:1},{s:95,v:1},{s:96,v:1},{s:96,v:9},{s:97,v:1},{s:98,v:1},{s:99,v:1},{s:100,v:1},{s:101,v:1},{s:102,v:1},{s:103,v:1},{s:104,v:1},{s:105,v:1},{s:106,v:1},{s:107,v:1},{s:108,v:1},{s:109,v:1},{s:110,v:1},{s:111,v:1},{s:112,v:1},{s:113,v:1},{s:114,v:1},
+];
+
+function isRukuStart(surahNum, verseNum) {
+  return RUKU_STARTS.some(r => r.s === surahNum && r.v === verseNum);
+}
+
+function getRukuNumber(surahNum, verseNum) {
+  let count = 0;
+  for (const r of RUKU_STARTS) {
+    if (r.s < surahNum || (r.s === surahNum && r.v <= verseNum)) count++;
+    else break;
+  }
+  return count;
+}
+
 const QUICK_LINKS = [
   {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,icon:"👑"},
   {name:"Al-Kahf",ar:"الكهف",surah:18,icon:"🕌"},
@@ -2123,31 +2142,44 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — butter smooth, no focus loss on any device */}
+      {/* Search — FIXED: uncontrolled input with ref, never loses focus on any device */}
       <div style={{ padding: "12px 13px 8px", position: "relative" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
           <input
-            key="search-input"
-            defaultValue={query}
+            id="main-search"
+            defaultValue=""
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search Surah name, meaning, number..."
+            placeholder="Search Surah name, number, meaning..."
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
+            autoFocus={false}
             spellCheck="false"
-            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none", touchAction: "manipulation" }}
+            inputMode="search"
+            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 16, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none", touchAction: "manipulation" }}
             onFocus={e => e.target.style.borderColor = G}
             onBlur={e => e.target.style.borderColor = "#ddd"}
           />
-          {query && <button onClick={() => { setQuery(""); document.querySelector('input[placeholder]') && (document.querySelector('input[placeholder]').value = ""); }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>}
+          {query && (
+            <button onClick={() => {
+              setQuery("");
+              const el = document.getElementById("main-search");
+              if (el) { el.value = ""; el.focus(); }
+            }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 20, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+          )}
         </div>
-        {/* Live search dropdown */}
         {query && filtered.length > 0 && (
           <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
             {filtered.slice(0, 8).map(s => (
-              <div key={s.n} onClick={() => { openSurah(s.n); setQuery(""); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec", transition: "background .1s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div key={s.n} onClick={() => {
+                openSurah(s.n);
+                setQuery("");
+                const el = document.getElementById("main-search");
+                if (el) el.value = "";
+              }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
@@ -2854,105 +2886,167 @@ export default function QuranLife() {
     </div>
   );
 
-  // ── MUSHAF READER SCREEN — authentic page-by-page, swipe/drag to turn ──
+  // ── MUSHAF READER SCREEN ────────────────────────────────────
   const MushafReaderScreen = () => {
-    const handleDragStart = (clientX) => {
-      if (mushafAnimating) return;
-      mushafDragStartRef.current = clientX;
-    };
-    const handleDragMove = (clientX) => {
-      if (mushafDragStartRef.current === null || mushafAnimating) return;
-      setMushafDragX(clientX - mushafDragStartRef.current);
-    };
+    const handleDragStart = (clientX) => { if (mushafAnimating) return; mushafDragStartRef.current = clientX; };
+    const handleDragMove = (clientX) => { if (mushafDragStartRef.current === null || mushafAnimating) return; setMushafDragX(clientX - mushafDragStartRef.current); };
     const handleDragEnd = () => {
       if (mushafDragStartRef.current === null) return;
-      const threshold = 70;
-      if (mushafDragX < -threshold) {
-        mushafGoToPage(mushafPage + 1);
-      } else if (mushafDragX > threshold) {
-        mushafGoToPage(mushafPage - 1);
-      } else {
-        setMushafDragX(0);
-      }
+      if (mushafDragX < -70) mushafGoToPage(mushafPage + 1);
+      else if (mushafDragX > 70) mushafGoToPage(mushafPage - 1);
+      else setMushafDragX(0);
       mushafDragStartRef.current = null;
     };
 
+    // Group verses by surah to show bismillah banners
+    const versesBySurah = [];
+    if (mushafData?.verses) {
+      let currentSurah = null;
+      let group = [];
+      for (const v of mushafData.verses) {
+        if (v.chapter !== currentSurah) {
+          if (group.length) versesBySurah.push({ surah: currentSurah, verses: group });
+          currentSurah = v.chapter;
+          group = [v];
+        } else {
+          group.push(v);
+        }
+      }
+      if (group.length) versesBySurah.push({ surah: currentSurah, verses: group });
+    }
+
     return (
-      <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#2a1a08,#1a1005)", minHeight: "100vh" }}>
-        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 9, position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#3d2410,#2a1a08)" }}>
+      <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#1a0e04,#0d0802)", minHeight: "100vh" }}>
+        {/* Top bar */}
+        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 9, position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#2a1505,#1a0e04)", borderBottom: "1px solid #3d2410" }}>
           <button onClick={() => { setScreen("home"); setNavTab("home"); }}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer" }}>←</button>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8" }}>{mushafData?.surahName || "Loading..."}</div>
-            <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604 {mushafData ? `· Juz ${mushafData.juzNum}` : ""}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Loading..."}</div>
+            <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
           </div>
           <button onClick={() => setShowGoto(true)}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>#</button>
+            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 12, color: "#e8d5a8", cursor: "pointer", fontWeight: 700 }}>⇱</button>
         </div>
 
-        <div
-          style={{ margin: "14px", touchAction: "pan-y" }}
+        {/* Page card */}
+        <div style={{ margin: "12px 10px", touchAction: "pan-y" }}
           onTouchStart={e => handleDragStart(e.touches[0].clientX)}
           onTouchMove={e => handleDragMove(e.touches[0].clientX)}
           onTouchEnd={handleDragEnd}
           onMouseDown={e => handleDragStart(e.clientX)}
           onMouseMove={e => { if (mushafDragStartRef.current !== null) handleDragMove(e.clientX); }}
           onMouseUp={handleDragEnd}
-          onMouseLeave={() => { if (mushafDragStartRef.current !== null) handleDragEnd(); }}
-        >
+          onMouseLeave={() => { if (mushafDragStartRef.current !== null) handleDragEnd(); }}>
+
           <div style={{
-            background: "#faf6ec",
-            borderRadius: 14,
-            padding: "24px 20px",
-            minHeight: "60vh",
-            boxShadow: "0 10px 40px rgba(0,0,0,.4)",
-            border: "3px solid #8b6914",
-            transform: `translateX(${mushafDragX}px) rotate(${mushafDragX / 40}deg)`,
+            background: "#f5f0e8",
+            borderRadius: 4,
+            boxShadow: "0 12px 40px rgba(0,0,0,.6), inset 0 0 0 6px #e8dcc8, inset 0 0 0 8px #c8a84b, inset 0 0 0 10px #e8dcc8",
+            transform: `translateX(${mushafDragX}px) rotate(${mushafDragX / 50}deg)`,
             transition: mushafDragStartRef.current === null ? "transform .28s ease" : "none",
-            cursor: "grab",
-            userSelect: "none",
+            cursor: "grab", userSelect: "none",
+            position: "relative",
+            minHeight: "75vh",
           }}>
-            {mushafLoading && !mushafData && (
-              <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914" }}>Loading page...</div>
-            )}
-            {mushafError && (
-              <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{mushafError}</div>
-                <button onClick={() => fetchMushafPage(mushafPage)}
-                  style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Retry</button>
-              </div>
-            )}
-            {mushafData && !mushafError && (
-              <>
-                <div className="ar" style={{ fontSize: 22, lineHeight: 2.1, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a1a1a" }}>
-                  {mushafData.verses.map((v, i) => (
-                    <span key={i}>
-                      {v.arabic}
-                      <span style={{ fontSize: 14, color: "#8b6914", margin: "0 4px" }}>﴿{v.number}﴾</span>
-                      {" "}
-                    </span>
-                  ))}
+
+            {/* Inner double border */}
+            <div style={{ position: "absolute", inset: 14, border: "1px solid #c8a84b", pointerEvents: "none", zIndex: 1 }} />
+            <div style={{ position: "absolute", inset: 17, border: "0.5px solid #e8d5a0", pointerEvents: "none", zIndex: 1 }} />
+
+            <div style={{ padding: "22px 20px 16px", position: "relative", zIndex: 2 }}>
+
+              {mushafLoading && !mushafData && (
+                <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914", fontFamily: "'Amiri',serif", fontSize: 18 }}>جاري التحميل...</div>
+              )}
+              {mushafError && (
+                <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                  <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{mushafError}</div>
+                  <button onClick={() => fetchMushafPage(mushafPage)} style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>Retry</button>
                 </div>
-                <div style={{ textAlign: "center", marginTop: 20, paddingTop: 12, borderTop: "1px solid #d4c4a0", fontSize: 12, color: "#8b6914", fontWeight: 600 }}>
-                  {mushafPage}
+              )}
+
+              {mushafData && !mushafError && (
+                <div style={{ display: "flex", gap: 0 }}>
+
+                  {/* RIGHT SIDE MARGIN — Ruku & Sajdah markers */}
+                  <div style={{ width: 22, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
+                    {mushafData.verses.map((v, i) => {
+                      const sajdah = isSajdahVerse(parseInt(v.chapter), v.number);
+                      const ruku = isRukuStart(parseInt(v.chapter), v.number);
+                      return (
+                        <div key={i} style={{ height: 38, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                          {ruku && (
+                            <div style={{ fontSize: 13, color: "#0f5132", fontFamily: "'Amiri',serif", fontWeight: 700, lineHeight: 1, title: "Ruku start" }}>ع</div>
+                          )}
+                          {sajdah && (
+                            <div style={{ fontSize: 12, color: "#8b6914", lineHeight: 1, title: "Sajdah" }}>۩</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* MAIN TEXT AREA */}
+                  <div style={{ flex: 1 }}>
+                    {versesBySurah.map((group, gi) => {
+                      const surahInfo = SURAHS.find(s => s.n === parseInt(group.surah));
+                      const isFirstVerse = group.verses[0]?.number === 1;
+                      const showBismillah = isFirstVerse && parseInt(group.surah) !== 1 && parseInt(group.surah) !== 9;
+                      return (
+                        <div key={gi}>
+                          {/* Surah header banner */}
+                          {isFirstVerse && (
+                            <div style={{ textAlign: "center", margin: "8px 0 6px", background: "linear-gradient(135deg,#1a4a2e,#0f5132)", borderRadius: 6, padding: "8px 12px", border: "1px solid #c8a84b" }}>
+                              <div style={{ fontSize: 9, color: "#c8a84b", letterSpacing: 2, textTransform: "uppercase", marginBottom: 3 }}>سورة</div>
+                              <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>{surahInfo?.ar || group.surah}</div>
+                              <div style={{ fontSize: 10, color: "rgba(255,255,255,.7)", marginTop: 2 }}>{surahInfo?.name} · {surahInfo?.verses} verses · {surahInfo?.type}</div>
+                            </div>
+                          )}
+                          {/* Bismillah box */}
+                          {showBismillah && (
+                            <div style={{ textAlign: "center", margin: "6px 0", background: "#fdf8ef", border: "1px solid #c8a84b", borderRadius: 4, padding: "6px 10px" }}>
+                              <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#1a0800", fontWeight: 700, direction: "rtl" }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                            </div>
+                          )}
+                          {/* Verses */}
+                          <div style={{ fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
+                            {group.verses.map((v, i) => (
+                              <span key={i}>
+                                {v.arabic}
+                                <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
+                                {" "}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Page number */}
+                    <div style={{ textAlign: "center", marginTop: 16, paddingTop: 10, borderTop: "1px solid #c8a84b55", fontFamily: "'Amiri',serif", fontSize: 14, color: "#8b6914", fontWeight: 700 }}>
+                      {mushafPage}
+                    </div>
+                  </div>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, padding: "0 14px", marginTop: 10 }}>
+        {/* Navigation */}
+        <div style={{ display: "flex", gap: 10, padding: "0 14px", marginTop: 8 }}>
           <button onClick={() => mushafGoToPage(mushafPage - 1)} disabled={mushafPage <= 1}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.14)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: "none", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
+            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: mushafPage <= 1 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
             → Previous
           </button>
           <button onClick={() => mushafGoToPage(mushafPage + 1)} disabled={mushafPage >= 604}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.14)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: "none", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
+            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: mushafPage >= 604 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
             Next ←
           </button>
         </div>
-        <div style={{ textAlign: "center", fontSize: 10, color: "#7a6a4a", marginTop: 10 }}>
-          Swipe or drag the page to turn · Text: Quran.com verified Uthmani script
+        <div style={{ textAlign: "center", fontSize: 10, color: "#7a6a4a", marginTop: 8 }}>
+          Swipe or drag the page to turn · Uthmani script from Quran.com
         </div>
       </div>
     );
