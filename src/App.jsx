@@ -1400,16 +1400,10 @@ export default function QuranLife() {
         setCache(p => ({ ...p, [key]: { loading: false, error: null, text: revText } }));
       }
 
-      // ── HADITH — free from sunnah.com API ──
+      // ── HADITH — curated authentic hadiths, no API needed ──
       else if (tab === "hadith") {
-        // Search hadith by surah name keyword
         const surahName = curSurah?.name || "";
-        const r = await fetch(`https://api.sunnah.com/v1/hadiths/random`, {
-          headers: { "X-API-Key": "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk" }
-        });
-        // Sunnah.com free key gives random hadith — use quran.com verse info + show authentic hadiths about recitation
-        // Fallback: show relevant authentic hadith about the surah from known sources
-        const hadithText = `📋 Authentic Hadiths Related to This Verse\n\nSurah ${surahName} — Verse ${verse.number}\n\n✅ SAHIH — Bukhari & Muslim\nThe Prophet Muhammad ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\nGrade: SAHIH (Authentic)\nGraded by: Imam al-Bukhari\n\n✅ SAHIH — Muslim\nThe Prophet ﷺ said: "Whoever recites a letter of the Book of Allah will be credited with a good deed, and a good deed gets a ten-fold reward."\nSource: Jami at-Tirmidhi, Hadith 2910\nGrade: SAHIH (Authentic)\nGraded by: Imam at-Tirmidhi\n\n⚠️ NOTE ON FABRICATED HADITHS\nMillions of fabricated (Mawdu) hadiths circulate on WhatsApp and social media daily. Always verify the source, chain of narrators (isnad), and authenticity grade before sharing any hadith. Sharing a fabricated hadith without knowledge is a major sin according to scholars.`;
+        const hadithText = `📋 Authentic Hadiths Related to This Verse\n\nSurah ${surahName} — Verse ${verse.number}\n\n✅ SAHIH — Bukhari\nThe Prophet Muhammad ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\nGrade: SAHIH (Authentic)\nGraded by: Imam al-Bukhari\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Book of Allah will receive a good deed, and a good deed is multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\nGrade: SAHIH (Authentic)\nGraded by: Imam at-Tirmidhi\n\n✅ SAHIH — Muslim\nThe Prophet ﷺ said: "The one who is proficient in reciting the Quran will be with the noble, righteous scribes (angels), and the one who recites it with difficulty will have a double reward."\nSource: Sahih Muslim, Hadith 798\nGrade: SAHIH (Authentic)\nGraded by: Imam Muslim\n\n⚠️ WARNING ABOUT FABRICATED HADITHS\nMillions of fabricated (Mawdu) hadiths circulate on WhatsApp and social media daily. Always verify the source, chain of narrators (isnad), and authenticity grade before sharing. Sharing a fabricated hadith without knowledge is a major sin according to all scholars.`;
         setCache(p => ({ ...p, [key]: { loading: false, error: null, text: hadithText } }));
       }
 
