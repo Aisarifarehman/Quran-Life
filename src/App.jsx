@@ -356,25 +356,25 @@ const ARABIC_ALPHA = [
 
 // ─── ARABIC VOWELS DATA ──────────────────────────────────────
 const VOWELS_SHORT = [
-  { ar: "بَ", name: "Fatha", arabic: "فَتْحَة", sound: '"a" — like apple', desc: "Short A vowel — written above the letter" },
-  { ar: "بِ", name: "Kasra", arabic: "كَسْرَة", sound: '"i" — like sit', desc: "Short I vowel — written below the letter" },
-  { ar: "بُ", name: "Damma", arabic: "ضَمَّة", sound: '"u" — like moon', desc: "Short U vowel — written above the letter" },
-  { ar: "بْ", name: "Sukun", arabic: "سُكُون", sound: "silent — no vowel", desc: "No vowel — the letter stops here" },
-  { ar: "بَّ", name: "Shadda", arabic: "شَدَّة", sound: "doubles the letter", desc: "Double consonant — hold it twice as long" },
-  { ar: "بً", name: "Tanwin Fath", arabic: "تنوين فتح", sound: '"an" ending', desc: 'Tanwin — adds "an" sound at word end' },
+  { ar: "بَ", speak: "فَتْحَة، بَ", name: "Fatha", arabic: "فَتْحَة", sound: '"a" — like apple', desc: "Short A vowel — written above the letter" },
+  { ar: "بِ", speak: "كَسْرَة، بِ", name: "Kasra", arabic: "كَسْرَة", sound: '"i" — like sit', desc: "Short I vowel — written below the letter" },
+  { ar: "بُ", speak: "ضَمَّة، بُ", name: "Damma", arabic: "ضَمَّة", sound: '"u" — like moon', desc: "Short U vowel — written above the letter" },
+  { ar: "بْ", speak: "سُكُون، بْ", name: "Sukun", arabic: "سُكُون", sound: "silent — no vowel", desc: "No vowel — the letter stops here" },
+  { ar: "بَّ", speak: "شَدَّة، بَّ", name: "Shadda", arabic: "شَدَّة", sound: "doubles the letter", desc: "Double consonant — hold it twice as long" },
+  { ar: "بً", speak: "تَنْوِين فَتْح، بَن", name: "Tanwin Fath", arabic: "تنوين فتح", sound: '"an" ending', desc: 'Tanwin — adds "an" sound at word end' },
 ];
 const VOWELS_LONG = [
-  { ar: "بَا", name: "Alif Madd", arabic: "أَلِف الْمَدّ", sound: 'long "aa"', desc: "Long A — hold for 2 counts" },
-  { ar: "بِي", name: "Yaa Madd", arabic: "يَاء الْمَدّ", sound: 'long "ii"', desc: "Long I — hold for 2 counts" },
-  { ar: "بُو", name: "Waw Madd", arabic: "وَاو الْمَدّ", sound: 'long "uu"', desc: "Long U — hold for 2 counts" },
+  { ar: "بَا", speak: "أَلِف الْمَدّ، بَا", name: "Alif Madd", arabic: "أَلِف الْمَدّ", sound: 'long "aa"', desc: "Long A — hold for 2 counts" },
+  { ar: "بِي", speak: "يَاء الْمَدّ، بِي", name: "Yaa Madd", arabic: "يَاء الْمَدّ", sound: 'long "ii"', desc: "Long I — hold for 2 counts" },
+  { ar: "بُو", speak: "وَاو الْمَدّ، بُو", name: "Waw Madd", arabic: "وَاو الْمَدّ", sound: 'long "uu"', desc: "Long U — hold for 2 counts" },
 ];
 const VOWEL_WORDS = [
-  { ar: "كِتَاب", tr: "ki-tāb", meaning: "Book" },
-  { ar: "نُور", tr: "nūr", meaning: "Light" },
-  { ar: "رَحْمَة", tr: "raḥ-ma", meaning: "Mercy" },
-  { ar: "قُرْآن", tr: "Qur-ān", meaning: "Quran" },
-  { ar: "بِسْمِ", tr: "bis-mi", meaning: "In the name" },
-  { ar: "اللَّه", tr: "Al-lāh", meaning: "Allah" },
+  { ar: "كِتَاب", speak: "كِتَاب", tr: "ki-tāb", meaning: "Book" },
+  { ar: "نُور", speak: "نُور", tr: "nūr", meaning: "Light" },
+  { ar: "رَحْمَة", speak: "رَحْمَة", tr: "raḥ-ma", meaning: "Mercy" },
+  { ar: "قُرْآن", speak: "قُرْآن", tr: "Qur-ān", meaning: "Quran" },
+  { ar: "بِسْمِ", speak: "بِسْمِ اللَّه", tr: "bis-mi", meaning: "In the name" },
+  { ar: "اللَّه", speak: "اللَّه", tr: "Al-lāh", meaning: "Allah" },
 ];
 
 // ─── VERSE CACHE ─────────────────────────────────────────────
@@ -2555,34 +2555,47 @@ export default function QuranLife() {
   }, []);
 
   // ── VOWEL AUDIO ─────────────────────────────────────────────
-  const speakVowel = useCallback((ar, key) => {
+  const speakVowel = useCallback((speakText, displayKey, englishName) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    setVowelPlaying(key);
+    setVowelPlaying(displayKey);
 
-    const speak = (voices) => {
-      const u = new SpeechSynthesisUtterance(ar);
-      u.lang = "ar-SA";
-      u.rate = 0.65;
-      u.pitch = 1;
-      const arVoice = voices.find(v => v.lang.startsWith("ar")) || voices[0];
-      if (arVoice) u.voice = arVoice;
-      u.onend = () => setVowelPlaying(null);
-      u.onerror = () => setVowelPlaying(null);
-      window.speechSynthesis.speak(u);
+    const doSpeak = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const arVoice = voices.find(v => v.lang.startsWith("ar"));
+
+      if (arVoice) {
+        // Arabic voice available — speak Arabic name + sound
+        const u = new SpeechSynthesisUtterance(speakText);
+        u.voice = arVoice;
+        u.lang = arVoice.lang;
+        u.rate = 0.6;
+        u.pitch = 1;
+        u.onend = () => setVowelPlaying(null);
+        u.onerror = () => setVowelPlaying(null);
+        window.speechSynthesis.speak(u);
+      } else {
+        // No Arabic voice — fall back to English name
+        const u = new SpeechSynthesisUtterance(englishName || speakText);
+        u.lang = "en-US";
+        u.rate = 0.8;
+        u.onend = () => setVowelPlaying(null);
+        u.onerror = () => setVowelPlaying(null);
+        window.speechSynthesis.speak(u);
+      }
     };
 
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      speak(voices);
+      doSpeak();
     } else {
-      // Mobile — voices load async, wait for voiceschanged event
-      window.speechSynthesis.onvoiceschanged = () => {
+      // Mobile loads voices async
+      const handler = () => {
         window.speechSynthesis.onvoiceschanged = null;
-        speak(window.speechSynthesis.getVoices());
+        doSpeak();
       };
-      // Fallback — try anyway after 300ms in case event never fires
-      setTimeout(() => speak(window.speechSynthesis.getVoices()), 300);
+      window.speechSynthesis.onvoiceschanged = handler;
+      setTimeout(doSpeak, 500); // fallback if event never fires
     }
   }, []);
 
@@ -2640,7 +2653,7 @@ export default function QuranLife() {
               {VOWELS_SHORT.map((v, i) => {
                 const key = `short-${i}`;
                 return (
-                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.ar, key)}>
+                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.speak, key, v.name)}>
                     <div className="vowel-play-dot">▶</div>
                     <span className="vowel-arabic ar">{v.ar}</span>
                     <span className="vowel-name">{v.arabic}</span>
@@ -2661,7 +2674,7 @@ export default function QuranLife() {
               {VOWELS_LONG.map((v, i) => {
                 const key = `long-${i}`;
                 return (
-                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.ar, key)}
+                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.speak, key, v.name)}
                     style={{ border: "1.5px solid #c8a84b55" }}>
                     <div className="vowel-play-dot" style={{ background: "#8b6914" }}>▶</div>
                     <span className="vowel-arabic ar">{v.ar}</span>
@@ -2684,7 +2697,7 @@ export default function QuranLife() {
               {VOWEL_WORDS.map((w, i) => {
                 const key = `word-${i}`;
                 return (
-                  <div key={key} className={`prac-word-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(w.ar, key)}>
+                  <div key={key} className={`prac-word-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(w.speak, key, w.meaning)}>
                     <div className="ar" style={{ fontSize: 28, color: "#1a0800", lineHeight: 1.4 }}>{w.ar}</div>
                     <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 3 }}>{w.tr}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#27ae60", marginTop: 2 }}>{w.meaning}</div>
