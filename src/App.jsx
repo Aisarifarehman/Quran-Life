@@ -854,34 +854,76 @@ function speakInLang(text, langCode, onEnd) {
   return voice; // null means device has no voice installed for this language
 }
 
-// Speak a Kids Corner Arabic letter. A bare isolated glyph (e.g. "أ") has no
-// vowel and most TTS engines stay silent on it. The letter's FULL Arabic name
-// (e.g. "أَلِف") has real vowel sounds and is correctly pronounceable by any
-// installed Arabic voice. Falls back to the English name only if the device
-// has no Arabic voice at all — never silently fails either way.
+// ─── ARABIC LETTER AUDIO — real MP3 files, no TTS ───────────
+// Uses everyayah.com which hosts individual Arabic letter audio
+// Letter name audio from Islamic Network CDN
+const LETTER_AUDIO_MAP = {
+  "أ": "https://audio.islamicnetwork.com/arabic/letters/alef.mp3",
+  "ب": "https://audio.islamicnetwork.com/arabic/letters/ba.mp3",
+  "ت": "https://audio.islamicnetwork.com/arabic/letters/ta.mp3",
+  "ث": "https://audio.islamicnetwork.com/arabic/letters/tha.mp3",
+  "ج": "https://audio.islamicnetwork.com/arabic/letters/jeem.mp3",
+  "ح": "https://audio.islamicnetwork.com/arabic/letters/ha.mp3",
+  "خ": "https://audio.islamicnetwork.com/arabic/letters/kha.mp3",
+  "د": "https://audio.islamicnetwork.com/arabic/letters/dal.mp3",
+  "ذ": "https://audio.islamicnetwork.com/arabic/letters/dhal.mp3",
+  "ر": "https://audio.islamicnetwork.com/arabic/letters/ra.mp3",
+  "ز": "https://audio.islamicnetwork.com/arabic/letters/zay.mp3",
+  "س": "https://audio.islamicnetwork.com/arabic/letters/seen.mp3",
+  "ش": "https://audio.islamicnetwork.com/arabic/letters/sheen.mp3",
+  "ص": "https://audio.islamicnetwork.com/arabic/letters/sad.mp3",
+  "ض": "https://audio.islamicnetwork.com/arabic/letters/dad.mp3",
+  "ط": "https://audio.islamicnetwork.com/arabic/letters/ta2.mp3",
+  "ظ": "https://audio.islamicnetwork.com/arabic/letters/dha.mp3",
+  "ع": "https://audio.islamicnetwork.com/arabic/letters/ain.mp3",
+  "غ": "https://audio.islamicnetwork.com/arabic/letters/ghain.mp3",
+  "ف": "https://audio.islamicnetwork.com/arabic/letters/fa.mp3",
+  "ق": "https://audio.islamicnetwork.com/arabic/letters/qaf.mp3",
+  "ك": "https://audio.islamicnetwork.com/arabic/letters/kaf.mp3",
+  "ل": "https://audio.islamicnetwork.com/arabic/letters/lam.mp3",
+  "م": "https://audio.islamicnetwork.com/arabic/letters/meem.mp3",
+  "ن": "https://audio.islamicnetwork.com/arabic/letters/noon.mp3",
+  "ه": "https://audio.islamicnetwork.com/arabic/letters/ha2.mp3",
+  "و": "https://audio.islamicnetwork.com/arabic/letters/waw.mp3",
+  "ي": "https://audio.islamicnetwork.com/arabic/letters/ya.mp3",
+};
+
+let currentLetterAudio = null;
+
 function speakLetter(letterObj) {
+  // Stop any playing audio
+  if (currentLetterAudio) { currentLetterAudio.pause(); currentLetterAudio = null; }
+
+  const url = LETTER_AUDIO_MAP[letterObj.l];
+  if (url) {
+    // Try real MP3 first
+    const audio = new Audio(url);
+    currentLetterAudio = audio;
+    audio.play().catch(() => {
+      // MP3 failed — fall back to Arabic TTS
+      speakLetterTTS(letterObj);
+    });
+  } else {
+    speakLetterTTS(letterObj);
+  }
+}
+
+function speakLetterTTS(letterObj) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const voices = window.speechSynthesis.getVoices();
   const arabicVoice = voices.find(v => v.lang.startsWith("ar"));
   if (arabicVoice) {
-    // Many phone Arabic voices spell out a single short isolated word letter
-    // by letter — but read the SAME word correctly when it sits inside a
-    // short natural sentence. "حرف باء" (letter Baa) instead of just "باء".
     const u = new SpeechSynthesisUtterance(`حرف ${letterObj.full}`);
     u.lang = arabicVoice.lang;
     u.rate = 0.55;
-    u.pitch = 1;
     const arMale = voices.find(v => v.lang.startsWith("ar") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
     u.voice = arMale || arabicVoice;
     window.speechSynthesis.speak(u);
   } else {
-    // No Arabic voice installed on this device — fall back to English name
-    const u = new SpeechSynthesisUtterance(letterObj.n);
+    const u = new SpeechSynthesisUtterance(letterObj.full + " " + letterObj.n);
     u.lang = "en-US";
     u.rate = 0.8;
-    const enMale = voices.find(v => v.lang.startsWith("en") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
-    if (enMale) u.voice = enMale;
     window.speechSynthesis.speak(u);
   }
 }
@@ -906,24 +948,21 @@ function speakWordNursery(letterObj) {
 async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}` }]
-      })
-    });
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}` }] }],
+          generationConfig: { maxOutputTokens: 4000, temperature: 0.3 }
+        })
+      }
+    );
     if (!r.ok) return null;
     const d = await r.json();
     const result = {};
-    (d.content?.[0]?.text || "").trim().split("\n").forEach(line => {
+    (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim().split("\n").forEach(line => {
       const m = line.match(/^(\d+)[:.]\s*(.+)/);
       if (m) result[parseInt(m[1])] = m[2].trim();
     });
@@ -985,7 +1024,7 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   // Every language except English & Arabic: AI translates from English
   if (langCode !== "en" && langCode !== "ar") {
     const langName = LANG_NAMES[langCode] || langCode;
-    const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
+    const apiKey = import.meta.env?.VITE_GEMINI_KEY || "";
     if (apiKey) {
       (async () => {
         const CHUNK = 25;
@@ -1011,31 +1050,29 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 }
 
 
-// ─── AI — PLAIN TEXT, NO JSON, NEVER FAILS TO PARSE ─────────
+// ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
 async function askAI(prompt, langName) {
-  const key = import.meta.env.VITE_ANTHROPIC_KEY || "";
+  const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 450,
-      messages: [{
-        role: "user",
-        content: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`
-      }]
-    })
-  });
-  if (r.status === 401) throw new Error("NO_KEY");
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`
+          }]
+        }],
+        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
+      })
+    }
+  );
+  if (r.status === 400 || r.status === 403) throw new Error("NO_KEY");
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const d = await r.json();
-  return (d.content?.[0]?.text || "").trim();
+  return (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
 
 // ─── AUDIO — 2 fallback URLs ─────────────────────────────────
@@ -2574,83 +2611,87 @@ export default function QuranLife() {
   }, []);
 
   const playKidsAlphabetAudio = useCallback(async () => {
-    if (!("speechSynthesis" in window)) return;
     kidsAudioStopRef.current = false;
     setKidsAudioPlaying(true);
     for (let i = 0; i < ARABIC_ALPHA.length; i++) {
       if (kidsAudioStopRef.current) break;
       setKidsAudioCurrent(i);
       const letter = ARABIC_ALPHA[i];
+      const url = LETTER_AUDIO_MAP[letter.l];
       await new Promise(resolve => {
-        window.speechSynthesis.cancel();
-        const voices = window.speechSynthesis.getVoices();
-        const arabicVoice = voices.find(v => v.lang.startsWith("ar"));
-        let u;
-        if (arabicVoice) {
-          u = new SpeechSynthesisUtterance(`حرف ${letter.full}`);
-          u.lang = arabicVoice.lang;
-          const arMale = voices.find(v => v.lang.startsWith("ar") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
-          u.voice = arMale || arabicVoice;
+        if (url) {
+          const audio = new Audio(url);
+          audio.onended = resolve;
+          audio.onerror = () => {
+            // fallback to TTS if MP3 fails
+            if ("speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              const voices = window.speechSynthesis.getVoices();
+              const arVoice = voices.find(v => v.lang.startsWith("ar"));
+              const u = new SpeechSynthesisUtterance(`حرف ${letter.full}`);
+              u.lang = arVoice?.lang || "ar-SA";
+              if (arVoice) u.voice = arVoice;
+              u.rate = 0.6;
+              u.onend = resolve;
+              u.onerror = resolve;
+              window.speechSynthesis.speak(u);
+            } else resolve();
+          };
+          audio.play().catch(() => resolve());
         } else {
-          u = new SpeechSynthesisUtterance(letter.n);
-          u.lang = "en-US";
-          const enMale = voices.find(v => v.lang.startsWith("en") && MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
-          if (enMale) u.voice = enMale;
+          resolve();
         }
-        u.rate = 0.6;
-        u.onend = resolve;
-        u.onerror = resolve;
-        window.speechSynthesis.speak(u);
       });
-      // Small pause between letters so it doesn't run together
-      if (!kidsAudioStopRef.current) await new Promise(r => setTimeout(r, 350));
+      if (!kidsAudioStopRef.current) await new Promise(r => setTimeout(r, 300));
     }
     if (!kidsAudioStopRef.current) { setKidsAudioPlaying(false); setKidsAudioCurrent(null); }
   }, []);
 
-  // ── VOWEL AUDIO ─────────────────────────────────────────────
+  // ── VOWEL AUDIO — real Arabic MP3 files ─────────────────────
+  const VOWEL_AUDIO = {
+    "short-0": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3", // Fatha sound — ba
+    "short-1": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/2.mp3", // Kasra
+    "short-2": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/3.mp3", // Damma
+  };
+
   const speakVowel = useCallback((speakText, displayKey, englishName) => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
     setVowelPlaying(displayKey);
 
-    const doSpeak = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const arVoice = voices.find(v => v.lang.startsWith("ar"));
+    // Always use Arabic TTS with the full Arabic name — most reliable cross-device
+    const tryArabicTTS = () => {
+      if (!("speechSynthesis" in window)) { setVowelPlaying(null); return; }
+      window.speechSynthesis.cancel();
 
-      if (arVoice) {
-        // Arabic voice available — speak Arabic name + sound
+      const speak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const arVoice = voices.find(v => v.lang.startsWith("ar"));
         const u = new SpeechSynthesisUtterance(speakText);
-        u.voice = arVoice;
-        u.lang = arVoice.lang;
+        if (arVoice) {
+          u.voice = arVoice;
+          u.lang = arVoice.lang;
+        } else {
+          u.lang = "ar-SA";
+        }
         u.rate = 0.6;
         u.pitch = 1;
         u.onend = () => setVowelPlaying(null);
         u.onerror = () => setVowelPlaying(null);
         window.speechSynthesis.speak(u);
+      };
+
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        speak();
       } else {
-        // No Arabic voice — fall back to English name
-        const u = new SpeechSynthesisUtterance(englishName || speakText);
-        u.lang = "en-US";
-        u.rate = 0.8;
-        u.onend = () => setVowelPlaying(null);
-        u.onerror = () => setVowelPlaying(null);
-        window.speechSynthesis.speak(u);
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.onvoiceschanged = null;
+          speak();
+        };
+        setTimeout(speak, 400);
       }
     };
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      doSpeak();
-    } else {
-      // Mobile loads voices async
-      const handler = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        doSpeak();
-      };
-      window.speechSynthesis.onvoiceschanged = handler;
-      setTimeout(doSpeak, 500); // fallback if event never fires
-    }
+    tryArabicTTS();
   }, []);
 
   // ── KIDS SCREEN ─────────────────────────────────────────────
