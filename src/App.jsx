@@ -916,24 +916,54 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
-  // ALWAYS fetch English 131 — the only verified translation ID
-  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`API ${r.status}`);
-  const d = await r.json();
+  // Try multiple translation IDs — 131 = Sahih International, 20 = Pickthall, 19 = Yusuf Ali
+  const translationIds = [131, 20, 19, 85];
+  let verses = null;
 
-  const verses = d.verses.map(v => ({
-    number: v.verse_number,
-    arabic: v.text_uthmani,
-    translation: langCode === "ar"
-      ? v.text_uthmani
-      : ((v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "").trim()),
-  }));
+  for (const tid of translationIds) {
+    try {
+      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${tid}&fields=text_uthmani`;
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!d.verses || d.verses.length === 0) continue;
+
+      const mapped = d.verses.map(v => ({
+        number: v.verse_number,
+        arabic: v.text_uthmani,
+        translation: langCode === "ar"
+          ? v.text_uthmani
+          : ((v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "").trim()),
+      }));
+
+      // Check if we actually got translations
+      const hasTranslation = mapped.some(v => v.translation && v.translation.length > 5);
+      if (hasTranslation) {
+        verses = mapped;
+        break;
+      }
+    } catch(e) { continue; }
+  }
+
+  // If all IDs failed, still return Arabic only
+  if (!verses) {
+    try {
+      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&fields=text_uthmani`;
+      const r = await fetch(url);
+      const d = await r.json();
+      verses = d.verses.map(v => ({
+        number: v.verse_number,
+        arabic: v.text_uthmani,
+        translation: "",
+      }));
+    } catch(e) {
+      throw new Error("Could not load surah. Check your connection.");
+    }
+  }
 
   verseCache[cacheKey] = verses;
 
   // Every language except English & Arabic: AI translates from English
-  // Chunked (25 verses per call) so even Al-Baqarah (286) translates fully
   if (langCode !== "en" && langCode !== "ar") {
     const langName = LANG_NAMES[langCode] || langCode;
     const apiKey = import.meta.env?.VITE_ANTHROPIC_KEY || "";
@@ -2404,20 +2434,12 @@ export default function QuranLife() {
                     {verse.arabic}
                   </div>
                   {(() => {
-                    const tKey = `${surahNum}-${verse.number}-translation-${lang}`;
-                    const tEntry = cache[tKey] || {};
-                    // Translation comes directly from verse object fetched from quran.com API
-                    // No need to go through cache/loadTabContent for translation
                     const directTranslation = verse.translation || "";
                     return (
                       <div style={{ fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, marginBottom: 6 }}>
                         {directTranslation
                           ? directTranslation
-                          : tEntry.loading
-                            ? <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Loading translation...</span>
-                            : tEntry.error
-                              ? <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>
-                              : <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Loading...</span>
+                          : <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translation loading... if it does not appear, tap retry on the surah.</span>
                         }
                       </div>
                     );
