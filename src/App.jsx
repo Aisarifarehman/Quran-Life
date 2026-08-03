@@ -354,29 +354,6 @@ const ARABIC_ALPHA = [
   {l:"ي",n:"Ya",full:"ياء",s:"Y",color:"#7f8c8d",e:"🕊️",w:"يمامة",wt:"Yamama",wm:"Dove"},
 ];
 
-// ─── ARABIC VOWELS DATA ──────────────────────────────────────
-const VOWELS_SHORT = [
-  { ar: "بَ", name: "Fatha", arabic: "فَتْحَة", sound: '"a" — like apple', desc: "Short A vowel — written above the letter" },
-  { ar: "بِ", name: "Kasra", arabic: "كَسْرَة", sound: '"i" — like sit', desc: "Short I vowel — written below the letter" },
-  { ar: "بُ", name: "Damma", arabic: "ضَمَّة", sound: '"u" — like moon', desc: "Short U vowel — written above the letter" },
-  { ar: "بْ", name: "Sukun", arabic: "سُكُون", sound: "silent — no vowel", desc: "No vowel — the letter stops here" },
-  { ar: "بَّ", name: "Shadda", arabic: "شَدَّة", sound: "doubles the letter", desc: "Double consonant — hold it twice as long" },
-  { ar: "بً", name: "Tanwin Fath", arabic: "تنوين فتح", sound: '"an" ending', desc: 'Tanwin — adds "an" sound at word end' },
-];
-const VOWELS_LONG = [
-  { ar: "بَا", name: "Alif Madd", arabic: "أَلِف الْمَدّ", sound: 'long "aa"', desc: "Long A — hold for 2 counts" },
-  { ar: "بِي", name: "Yaa Madd", arabic: "يَاء الْمَدّ", sound: 'long "ii"', desc: "Long I — hold for 2 counts" },
-  { ar: "بُو", name: "Waw Madd", arabic: "وَاو الْمَدّ", sound: 'long "uu"', desc: "Long U — hold for 2 counts" },
-];
-const VOWEL_WORDS = [
-  { ar: "كِتَاب", tr: "ki-tāb", meaning: "Book" },
-  { ar: "نُور", tr: "nūr", meaning: "Light" },
-  { ar: "رَحْمَة", tr: "raḥ-ma", meaning: "Mercy" },
-  { ar: "قُرْآن", tr: "Qur-ān", meaning: "Quran" },
-  { ar: "بِسْمِ", tr: "bis-mi", meaning: "In the name" },
-  { ar: "اللَّه", tr: "Al-lāh", meaning: "Allah" },
-];
-
 // ─── VERSE CACHE ─────────────────────────────────────────────
 const verseCache = {};
 
@@ -1127,8 +1104,6 @@ export default function QuranLife() {
   const [kidsAudioCurrent, setKidsAudioCurrent] = useState(null);
   const kidsAudioStopRef = useRef(false);
   const [learned, setLearned] = useState([]);
-  const [kidsTab, setKidsTab] = useState("letters"); // "letters" | "vowels"
-  const [vowelPlaying, setVowelPlaying] = useState(null); // key string
   const [langSearch, setLangSearch] = useState("");
   const [langCountry, setLangCountry] = useState("all");
   const [gotoPage, setGotoPage] = useState("");
@@ -1445,7 +1420,7 @@ export default function QuranLife() {
     .mushaf-wrap{background:#fdf6e3;border-radius:8px;padding:20px 16px;margin:10px 0;position:relative;box-shadow:0 2px 20px rgba(139,105,20,.15),inset 0 0 60px rgba(139,105,20,.04)}
     .mushaf-wrap::before{content:'';position:absolute;inset:6px;border:1.5px solid rgba(139,105,20,.25);border-radius:4px;pointer-events:none}
     .mushaf-wrap::after{content:'';position:absolute;inset:10px;border:.5px solid rgba(139,105,20,.1);border-radius:2px;pointer-events:none}
-    .mushaf-text{font-family:'Amiri',serif;font-size:24px;line-height:3;direction:rtl;text-align:justify;text-align-last:right;color:#1a0500;word-spacing:2px;width:100%;display:block}
+    .mushaf-text{font-family:'Amiri',serif;font-size:24px;line-height:3;direction:rtl;text-align:justify;color:#1a0500;word-spacing:4px}
     .mushaf-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8b6914,#c9943a);color:#fff;font-size:10px;font-weight:700;margin:0 3px;vertical-align:middle;flex-shrink:0;font-family:'Inter',sans-serif;line-height:1}
     .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%}
     .mode-btn{padding:6px 14px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
@@ -1518,22 +1493,6 @@ export default function QuranLife() {
     .dbtn.op{background:linear-gradient(180deg,#1a9a5c 0%,#0f5132 100%);color:#fff;box-shadow:0 3px 0 #072b1a;border-color:#0f5132}
     .bk-btn{font-size:17px;background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;transition:transform .15s}
     .bk-btn:hover{transform:scale(1.2)}
-    .vowel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-    .vowel-btn{background:#fff;border:1.5px solid #e2e8e4;border-radius:12px;padding:12px 6px;cursor:pointer;text-align:center;transition:all .15s;position:relative;box-shadow:0 2px 0 #ddd}
-    .vowel-btn:hover{border-color:#e67e22;background:#fff9f0;transform:scale(1.03)}
-    .vowel-btn.vplaying{border-color:#e67e22;background:#fff3cd;box-shadow:0 2px 0 #c9943a}
-    .vowel-arabic{font-family:'Amiri',serif;font-size:38px;color:#1a0800;line-height:1.4;display:block}
-    .vowel-name{font-size:10px;font-weight:700;color:#e67e22;margin-top:3px;display:block}
-    .vowel-sound{font-size:10px;color:#9ba5b0;display:block;margin-top:1px}
-    .vowel-play-dot{position:absolute;top:6px;right:6px;width:16px;height:16px;background:#e67e22;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;color:#fff}
-    .vplaying .vowel-play-dot{background:#c9943a}
-    .prac-word-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
-    .prac-word-btn{background:#fff;border:1px solid #e2e8e4;border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:all .15s;box-shadow:0 2px 0 #ddd}
-    .prac-word-btn:hover{border-color:#e67e22;background:#fff9f0}
-    .prac-word-btn.vplaying{border-color:#e67e22;background:#fff3cd}
-    .vowel-section-box{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;border:.5px solid #e2e8e4;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-    .vowel-section-head{font-size:13px;font-weight:700;color:#e67e22;margin-bottom:10px;display:flex;align-items:center;gap:7px}
-    .vowel-num-badge{width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;font-family:'Amiri',serif}
   `;
 
   // ── SHARED HELPERS ──────────────────────────────────────────
@@ -2507,22 +2466,6 @@ export default function QuranLife() {
     if (!kidsAudioStopRef.current) { setKidsAudioPlaying(false); setKidsAudioCurrent(null); }
   }, []);
 
-  // ── VOWEL AUDIO ─────────────────────────────────────────────
-  const speakVowel = useCallback((ar, key) => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    setVowelPlaying(key);
-    const u = new SpeechSynthesisUtterance(ar);
-    u.lang = "ar-SA";
-    u.rate = 0.65;
-    const voices = window.speechSynthesis.getVoices();
-    const arVoice = voices.find(v => v.lang.startsWith("ar"));
-    if (arVoice) u.voice = arVoice;
-    u.onend = () => setVowelPlaying(null);
-    u.onerror = () => setVowelPlaying(null);
-    window.speechSynthesis.speak(u);
-  }, []);
-
   // ── KIDS SCREEN ─────────────────────────────────────────────
   const KidsScreen = () => (
     <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#fff9f0,#f0fff4)", minHeight: "100vh" }}>
@@ -2542,99 +2485,15 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Tab switcher */}
-      <div style={{ display: "flex", gap: 8, padding: "12px 14px 6px" }}>
-        <button onClick={() => setKidsTab("letters")}
-          style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "letters" ? "#e67e22" : "#f0f0f0", color: kidsTab === "letters" ? "#fff" : "#5a6472" }}>
-          🔤 Letters
-        </button>
-        <button onClick={() => setKidsTab("vowels")}
-          style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "vowels" ? "#e67e22" : "#f0f0f0", color: kidsTab === "vowels" ? "#fff" : "#5a6472" }}>
-          🎵 Vowels
-        </button>
-      </div>
-
-      {/* Progress — only show on letters tab */}
-      {kidsTab === "letters" && <div style={{ padding: "4px 14px 6px" }}>
+      {/* Progress */}
+      <div style={{ padding: "12px 14px 6px" }}>
         <div style={{ height: 8, background: "#e2e8e4", borderRadius: 6, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${Math.round((learned.length / ARABIC_ALPHA.length) * 100)}%`, background: "linear-gradient(90deg,#e67e22,#f39c12)", borderRadius: 6, transition: "width .5s" }} />
         </div>
         <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 4, textAlign: "center" }}>{Math.round((learned.length / ARABIC_ALPHA.length) * 100)}% Complete</div>
-      </div>}
+      </div>
 
-      {/* ── VOWELS TAB ── */}
-      {kidsTab === "vowels" && (
-        <div style={{ padding: "8px 14px 20px" }}>
-          <div style={{ fontSize: 12, color: "#9ba5b0", textAlign: "center", marginBottom: 12 }}>Tap any card to hear the sound 🔊</div>
-
-          {/* Short Vowels */}
-          <div className="vowel-section-box">
-            <div className="vowel-section-head">
-              <span className="vowel-num-badge" style={{ background: "#e67e22" }}>١</span>
-              Short Vowels — حَرَكَات قَصِيرَة
-            </div>
-            <div className="vowel-grid">
-              {VOWELS_SHORT.map((v, i) => {
-                const key = `short-${i}`;
-                return (
-                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.ar, key)}>
-                    <div className="vowel-play-dot">▶</div>
-                    <span className="vowel-arabic ar">{v.ar}</span>
-                    <span className="vowel-name">{v.arabic}</span>
-                    <span className="vowel-sound">{v.sound}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Long Vowels */}
-          <div className="vowel-section-box">
-            <div className="vowel-section-head">
-              <span className="vowel-num-badge" style={{ background: "#8b6914" }}>٢</span>
-              Long Vowels — حُرُوف الْمَدّ
-            </div>
-            <div className="vowel-grid">
-              {VOWELS_LONG.map((v, i) => {
-                const key = `long-${i}`;
-                return (
-                  <div key={key} className={`vowel-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(v.ar, key)}
-                    style={{ border: "1.5px solid #c8a84b55" }}>
-                    <div className="vowel-play-dot" style={{ background: "#8b6914" }}>▶</div>
-                    <span className="vowel-arabic ar">{v.ar}</span>
-                    <span className="vowel-name" style={{ color: "#8b6914" }}>{v.arabic}</span>
-                    <span className="vowel-sound">{v.sound}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Practice Words */}
-          <div className="vowel-section-box">
-            <div className="vowel-section-head">
-              <span className="vowel-num-badge" style={{ background: "#27ae60" }}>٣</span>
-              Practice Words — تَدْرِيب
-            </div>
-            <div style={{ fontSize: 11, color: "#9ba5b0", marginBottom: 8 }}>Listen and spot the vowels</div>
-            <div className="prac-word-grid">
-              {VOWEL_WORDS.map((w, i) => {
-                const key = `word-${i}`;
-                return (
-                  <div key={key} className={`prac-word-btn${vowelPlaying === key ? " vplaying" : ""}`} onClick={() => speakVowel(w.ar, key)}>
-                    <div className="ar" style={{ fontSize: 28, color: "#1a0800", lineHeight: 1.4 }}>{w.ar}</div>
-                    <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 3 }}>{w.tr}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#27ae60", marginTop: 2 }}>{w.meaning}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── LETTERS TAB ── */}
-      {kidsTab === "letters" && kidLetter !== null ? (
+      {kidLetter !== null ? (
         /* Letter detail */
         <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 18, padding: 20, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,.1)" }} className="pop">
           <div style={{ fontSize: 72, marginBottom: 8 }}>{ARABIC_ALPHA[kidLetter].e}</div>
@@ -2663,7 +2522,7 @@ export default function QuranLife() {
             </button>
           </div>
         </div>
-      ) : kidsTab === "letters" ? (
+      ) : (
         <div style={{ padding: "8px 14px" }}>
           {/* Two mode buttons */}
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -2711,7 +2570,7 @@ export default function QuranLife() {
             </div>
           )}
         </div>
-      ) : null}
+      )}
       <Nav />
     </div>
   );
