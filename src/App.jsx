@@ -1134,6 +1134,16 @@ export default function QuranLife() {
   const [gotoPage, setGotoPage] = useState("");
   const audioRef = useRef(null);
 
+  // Preload speech voices on startup — critical for Android/iOS
+  useEffect(() => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
+
   const curLang = LANGS.find(l => l.c === lang) || LANGS[0];
   const curQari = QARIS.find(q => q.id === qari) || QARIS[0];
   const curSurah = SURAHS.find(s => s.n === surahNum);
@@ -2083,14 +2093,24 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — butter smooth */}
+      {/* Search — butter smooth, no focus loss on any device */}
       <div style={{ padding: "12px 13px 8px", position: "relative" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search Surah name, meaning, number... 🧈"
-            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", transition: "border-color .2s" }}
-            onFocus={e => e.target.style.borderColor = G} onBlur={e => e.target.style.borderColor = "#ddd"} />
-          {query && <button onClick={() => setQuery("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>}
+          <input
+            key="search-input"
+            defaultValue={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search Surah name, meaning, number..."
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none", touchAction: "manipulation" }}
+            onFocus={e => e.target.style.borderColor = G}
+            onBlur={e => e.target.style.borderColor = "#ddd"}
+          />
+          {query && <button onClick={() => { setQuery(""); document.querySelector('input[placeholder]') && (document.querySelector('input[placeholder]').value = ""); }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>}
         </div>
         {/* Live search dropdown */}
         {query && filtered.length > 0 && (
@@ -2386,14 +2406,19 @@ export default function QuranLife() {
                   {(() => {
                     const tKey = `${surahNum}-${verse.number}-translation-${lang}`;
                     const tEntry = cache[tKey] || {};
-                    if (!tEntry.text && !tEntry.loading && !tEntry.error) {
-                      loadTabContent(verse, "translation");
-                    }
+                    // Translation comes directly from verse object fetched from quran.com API
+                    // No need to go through cache/loadTabContent for translation
+                    const directTranslation = verse.translation || "";
                     return (
                       <div style={{ fontSize: 14, color: darkMode ? "#d0d0d0" : "#2a2a2a", lineHeight: 1.8, marginBottom: 6 }}>
-                        {tEntry.loading && <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Translating...</span>}
-                        {tEntry.error && <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>}
-                        {tEntry.text && tEntry.text}
+                        {directTranslation
+                          ? directTranslation
+                          : tEntry.loading
+                            ? <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Loading translation...</span>
+                            : tEntry.error
+                              ? <span style={{ color: "#c0392b", fontSize: 12 }}>Translation failed — <span onClick={() => loadTabContent(verse, "translation", true)} style={{ textDecoration: "underline", cursor: "pointer" }}>Retry</span></span>
+                              : <span style={{ color: "#9ba5b0", fontSize: 12, fontStyle: "italic" }}>Loading...</span>
+                        }
                       </div>
                     );
                   })()}
@@ -2534,15 +2559,31 @@ export default function QuranLife() {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     setVowelPlaying(key);
-    const u = new SpeechSynthesisUtterance(ar);
-    u.lang = "ar-SA";
-    u.rate = 0.65;
+
+    const speak = (voices) => {
+      const u = new SpeechSynthesisUtterance(ar);
+      u.lang = "ar-SA";
+      u.rate = 0.65;
+      u.pitch = 1;
+      const arVoice = voices.find(v => v.lang.startsWith("ar")) || voices[0];
+      if (arVoice) u.voice = arVoice;
+      u.onend = () => setVowelPlaying(null);
+      u.onerror = () => setVowelPlaying(null);
+      window.speechSynthesis.speak(u);
+    };
+
     const voices = window.speechSynthesis.getVoices();
-    const arVoice = voices.find(v => v.lang.startsWith("ar"));
-    if (arVoice) u.voice = arVoice;
-    u.onend = () => setVowelPlaying(null);
-    u.onerror = () => setVowelPlaying(null);
-    window.speechSynthesis.speak(u);
+    if (voices.length > 0) {
+      speak(voices);
+    } else {
+      // Mobile — voices load async, wait for voiceschanged event
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        speak(window.speechSynthesis.getVoices());
+      };
+      // Fallback — try anyway after 300ms in case event never fires
+      setTimeout(() => speak(window.speechSynthesis.getVoices()), 300);
+    }
   }, []);
 
   // ── KIDS SCREEN ─────────────────────────────────────────────
