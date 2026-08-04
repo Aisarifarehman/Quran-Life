@@ -1051,9 +1051,19 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 
 // ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
-async function askAI(prompt, langName) {
+// ─── GEMINI FREE AI — with retry on 429 rate limit ──────────
+const geminiQueue = { lastCall: 0, minGap: 4500 }; // max ~13 calls/min safely
+
+async function askAI(prompt, langName, retries = 3) {
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
+
+  // Rate limiting — ensure minimum gap between calls
+  const now = Date.now();
+  const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geminiQueue.lastCall = Date.now();
+
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
     {
@@ -1069,6 +1079,13 @@ async function askAI(prompt, langName) {
       })
     }
   );
+
+  // Rate limit hit — wait and retry
+  if (r.status === 429 && retries > 0) {
+    await new Promise(res => setTimeout(res, 6000));
+    return askAI(prompt, langName, retries - 1);
+  }
+
   if (r.status === 400 || r.status === 403) throw new Error("NO_KEY");
   if (!r.ok) throw new Error(`AI ${r.status}`);
   const d = await r.json();
