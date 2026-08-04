@@ -1086,8 +1086,15 @@ async function askAI(prompt, langName, retries = 3) {
     return askAI(prompt, langName, retries - 1);
   }
 
-  if (r.status === 400 || r.status === 403) throw new Error("NO_KEY");
-  if (!r.ok) throw new Error(`AI ${r.status}`);
+  if (!r.ok) {
+    // Capture the REAL error message from Google
+    let detail = "";
+    try {
+      const errBody = await r.json();
+      detail = errBody?.error?.message || "";
+    } catch {}
+    throw new Error(`Gemini ${r.status}: ${detail.substring(0, 200)}`);
+  }
   const d = await r.json();
   return (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
@@ -1543,7 +1550,7 @@ export default function QuranLife() {
       }
 
     } catch(e) {
-      setCache(p => ({ ...p, [key]: { loading: false, error: "Could not load. Tap Retry.", text: null } }));
+      setCache(p => ({ ...p, [key]: { loading: false, error: (e.message || "Could not load.") + " — Tap Retry.", text: null } }));
     }
   }, [surahNum, curSurah, lang, curLang, cache]);
 
