@@ -949,7 +949,7 @@ async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1052,7 +1052,7 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 // ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
 // ─── GEMINI FREE AI — with retry on 429 rate limit ──────────
-const geminiQueue = { lastCall: 0, minGap: 4500 }; // max ~13 calls/min safely
+const geminiQueue = { lastCall: 0, minGap: 1100 }; // 60 RPM = 1 per second safely
 
 async function askAI(prompt, langName, retries = 3) {
   const key = import.meta.env.VITE_GEMINI_KEY || "";
@@ -1065,7 +1065,7 @@ async function askAI(prompt, langName, retries = 3) {
   geminiQueue.lastCall = Date.now();
 
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
