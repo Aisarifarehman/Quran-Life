@@ -1464,60 +1464,71 @@ export default function QuranLife() {
     }
   }, [lang]);
 
-  // ── FREE API CONTENT — no API key needed ───────────────────
+  // ── CONTENT — Gemini AI + free APIs ──────────────────────────
 
   const loadTabContent = useCallback(async (verse, tab, force = false) => {
     const key = `${surahNum}-${verse.number}-${tab}-${lang}`;
     if (cache[key]?.text && !force) return;
     setCache(p => ({ ...p, [key]: { loading: true, error: null, text: null } }));
 
+    const sn = curSurah?.name || "";
+    const langName = curLang?.n || "English";
+    const geminiKey = import.meta.env?.VITE_GEMINI_KEY || "";
+
     try {
-      // ── TAFSIR — free from quran.com API ──
       if (tab === "tafsir") {
-        // Tafsir IDs: 169 = Ibn Kathir (English), 168 = Al-Tabari (Arabic)
         const r = await fetch(`https://api.quran.com/api/v4/tafsirs/169/by_ayah/${surahNum}:${verse.number}`);
         if (!r.ok) throw new Error("failed");
         const d = await r.json();
-        const raw = d.tafsir?.text || "";
-        // Strip HTML tags
-        const text = raw.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-        if (!text) throw new Error("empty");
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + text } }));
+        const raw = (d.tafsir?.text || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        if (!raw) throw new Error("empty");
+        if (lang === "en" || !geminiKey) {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
+        } else {
+          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
+        }
       }
 
-      // ── REVELATION — free from quran.com verse info ──
       else if (tab === "revelation") {
-        const r = await fetch(`https://api.quran.com/api/v4/verses/by_key/${surahNum}:${verse.number}?language=en&fields=text_uthmani&word_fields=text_uthmani&tafsirs=169`);
-        if (!r.ok) throw new Error("failed");
         const surahR = await fetch(`https://api.quran.com/api/v4/chapters/${surahNum}?language=en`);
-        const surahD = await surahR.json();
-        const ch = surahD.chapter;
-        const revText = `📍 Revelation Information\n\nSurah: ${ch.name_simple} (${ch.translated_name?.name || ""})\n\nRevelation Type: ${ch.revelation_place === "makkah" ? "🕌 Meccan — revealed in Makkah before Hijra" : "🕌 Medinan — revealed in Madinah after Hijra"}\n\nOrder of Revelation: This surah was the ${ch.revelation_order}th surah to be revealed to Prophet Muhammad ﷺ.\n\nTotal Verses: ${ch.verses_count} verses\n\nPages: ${ch.pages?.[0]} to ${ch.pages?.[1]} in the standard Mushaf\n\nVerse ${verse.number} of ${ch.verses_count}: This verse is part of Surah ${ch.name_simple}, a ${ch.revelation_place === "makkah" ? "Meccan" : "Medinan"} surah. Meccan verses generally focus on faith, the afterlife, and stories of prophets. Medinan verses address community law, social issues, and guidance for the Muslim community.`;
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: revText } }));
+        if (!surahR.ok) throw new Error("failed");
+        const ch = (await surahR.json()).chapter;
+        const revEn = `Surah ${ch.name_simple} (${ch.translated_name?.name || ""}) is a ${ch.revelation_place === "makkah" ? "Meccan" : "Medinan"} surah revealed ${ch.revelation_order}th in order. It contains ${ch.verses_count} verses. ${ch.revelation_place === "makkah" ? "Meccan surahs focus on faith, the afterlife, and prophets stories." : "Medinan surahs address community law, social issues, and guidance."} This is verse ${verse.number} of ${ch.verses_count}.`;
+        if (lang === "en" || !geminiKey) {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
+        } else {
+          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
+        }
       }
 
-      // ── HADITH — curated authentic hadiths, no API needed ──
       else if (tab === "hadith") {
-        const surahName = curSurah?.name || "";
-        const hadithText = `📋 Authentic Hadiths Related to This Verse\n\nSurah ${surahName} — Verse ${verse.number}\n\n✅ SAHIH — Bukhari\nThe Prophet Muhammad ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\nGrade: SAHIH (Authentic)\nGraded by: Imam al-Bukhari\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Book of Allah will receive a good deed, and a good deed is multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\nGrade: SAHIH (Authentic)\nGraded by: Imam at-Tirmidhi\n\n✅ SAHIH — Muslim\nThe Prophet ﷺ said: "The one who is proficient in reciting the Quran will be with the noble, righteous scribes (angels), and the one who recites it with difficulty will have a double reward."\nSource: Sahih Muslim, Hadith 798\nGrade: SAHIH (Authentic)\nGraded by: Imam Muslim\n\n⚠️ WARNING ABOUT FABRICATED HADITHS\nMillions of fabricated (Mawdu) hadiths circulate on WhatsApp and social media daily. Always verify the source, chain of narrators (isnad), and authenticity grade before sharing. Sharing a fabricated hadith without knowledge is a major sin according to all scholars.`;
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: hadithText } }));
+        if (geminiKey) {
+          const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
+        } else {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Authentic Hadiths\n\n✅ SAHIH — Bukhari\nThe Prophet ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Quran will receive a good deed multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\n\n⚠️ WARNING: Always verify hadiths before sharing. Millions of fabricated hadiths circulate on social media daily.` } }));
+        }
       }
 
-      // ── SCIENCE — coming soon (needs API key) ──
       else if (tab === "science") {
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "🔬 Scientific Connections\n\nThis premium feature analyzes scientific connections for each verse with honest labels:\n\n✅ Confirmed by modern science\n⚠️ Claimed but debated\n❌ No direct scientific link\n\nThis feature will be available soon. It requires careful scholarly review to ensure no false claims are made about the Quran.\n\nAll 6,236 verses will be analyzed with full scientific honesty." } }));
+        if (geminiKey) {
+          const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
+        } else {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "🔬 Scientific Connections\n\nAdd VITE_GEMINI_KEY to Vercel to unlock this feature." } }));
+        }
       }
 
-      // ── TRANSLATION tab (shown in verse card, not deep panel) ──
       else if (tab === "translation") {
-        const text = verse.translation || "Translation not available for this language yet.";
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
+        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: verse.translation || "" } }));
       }
 
     } catch(e) {
-      setCache(p => ({ ...p, [key]: { loading: false, error: "Could not load. Check your connection and tap Retry.", text: null } }));
+      setCache(p => ({ ...p, [key]: { loading: false, error: "Could not load. Tap Retry.", text: null } }));
     }
-  }, [surahNum, curSurah, lang, cache]);
+  }, [surahNum, curSurah, lang, curLang, cache]);
 
   const openDeepPanel = useCallback((verse) => {
     if (openPanel === verse.number) { setOpenPanel(null); return; }
