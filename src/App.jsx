@@ -948,21 +948,18 @@ function speakWordNursery(letterObj) {
 async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}` }] }],
-          generationConfig: { maxOutputTokens: 4000, temperature: 0.3 }
-        })
-      }
+    // Respect global rate gap
+    const now = Date.now();
+    const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    geminiQueue.lastCall = Date.now();
+
+    const text = await geminiCall(
+      `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}`,
+      4000, apiKey
     );
-    if (!r.ok) return null;
-    const d = await r.json();
     const result = {};
-    (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim().split("\n").forEach(line => {
+    text.split("\n").forEach(line => {
       const m = line.match(/^(\d+)[:.]\s*(.+)/);
       if (m) result[parseInt(m[1])] = m[2].trim();
     });
@@ -1051,52 +1048,72 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 
 // ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
-// ─── GEMINI FREE AI — with retry on 429 rate limit ──────────
-const geminiQueue = { lastCall: 0, minGap: 1100 }; // 60 RPM = 1 per second safely
+// ─── GEMINI FREE AI — with model fallback + retry ───────────
+const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
+// Current Gemini models in priority order — app finds the one that works
+const GEMINI_MODELS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-3-flash-preview",
+];
 
-async function askAI(prompt, langName, retries = 3) {
+async function geminiCall(bodyText, maxTokens, key) {
+  const models = geminiQueue.workingModel
+    ? [geminiQueue.workingModel, ...GEMINI_MODELS.filter(m => m !== geminiQueue.workingModel)]
+    : GEMINI_MODELS;
+
+  let lastErr = null;
+  for (const model of models) {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: bodyText }] }],
+          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
+        })
+      }
+    );
+    if (r.status === 404) { lastErr = new Error(`Model ${model} not available`); continue; }
+    if (r.status === 429) { lastErr = new Error("RATE_LIMIT"); continue; }
+    if (!r.ok) {
+      let detail = "";
+      try { detail = (await r.json())?.error?.message || ""; } catch {}
+      lastErr = new Error(`Gemini ${r.status}: ${detail.substring(0, 150)}`);
+      continue;
+    }
+    // Success — remember this model
+    geminiQueue.workingModel = model;
+    const d = await r.json();
+    return (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+  }
+  throw lastErr || new Error("All Gemini models failed");
+}
+
+async function askAI(prompt, langName, retries = 2) {
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
 
-  // Rate limiting — ensure minimum gap between calls
+  // Rate limiting — minimum gap between calls
   const now = Date.now();
   const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   geminiQueue.lastCall = Date.now();
 
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`
-          }]
-        }],
-        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
-      })
+  try {
+    return await geminiCall(
+      `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`,
+      500, key
+    );
+  } catch (e) {
+    if (e.message === "RATE_LIMIT" && retries > 0) {
+      await new Promise(res => setTimeout(res, 7000));
+      return askAI(prompt, langName, retries - 1);
     }
-  );
-
-  // Rate limit hit — wait and retry
-  if (r.status === 429 && retries > 0) {
-    await new Promise(res => setTimeout(res, 6000));
-    return askAI(prompt, langName, retries - 1);
+    throw e;
   }
-
-  if (!r.ok) {
-    // Capture the REAL error message from Google
-    let detail = "";
-    try {
-      const errBody = await r.json();
-      detail = errBody?.error?.message || "";
-    } catch {}
-    throw new Error(`Gemini ${r.status}: ${detail.substring(0, 200)}`);
-  }
-  const d = await r.json();
-  return (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 }
 
 // ─── AUDIO — 2 fallback URLs ─────────────────────────────────
