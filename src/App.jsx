@@ -1172,6 +1172,244 @@ const JUZ_STARTS = {
   30: { surah: 78, verse: 1 },
 };
 
+// ─── PRAYER TIMES — calculation constants ────────────────────
+const PRAYER_METHODS = {
+  MWL: { fajr: 18, isha: 17, name: "Muslim World League" },
+  ISNA: { fajr: 15, isha: 15, name: "ISNA" },
+  Egypt: { fajr: 19.5, isha: 17.5, name: "Egyptian Authority" },
+  Karachi: { fajr: 18, isha: 18, name: "University of Islamic Sciences, Karachi" },
+  Makkah: { fajr: 18.5, isha: 90, name: "Umm Al-Qura, Makkah" },
+};
+
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+function fixAngle(a) { return a - 360 * Math.floor(a / 360); }
+function fixHour(h) { return h - 24 * Math.floor(h / 24); }
+
+function calcPrayerTimes(date, lat, lng, timezone, method = "MWL") {
+  const m = PRAYER_METHODS[method] || PRAYER_METHODS.MWL;
+  const d = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  const t = (d + lng / 360) / 365.25;
+  const L = fixAngle(280.46 + 36000.77 * t);
+  const M = fixAngle(357.528 + 35999.05 * t);
+  const lambda = fixAngle(L + 1.915 * Math.sin(toRad(M)) + 0.02 * Math.sin(toRad(2 * M)));
+  const epsilon = 23.439 - 0.0000004 * t * 365.25 * 100;
+  const RA = toDeg(Math.atan2(Math.cos(toRad(epsilon)) * Math.sin(toRad(lambda)), Math.cos(toRad(lambda)))) / 15;
+  const EqT = L / 15 - fixHour(RA);
+  const Dec = toDeg(Math.asin(Math.sin(toRad(epsilon)) * Math.sin(toRad(lambda))));
+  const Dhuhr = fixHour(12 - lng / 15 - EqT + timezone);
+
+  function prayerTime(angle, afterTransit) {
+    const cosVal = (-Math.sin(toRad(angle)) - Math.sin(toRad(Dec)) * Math.sin(toRad(lat))) /
+      (Math.cos(toRad(Dec)) * Math.cos(toRad(lat)));
+    if (Math.abs(cosVal) > 1) return null;
+    const T = toDeg(Math.acos(cosVal)) / 15;
+    return afterTransit ? Dhuhr + T : Dhuhr - T;
+  }
+
+  function asrTime() {
+    const shadowFactor = 1;
+    const angle = toDeg(Math.atan(1 / (shadowFactor + Math.tan(toRad(Math.abs(lat - Dec))))));
+    return prayerTime(angle, true);
+  }
+
+  function fmt(t) {
+    if (t === null) return "N/A";
+    let h = Math.floor(t), m = Math.round((t - h) * 60);
+    if (m === 60) { h++; m = 0; }
+    h = h % 24;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+  }
+
+  const fajr = prayerTime(m.fajr, false);
+  const sunrise = prayerTime(0.833, false);
+  const asr = asrTime();
+  const maghrib = prayerTime(0.833, true);
+  const isha = typeof m.isha === "number" && m.isha < 25
+    ? prayerTime(m.isha, true)
+    : maghrib !== null ? maghrib + m.isha / 60 : null;
+
+  return [
+    { name: "Fajr", ar: "الفجر", time: fmt(fajr), icon: "🌙", raw: fajr },
+    { name: "Sunrise", ar: "الشروق", time: fmt(sunrise), icon: "🌅", raw: sunrise },
+    { name: "Dhuhr", ar: "الظهر", time: fmt(Dhuhr), icon: "☀️", raw: Dhuhr },
+    { name: "Asr", ar: "العصر", time: fmt(asr), icon: "🌤", raw: asr },
+    { name: "Maghrib", ar: "المغرب", time: fmt(maghrib), icon: "🌇", raw: maghrib },
+    { name: "Isha", ar: "العشاء", time: fmt(isha), icon: "🌙", raw: isha },
+  ];
+}
+
+function getNextPrayer(prayers) {
+  const now = new Date();
+  const nowH = now.getHours() + now.getMinutes() / 60;
+  const five = prayers.filter(p => p.name !== "Sunrise" && p.raw !== null);
+  return five.find(p => p.raw > nowH) || five[0];
+}
+
+function getTimezone() {
+  return -new Date().getTimezoneOffset() / 60;
+}
+
+// ─── 99 NAMES OF ALLAH ───────────────────────────────────────
+const ALLAH_NAMES = [
+  {n:1,ar:"الرَّحْمَنُ",tr:"Ar-Rahman",en:"The Most Gracious",meaning:"The one whose mercy encompasses all creation"},
+  {n:2,ar:"الرَّحِيمُ",tr:"Ar-Rahim",en:"The Most Merciful",meaning:"The one whose mercy is specifically for the believers"},
+  {n:3,ar:"الْمَلِكُ",tr:"Al-Malik",en:"The King",meaning:"The sovereign owner and ruler of all"},
+  {n:4,ar:"الْقُدُّوسُ",tr:"Al-Quddus",en:"The Most Holy",meaning:"Free from all imperfection and deficiency"},
+  {n:5,ar:"السَّلَامُ",tr:"As-Salam",en:"The Source of Peace",meaning:"The one from whom all peace flows"},
+  {n:6,ar:"الْمُؤْمِنُ",tr:"Al-Mumin",en:"The Guardian of Faith",meaning:"The one who gives security and faith"},
+  {n:7,ar:"الْمُهَيْمِنُ",tr:"Al-Muhaymin",en:"The Overseer",meaning:"The one who watches over and protects all"},
+  {n:8,ar:"الْعَزِيزُ",tr:"Al-Aziz",en:"The Almighty",meaning:"The one with perfect power that none can overcome"},
+  {n:9,ar:"الْجَبَّارُ",tr:"Al-Jabbar",en:"The Compeller",meaning:"The one who compels and is never compelled"},
+  {n:10,ar:"الْمُتَكَبِّرُ",tr:"Al-Mutakabbir",en:"The Supreme",meaning:"The one with all greatness and majesty"},
+  {n:11,ar:"الْخَالِقُ",tr:"Al-Khaliq",en:"The Creator",meaning:"The one who creates from nothing"},
+  {n:12,ar:"الْبَارِئُ",tr:"Al-Bari",en:"The Originator",meaning:"The one who creates with perfect order"},
+  {n:13,ar:"الْمُصَوِّرُ",tr:"Al-Musawwir",en:"The Fashioner",meaning:"The one who gives every creation its unique form"},
+  {n:14,ar:"الْغَفَّارُ",tr:"Al-Ghaffar",en:"The Ever-Forgiving",meaning:"The one who forgives repeatedly"},
+  {n:15,ar:"الْقَهَّارُ",tr:"Al-Qahhar",en:"The Subduer",meaning:"The one who subdues everything"},
+  {n:16,ar:"الْوَهَّابُ",tr:"Al-Wahhab",en:"The Bestower",meaning:"The one who gives without expecting anything in return"},
+  {n:17,ar:"الرَّزَّاقُ",tr:"Ar-Razzaq",en:"The Provider",meaning:"The one who provides all sustenance"},
+  {n:18,ar:"الْفَتَّاحُ",tr:"Al-Fattah",en:"The Opener",meaning:"The one who opens all doors of mercy and solutions"},
+  {n:19,ar:"الْعَلِيمُ",tr:"Al-Alim",en:"The All-Knowing",meaning:"The one whose knowledge encompasses everything"},
+  {n:20,ar:"الْقَابِضُ",tr:"Al-Qabid",en:"The Withholder",meaning:"The one who withholds and restricts as He wills"},
+  {n:21,ar:"الْبَاسِطُ",tr:"Al-Basit",en:"The Extender",meaning:"The one who extends and gives in abundance"},
+  {n:22,ar:"الْخَافِضُ",tr:"Al-Khafid",en:"The Abaser",meaning:"The one who lowers whoever He wills"},
+  {n:23,ar:"الرَّافِعُ",tr:"Ar-Rafi",en:"The Exalter",meaning:"The one who raises whoever He wills"},
+  {n:24,ar:"الْمُعِزُّ",tr:"Al-Muizz",en:"The Bestower of Honor",meaning:"The one who gives honor and dignity"},
+  {n:25,ar:"المُذِلُّ",tr:"Al-Mudhill",en:"The Humiliator",meaning:"The one who humiliates whoever He wills"},
+  {n:26,ar:"السَّمِيعُ",tr:"As-Sami",en:"The All-Hearing",meaning:"The one who hears every sound and supplication"},
+  {n:27,ar:"الْبَصِيرُ",tr:"Al-Basir",en:"The All-Seeing",meaning:"The one who sees everything"},
+  {n:28,ar:"الْحَكَمُ",tr:"Al-Hakam",en:"The Judge",meaning:"The one who judges between all things with perfect justice"},
+  {n:29,ar:"الْعَدْلُ",tr:"Al-Adl",en:"The Just",meaning:"The one who is perfectly just in all things"},
+  {n:30,ar:"اللَّطِيفُ",tr:"Al-Latif",en:"The Subtle",meaning:"The one who is most gentle and kind"},
+  {n:31,ar:"الْخَبِيرُ",tr:"Al-Khabir",en:"The All-Aware",meaning:"The one who is aware of every detail"},
+  {n:32,ar:"الْحَلِيمُ",tr:"Al-Halim",en:"The Forbearing",meaning:"The one who does not hasten punishment"},
+  {n:33,ar:"الْعَظِيمُ",tr:"Al-Azim",en:"The Magnificent",meaning:"The one with tremendous greatness"},
+  {n:34,ar:"الْغَفُورُ",tr:"Al-Ghafur",en:"The Forgiving",meaning:"The one who forgives all sins"},
+  {n:35,ar:"الشَّكُورُ",tr:"Ash-Shakur",en:"The Appreciative",meaning:"The one who rewards good deeds abundantly"},
+  {n:36,ar:"الْعَلِيُّ",tr:"Al-Ali",en:"The Most High",meaning:"The one who is above all in essence and status"},
+  {n:37,ar:"الْكَبِيرُ",tr:"Al-Kabir",en:"The Most Great",meaning:"The one who is greater than everything"},
+  {n:38,ar:"الْحَفِيظُ",tr:"Al-Hafiz",en:"The Preserver",meaning:"The one who preserves and protects everything"},
+  {n:39,ar:"المُقِيتُ",tr:"Al-Muqit",en:"The Sustainer",meaning:"The one who provides sustenance for all creation"},
+  {n:40,ar:"الْحَسِيبُ",tr:"Al-Hasib",en:"The Reckoner",meaning:"The one who takes account of everything"},
+  {n:41,ar:"الْجَلِيلُ",tr:"Al-Jalil",en:"The Majestic",meaning:"The one with supreme majesty and grandeur"},
+  {n:42,ar:"الْكَرِيمُ",tr:"Al-Karim",en:"The Generous",meaning:"The one who is most generous and noble"},
+  {n:43,ar:"الرَّقِيبُ",tr:"Ar-Raqib",en:"The Watchful",meaning:"The one who watches over all things at all times"},
+  {n:44,ar:"الْمُجِيبُ",tr:"Al-Mujib",en:"The Responsive",meaning:"The one who answers all prayers"},
+  {n:45,ar:"الْوَاسِعُ",tr:"Al-Wasi",en:"The All-Encompassing",meaning:"The one whose capacity and generosity are limitless"},
+  {n:46,ar:"الْحَكِيمُ",tr:"Al-Hakim",en:"The All-Wise",meaning:"The one whose wisdom in all matters is perfect"},
+  {n:47,ar:"الْوَدُودُ",tr:"Al-Wadud",en:"The Loving",meaning:"The one who loves the righteous believers"},
+  {n:48,ar:"الْمَجِيدُ",tr:"Al-Majid",en:"The Glorious",meaning:"The one who is glorious in essence and attributes"},
+  {n:49,ar:"الْبَاعِثُ",tr:"Al-Baith",en:"The Resurrector",meaning:"The one who resurrects all creation on the Day of Judgment"},
+  {n:50,ar:"الشَّهِيدُ",tr:"Ash-Shahid",en:"The Witness",meaning:"The one who witnesses everything"},
+  {n:51,ar:"الْحَقُّ",tr:"Al-Haqq",en:"The Truth",meaning:"The one who is the absolute truth"},
+  {n:52,ar:"الْوَكِيلُ",tr:"Al-Wakil",en:"The Trustee",meaning:"The one who is relied upon for all matters"},
+  {n:53,ar:"الْقَوِيُّ",tr:"Al-Qawi",en:"The Strong",meaning:"The one with perfect strength"},
+  {n:54,ar:"الْمَتِينُ",tr:"Al-Matin",en:"The Firm",meaning:"The one with extreme firmness and power"},
+  {n:55,ar:"الْوَلِيُّ",tr:"Al-Wali",en:"The Protecting Friend",meaning:"The one who protects and supports the believers"},
+  {n:56,ar:"الْحَمِيدُ",tr:"Al-Hamid",en:"The Praiseworthy",meaning:"The one who is worthy of all praise"},
+  {n:57,ar:"الْمُحْصِيُ",tr:"Al-Muhsi",en:"The Counter",meaning:"The one who counts and records everything"},
+  {n:58,ar:"الْمُبْدِئُ",tr:"Al-Mubdi",en:"The Originator",meaning:"The one who starts creation from nothing"},
+  {n:59,ar:"الْمُعِيدُ",tr:"Al-Muid",en:"The Restorer",meaning:"The one who brings back creation after death"},
+  {n:60,ar:"الْمُحْيِي",tr:"Al-Muhyi",en:"The Giver of Life",meaning:"The one who gives life to everything"},
+  {n:61,ar:"الْمُمِيتُ",tr:"Al-Mumit",en:"The Taker of Life",meaning:"The one who causes death when He wills"},
+  {n:62,ar:"الْحَيُّ",tr:"Al-Hayy",en:"The Ever-Living",meaning:"The one who has always existed and will always exist"},
+  {n:63,ar:"الْقَيُّومُ",tr:"Al-Qayyum",en:"The Self-Subsisting",meaning:"The one who sustains and manages all existence"},
+  {n:64,ar:"الْوَاجِدُ",tr:"Al-Wajid",en:"The Finder",meaning:"The one who finds whatever He wills"},
+  {n:65,ar:"الْمَاجِدُ",tr:"Al-Majid",en:"The Noble",meaning:"The one of great nobility and honor"},
+  {n:66,ar:"الْوَاحِدُ",tr:"Al-Wahid",en:"The One",meaning:"The one who is uniquely one with no partner"},
+  {n:67,ar:"الأَحَدُ",tr:"Al-Ahad",en:"The Unique",meaning:"The one who is absolutely unique"},
+  {n:68,ar:"الصَّمَدُ",tr:"As-Samad",en:"The Eternal",meaning:"The one who is eternally relied upon"},
+  {n:69,ar:"الْقَادِرُ",tr:"Al-Qadir",en:"The Capable",meaning:"The one who is capable of all things"},
+  {n:70,ar:"الْمُقْتَدِرُ",tr:"Al-Muqtadir",en:"The Powerful",meaning:"The one with perfect power over all things"},
+  {n:71,ar:"الْمُقَدِّمُ",tr:"Al-Muqaddim",en:"The Expediter",meaning:"The one who puts things in their right place"},
+  {n:72,ar:"الْمُؤَخِّرُ",tr:"Al-Muakhkhir",en:"The Delayer",meaning:"The one who delays things according to His wisdom"},
+  {n:73,ar:"الأَوَّلُ",tr:"Al-Awwal",en:"The First",meaning:"The one who existed before all things"},
+  {n:74,ar:"الآخِرُ",tr:"Al-Akhir",en:"The Last",meaning:"The one who will remain after all things cease"},
+  {n:75,ar:"الظَّاهِرُ",tr:"Az-Zahir",en:"The Manifest",meaning:"The one who is evident through His signs"},
+  {n:76,ar:"الْبَاطِنُ",tr:"Al-Batin",en:"The Hidden",meaning:"The one whose essence cannot be perceived"},
+  {n:77,ar:"الْوَالِي",tr:"Al-Wali",en:"The Governor",meaning:"The one who governs all of creation"},
+  {n:78,ar:"الْمُتَعَالِي",tr:"Al-Mutaali",en:"The Supremely Exalted",meaning:"The one who is far above all imperfection"},
+  {n:79,ar:"الْبَرُّ",tr:"Al-Barr",en:"The Source of Goodness",meaning:"The one who is the source of all goodness"},
+  {n:80,ar:"التَّوَّابُ",tr:"At-Tawwab",en:"The Ever-Returning",meaning:"The one who accepts repentance repeatedly"},
+  {n:81,ar:"الْمُنْتَقِمُ",tr:"Al-Muntaqim",en:"The Avenger",meaning:"The one who takes retribution for the oppressed"},
+  {n:82,ar:"الْعَفُوُّ",tr:"Al-Afuw",en:"The Pardoner",meaning:"The one who erases sins completely"},
+  {n:83,ar:"الرَّؤُوفُ",tr:"Ar-Rauf",en:"The Compassionate",meaning:"The one with extreme kindness and compassion"},
+  {n:84,ar:"مَالِكُ الْمُلْكِ",tr:"Malik Al-Mulk",en:"The Owner of All",meaning:"The one who owns all sovereignty"},
+  {n:85,ar:"ذُوالْجَلاَلِ وَالإِكْرَامِ",tr:"Dhul-Jalali wal-Ikram",en:"Lord of Majesty",meaning:"The one who possesses all majesty and honor"},
+  {n:86,ar:"الْمُقْسِطُ",tr:"Al-Muqsit",en:"The Equitable",meaning:"The one who is fair and equitable in all things"},
+  {n:87,ar:"الْجَامِعُ",tr:"Al-Jami",en:"The Gatherer",meaning:"The one who will gather all people on Judgment Day"},
+  {n:88,ar:"الْغَنِيُّ",tr:"Al-Ghani",en:"The Self-Sufficient",meaning:"The one who is free of all need"},
+  {n:89,ar:"الْمُغْنِي",tr:"Al-Mughni",en:"The Enricher",meaning:"The one who enriches whoever He wills"},
+  {n:90,ar:"الْمَانِعُ",tr:"Al-Mani",en:"The Preventer",meaning:"The one who withholds what is harmful"},
+  {n:91,ar:"الضَّارُّ",tr:"Ad-Darr",en:"The Distresser",meaning:"The one who allows harm to reach whoever He wills"},
+  {n:92,ar:"النَّافِعُ",tr:"An-Nafi",en:"The Benefiter",meaning:"The one who benefits whoever He wills"},
+  {n:93,ar:"النُّورُ",tr:"An-Nur",en:"The Light",meaning:"The one who is the light of the heavens and earth"},
+  {n:94,ar:"الْهَادِي",tr:"Al-Hadi",en:"The Guide",meaning:"The one who guides whoever He wills to the truth"},
+  {n:95,ar:"الْبَدِيعُ",tr:"Al-Badi",en:"The Incomparable",meaning:"The one who creates in the most unique way"},
+  {n:96,ar:"الْبَاقِي",tr:"Al-Baqi",en:"The Everlasting",meaning:"The one who will remain forever"},
+  {n:97,ar:"الْوَارِثُ",tr:"Al-Warith",en:"The Inheritor",meaning:"The one who inherits everything after all perish"},
+  {n:98,ar:"الرَّشِيدُ",tr:"Ar-Rashid",en:"The Guide to Right Path",meaning:"The one who guides all things to their right end"},
+  {n:99,ar:"الصَّبُورُ",tr:"As-Sabur",en:"The Patient",meaning:"The one who is extremely patient with His creation"},
+];
+
+// ─── MORNING & EVENING ADHKAR ────────────────────────────────
+const ADHKAR = {
+  morning: [
+    { ar: "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ", tr: "Asbahna wa asbahal mulku lillah, walhamdu lillah", en: "We have entered the morning and the whole kingdom belongs to Allah, and all praise is due to Allah.", count: 1, source: "Abu Dawud" },
+    { ar: "اللَّهُمَّ بِكَ أَصْبَحْنَا، وَبِكَ أَمْسَيْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ النُّشُورُ", tr: "Allahumma bika asbahna wabika amsayna wabika nahya wabika namutu wa-ilaykan nushur", en: "O Allah, by You we enter the morning and by You we enter the evening, by You we live and by You we die, and to You is the resurrection.", count: 1, source: "Tirmidhi" },
+    { ar: "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ", tr: "Allahumma anta rabbi la ilaha illa anta, khalaqtani wa ana abduk", en: "O Allah, You are my Lord, there is no god but You. You created me and I am Your slave.", count: 1, source: "Bukhari" },
+    { ar: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", tr: "SubhanAllahi wa bihamdihi", en: "Glory be to Allah and praise Him.", count: 100, source: "Muslim" },
+    { ar: "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", tr: "La ilaha illallahu wahdahu la sharika lah, lahul mulku wa lahul hamd, wa huwa ala kulli shay in qadir", en: "There is no god but Allah alone with no partner, to Him belongs all sovereignty and all praise, and He has power over all things.", count: 10, source: "Bukhari" },
+    { ar: "اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَافِيَةَ فِي الدُّنْيَا وَالآخِرَةِ", tr: "Allahumma inni as'alukal afiyata fid-dunya wal-akhirah", en: "O Allah, I ask You for well-being in this world and the Hereafter.", count: 1, source: "Ibn Majah" },
+    { ar: "بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ", tr: "Bismillahil-ladhi la yadurru ma'asmihi shay'un fil-ardi wa la fis-sama'i wa huwas-sami'ul-alim", en: "In the name of Allah with whose name nothing can cause harm on earth or in the heavens. He is the All-Hearing, All-Knowing.", count: 3, source: "Abu Dawud, Tirmidhi" },
+  ],
+  evening: [
+    { ar: "أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ", tr: "Amsayna wa amsal mulku lillah, walhamdu lillah", en: "We have entered the evening and the whole kingdom belongs to Allah, and all praise is due to Allah.", count: 1, source: "Abu Dawud" },
+    { ar: "اللَّهُمَّ بِكَ أَمْسَيْنَا، وَبِكَ أَصْبَحْنَا، وَبِكَ نَحْيَا، وَبِكَ نَمُوتُ، وَإِلَيْكَ الْمَصِيرُ", tr: "Allahumma bika amsayna wabika asbahna wabika nahya wabika namutu wa-ilaykal masir", en: "O Allah, by You we enter the evening and by You we enter the morning, by You we live and by You we die, and to You is the return.", count: 1, source: "Tirmidhi" },
+    { ar: "أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ", tr: "A'udhu bikalimattillahit-tammati min sharri ma khalaq", en: "I seek refuge in the perfect words of Allah from the evil of what He has created.", count: 3, source: "Muslim" },
+    { ar: "اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي", tr: "Allahumma afini fi badani, Allahumma afini fi sam'i, Allahumma afini fi basari", en: "O Allah, grant me health in my body. O Allah, grant me health in my hearing. O Allah, grant me health in my sight.", count: 3, source: "Abu Dawud" },
+    { ar: "حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ", tr: "Hasbiyallahu la ilaha illa huwa alayhi tawakkaltu wa huwa rabbul arshil azim", en: "Allah is sufficient for me, there is no god but He, in Him I put my trust, and He is the Lord of the Mighty Throne.", count: 7, source: "Abu Dawud" },
+  ],
+};
+
+// ─── DUAS ────────────────────────────────────────────────────
+const DUAS = [
+  { category: "🌙 Before Sleep", ar: "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", tr: "Bismika Allahumma amutu wa ahya", en: "In Your name, O Allah, I die and I live.", source: "Bukhari" },
+  { category: "🌙 Before Sleep", ar: "اللَّهُمَّ قِنِي عَذَابَكَ يَوْمَ تَبْعَثُ عِبَادَكَ", tr: "Allahumma qini adhabaka yawma tab'athu ibadak", en: "O Allah, protect me from Your punishment on the day You resurrect Your servants.", source: "Abu Dawud" },
+  { category: "🌅 Upon Waking", ar: "الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", tr: "Alhamdulillahil-ladhi ahyana ba'da ma amatana wa-ilayhin-nushur", en: "All praise is for Allah who gave us life after having taken it from us, and unto Him is the resurrection.", source: "Bukhari" },
+  { category: "🍽 Before Eating", ar: "بِسْمِ اللَّهِ", tr: "Bismillah", en: "In the name of Allah.", source: "Abu Dawud" },
+  { category: "🍽 After Eating", ar: "الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مُسْلِمِينَ", tr: "Alhamdulillahil-ladhi at'amana wa saqana wa ja'alana muslimin", en: "All praise is for Allah who fed us and gave us drink and made us Muslims.", source: "Abu Dawud, Tirmidhi" },
+  { category: "🚗 Before Travel", ar: "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَى رَبِّنَا لَمُنقَلِبُونَ", tr: "Subhanal-ladhi sakhkhara lana hadha wa ma kunna lahu muqrinin, wa inna ila rabbina la-munqalibun", en: "Glory be to Him who has subjected this to us, and we could never have it by our efforts, and indeed to our Lord we will return.", source: "Abu Dawud, Tirmidhi" },
+  { category: "🕌 Entering Mosque", ar: "اللَّهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ", tr: "Allahummaf-tahli abwaba rahmatik", en: "O Allah, open for me the doors of Your mercy.", source: "Muslim" },
+  { category: "🕌 Leaving Mosque", ar: "اللَّهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ", tr: "Allahumma inni as'aluka min fadlik", en: "O Allah, I ask You for Your bounty.", source: "Muslim" },
+  { category: "😟 Anxiety & Worry", ar: "لَا إِلَهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ", tr: "La ilaha illa anta subhanaka inni kuntu minaz-zalimin", en: "There is no god but You, glory be to You, indeed I was among the wrongdoers.", source: "Quran 21:87, Tirmidhi" },
+  { category: "😟 Anxiety & Worry", ar: "اللَّهُمَّ إِنِّي عَبْدُكَ وَابْنُ عَبْدِكَ وَابْنُ أَمَتِكَ، نَاصِيَتِي بِيَدِكَ", tr: "Allahumma inni abduka wabnu abdika wabnu amatika, nasiyati biyadik", en: "O Allah, I am Your slave, son of Your slave, son of Your female slave, my forelock is in Your hand.", source: "Ahmad, Ibn Hibban" },
+  { category: "🤲 Seeking Forgiveness", ar: "رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ", tr: "Rabbighfir li watub alayya innaka antat-tawwabur-rahim", en: "My Lord, forgive me and accept my repentance. Indeed, You are the Accepting of Repentance, the Merciful.", source: "Abu Dawud, Tirmidhi" },
+  { category: "🌧 Rain Dua", ar: "اللَّهُمَّ صَيِّبًا نَافِعًا", tr: "Allahumma sayyiban nafi'an", en: "O Allah, make it a beneficial rain.", source: "Bukhari" },
+];
+
+// ─── HIJRI CALENDAR ──────────────────────────────────────────
+const HIJRI_MONTHS = ["Muharram","Safar","Rabi al-Awwal","Rabi al-Thani","Jumada al-Awwal","Jumada al-Thani","Rajab","Sha'ban","Ramadan","Shawwal","Dhul Qadah","Dhul Hijjah"];
+
+function gregorianToHijri(date) {
+  const jd = Math.floor((14 + date.getMonth() + 1) / 12);
+  const y = date.getFullYear() + 4800 - jd;
+  const m = date.getMonth() + 1 + 12 * jd - 3;
+  let jdn = date.getDate() + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+  const l = jdn - 1948440 + 10632;
+  const n = Math.floor((l - 1) / 10631);
+  const l2 = l - 10631 * n + 354;
+  const j = Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) + Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238);
+  const l3 = l2 - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) - Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  const month = Math.floor((24 * l3) / 709);
+  const day = l3 - Math.floor((709 * month) / 24);
+  const year = 30 * n + j - 30;
+  return { day, month, year, monthName: HIJRI_MONTHS[month - 1] };
+}
+// ─── AUDIO URLS ──────────────────────────────────────────────
 function getAudioUrls(qariId, surahNum, verseNum) {
   // Calculate correct global verse number
   const startVerse = SURAH_VERSE_STARTS[surahNum] || 1;
@@ -1186,32 +1424,33 @@ function getAudioUrls(qariId, surahNum, verseNum) {
   return [url1, url2, url3];
 }
 
-// ─── PRAYER TIMES (approximate) ─────────────────────────────
-const PRAYER_NAMES = ["Fajr","Sunrise","Dhuhr","Asr","Maghrib","Isha"];
-const PRAYER_TIMES = ["05:12","06:38","12:15","15:45","18:52","20:18"];
-function getNextPrayer() {
-  const now = new Date();
-  const h = now.getHours(), m = now.getMinutes();
-  for (let i = 0; i < PRAYER_TIMES.length; i++) {
-    const [ph, pm] = PRAYER_TIMES[i].split(":").map(Number);
-    if (h < ph || (h === ph && m < pm)) return i;
-  }
-  return 0;
-}
-
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
-  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks
+  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | qibla | adhkar | duas | names | tasbih
   const [mushafMode, setMushafMode] = useState(false);
   const [surahNum, setSurahNum] = useState(null);
-  const [juzMarker, setJuzMarker] = useState(null); // { juzNum, verseNum } — persists until dismissed or navigated away
+  const [juzMarker, setJuzMarker] = useState(null);
   const pendingScrollVerseRef = useRef(null);
   const [continueDialog, setContinueDialog] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [fontSize, setFontSize] = useState(24); // Arabic font size
+  const [fontSize, setFontSize] = useState(24);
   const [lang, setLang] = useState("en");
   const [qari, setQari] = useState("ar.alafasy");
   const [verses, setVerses] = useState([]);
+  // New feature states
+  const [prayerTimes, setPrayerTimes] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [qiblaAngle, setQiblaAngle] = useState(null);
+  const [compassHeading, setCompassHeading] = useState(0);
+  const [adhkarTab, setAdhkarTab] = useState("morning");
+  const [tasbihCount, setTasbihCount] = useState(0);
+  const [tasbihTarget, setTasbihTarget] = useState(33);
+  const [tasbihLabel, setTasbihLabel] = useState("سُبْحَانَ اللَّهِ");
+  const [duaCategory, setDuaCategory] = useState("all");
+  const [namesSearch, setNamesSearch] = useState("");
+  const [khatamVerses, setKhatamVerses] = useState(() => { try { return parseInt(localStorage.getItem("ql_khatam") || "0"); } catch { return 0; } });
+  const TOTAL_VERSES = 6236;
   const [versesLoading, setVersesLoading] = useState(false);
   const [versesError, setVersesError] = useState(null);
   const [query, setQuery] = useState("");
@@ -2323,6 +2562,33 @@ export default function QuranLife() {
         </div>
       </div>
 
+      {/* Islamic Tools */}
+      <div style={{ padding: "2px 13px 10px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9, marginBottom: 8 }}>🌙 Islamic Tools</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+          {[
+            { icon: "🕌", label: "Prayer\nTimes", action: () => setScreen("prayer") },
+            { icon: "📿", label: "Tasbih\nCounter", action: () => setScreen("tasbih") },
+            { icon: "🌅", label: "Adhkar", action: () => setScreen("adhkar") },
+            { icon: "🤲", label: "Duas", action: () => setScreen("duas") },
+            { icon: "✨", label: "99 Names", action: () => setScreen("names") },
+            { icon: "📖", label: "Khatam\nTracker", action: () => setScreen("khatam") },
+            { icon: "🌙", label: "Hijri\nDate", action: () => { const h = gregorianToHijri(new Date()); alert(`Today: ${h.day} ${h.monthName} ${h.year} AH`); } },
+            { icon: "🧭", label: "Qibla", action: () => setScreen("prayer") },
+          ].map(({ icon, label, action }) => (
+            <div key={label} onClick={action} style={{ background: "#fff", borderRadius: 12, padding: "10px 6px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, border: ".5px solid #e2e8e4", boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
+              <div style={{ fontSize: 24 }}>{icon}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#1a1a1a", textAlign: "center", lineHeight: 1.3, whiteSpace: "pre-line" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Khatam Tracker */}
+      <div style={{ padding: "0 13px 10px" }}>
+        <KhatamWidget />
+      </div>
+
       {/* Filters */}
       <div style={{ display: "flex", gap: 6, padding: "4px 13px 8px", overflowX: "auto" }}>
         {[["all","All 114"],["meccan","Meccan"],["medinan","Medinan"],["juz30","Juz 30"],["short","Short"],["long","Long"]].map(([v, l]) => (
@@ -3141,6 +3407,288 @@ export default function QuranLife() {
     );
   };
 
+  // ── PRAYER TIMES SCREEN ─────────────────────────────────────
+  const PrayerScreen = () => {
+    const hijri = gregorianToHijri(new Date());
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const nextP = prayerTimes ? getNextPrayer(prayerTimes) : null;
+
+    const loadPrayers = () => {
+      setLocationLoading(true);
+      navigator.geolocation.getCurrentPosition(pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setUserLocation({ lat, lng });
+        const tz = getTimezone();
+        const times = calcPrayerTimes(new Date(), lat, lng, tz);
+        setPrayerTimes(times);
+        // Qibla angle — Kaaba coords: 21.4225, 39.8262
+        const dLng = toRad(39.8262 - lng);
+        const lat1 = toRad(lat), lat2 = toRad(21.4225);
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        const angle = (toDeg(Math.atan2(y, x)) + 360) % 360;
+        setQiblaAngle(Math.round(angle));
+        setLocationLoading(false);
+      }, () => { setLocationLoading(false); alert("Please enable location to get prayer times."); });
+    };
+
+    return (
+      <div className="fade" style={{ paddingBottom: 80, background: darkMode ? "#0f0f0f" : "#f5f3ee", minHeight: "100vh" }}>
+        <div style={{ background: "linear-gradient(135deg,#0f5132,#1a7a4a)", padding: "14px 14px 20px" }}>
+          <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>🕌 Prayer Times</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>{today}</div>
+          <div style={{ fontSize: 12, color: "#c8a84b", marginTop: 2 }}>{hijri.day} {hijri.monthName} {hijri.year} AH</div>
+        </div>
+
+        <div style={{ padding: "14px" }}>
+          {!prayerTimes ? (
+            <div style={{ textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🕌</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Get Accurate Prayer Times</div>
+              <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>Based on your exact location</div>
+              <button onClick={loadPrayers} disabled={locationLoading}
+                style={{ padding: "12px 28px", background: G, color: "#fff", border: "none", borderRadius: 24, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                {locationLoading ? "Getting location..." : "📍 Use My Location"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {nextP && (
+                <div style={{ background: "linear-gradient(135deg,#0f5132,#1a7a4a)", borderRadius: 16, padding: "16px", marginBottom: 14, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,.7)", marginBottom: 4 }}>NEXT PRAYER</div>
+                  <div style={{ fontSize: 24, color: "#fff", fontWeight: 700 }}>{nextP.icon} {nextP.name}</div>
+                  <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#c8a84b", marginTop: 2 }}>{nextP.ar}</div>
+                  <div style={{ fontSize: 28, color: "#fff", fontWeight: 700, marginTop: 6 }}>{nextP.time}</div>
+                </div>
+              )}
+              <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", border: ".5px solid #e2e8e4" }}>
+                {prayerTimes.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px", borderBottom: i < prayerTimes.length - 1 ? ".5px solid #f0f0ec" : "none", background: nextP?.name === p.name ? "#f0faf5" : "transparent" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ fontSize: 20 }}>{p.icon}</div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: nextP?.name === p.name ? 700 : 500, color: nextP?.name === p.name ? G : "#1a1a1a" }}>{p.name}</div>
+                        <div style={{ fontFamily: "'Amiri',serif", fontSize: 13, color: "#9ba5b0" }}>{p.ar}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: nextP?.name === p.name ? G : "#1a1a1a" }}>{p.time}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={loadPrayers} style={{ width: "100%", marginTop: 12, padding: "10px", background: "transparent", color: G, border: `1px solid ${G}`, borderRadius: 12, fontSize: 13, cursor: "pointer" }}>🔄 Refresh</button>
+              {qiblaAngle !== null && (
+                <div style={{ marginTop: 14, background: "#fff", borderRadius: 14, padding: 16, textAlign: "center", border: ".5px solid #e2e8e4" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: G, marginBottom: 8 }}>🧭 Qibla Direction</div>
+                  <div style={{ width: 100, height: 100, margin: "0 auto", position: "relative" }}>
+                    <div style={{ width: 100, height: 100, borderRadius: "50%", border: `3px solid ${G}`, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ position: "absolute", width: 4, height: 40, background: G, borderRadius: 2, transformOrigin: "bottom center", bottom: "50%", left: "calc(50% - 2px)", transform: `rotate(${qiblaAngle}deg) translateY(0)` }} />
+                      <div style={{ fontSize: 20 }}>🕋</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: G, marginTop: 8 }}>{qiblaAngle}° from North</div>
+                  <div style={{ fontSize: 12, color: "#9ba5b0" }}>Face this direction to pray</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <Nav />
+      </div>
+    );
+  };
+
+  // ── ADHKAR SCREEN ───────────────────────────────────────────
+  const AdhkarScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80, minHeight: "100vh" }}>
+      <div style={{ background: "linear-gradient(135deg,#1a3a5c,#2563a8)", padding: "14px 14px 16px" }}>
+        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📿 Morning & Evening Adhkar</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Authentic dhikr from Quran & Sunnah</div>
+      </div>
+      <div style={{ display: "flex", gap: 8, padding: "12px 14px 4px" }}>
+        {["morning","evening"].map(t => (
+          <button key={t} onClick={() => setAdhkarTab(t)}
+            style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", background: adhkarTab === t ? "#1a3a5c" : "#f0f0f0", color: adhkarTab === t ? "#fff" : "#5a6472" }}>
+            {t === "morning" ? "🌅 Morning" : "🌙 Evening"}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: "8px 14px" }}>
+        {ADHKAR[adhkarTab].map((dhikr, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 10, border: ".5px solid #e2e8e4" }}>
+            <div className="ar" style={{ fontSize: 22, direction: "rtl", textAlign: "right", lineHeight: 1.8, color: "#1a0800", marginBottom: 10 }}>{dhikr.ar}</div>
+            <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic", marginBottom: 6 }}>{dhikr.tr}</div>
+            <div style={{ fontSize: 13, color: "#1a1a1a", lineHeight: 1.6, marginBottom: 8 }}>{dhikr.en}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "#9ba5b0" }}>Source: {dhikr.source}</span>
+              <span style={{ background: G, color: "#fff", borderRadius: 12, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>×{dhikr.count}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Nav />
+    </div>
+  );
+
+  // ── DUAS SCREEN ─────────────────────────────────────────────
+  const DuasScreen = () => {
+    const categories = ["all", ...new Set(DUAS.map(d => d.category))];
+    const filtered = duaCategory === "all" ? DUAS : DUAS.filter(d => d.category === duaCategory);
+    return (
+      <div className="fade" style={{ paddingBottom: 80, minHeight: "100vh" }}>
+        <div style={{ background: "linear-gradient(135deg,#5c1a3a,#a82563)", padding: "14px 14px 16px" }}>
+          <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>🤲 Duas Collection</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Authentic duas for every occasion</div>
+        </div>
+        <div style={{ display: "flex", gap: 6, padding: "12px 14px 4px", overflowX: "auto" }}>
+          {categories.map(c => (
+            <button key={c} onClick={() => setDuaCategory(c)}
+              style={{ padding: "6px 12px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", background: duaCategory === c ? "#5c1a3a" : "#f0f0f0", color: duaCategory === c ? "#fff" : "#5a6472" }}>
+              {c === "all" ? "All Duas" : c}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "8px 14px" }}>
+          {filtered.map((dua, i) => (
+            <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 10, border: ".5px solid #e2e8e4" }}>
+              <div style={{ fontSize: 11, color: "#a82563", fontWeight: 700, marginBottom: 8 }}>{dua.category}</div>
+              <div className="ar" style={{ fontSize: 22, direction: "rtl", textAlign: "right", lineHeight: 1.8, color: "#1a0800", marginBottom: 8 }}>{dua.ar}</div>
+              <div style={{ fontSize: 12, color: "#6b7280", fontStyle: "italic", marginBottom: 6 }}>{dua.tr}</div>
+              <div style={{ fontSize: 13, color: "#1a1a1a", lineHeight: 1.6, marginBottom: 6 }}>{dua.en}</div>
+              <div style={{ fontSize: 11, color: "#9ba5b0" }}>Source: {dua.source}</div>
+            </div>
+          ))}
+        </div>
+        <Nav />
+      </div>
+    );
+  };
+
+  // ── 99 NAMES SCREEN ─────────────────────────────────────────
+  const NamesScreen = () => {
+    const filtered = ALLAH_NAMES.filter(n =>
+      n.en.toLowerCase().includes(namesSearch.toLowerCase()) ||
+      n.tr.toLowerCase().includes(namesSearch.toLowerCase()) ||
+      n.ar.includes(namesSearch)
+    );
+    return (
+      <div className="fade" style={{ paddingBottom: 80, minHeight: "100vh" }}>
+        <div style={{ background: "linear-gradient(135deg,#1a4a5c,#1a7a8a)", padding: "14px 14px 16px" }}>
+          <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>✨ 99 Names of Allah</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Asma ul Husna — أَسْمَاءُ اللَّهِ الْحُسْنَى</div>
+        </div>
+        <div style={{ padding: "12px 14px 4px" }}>
+          <input value={namesSearch} onChange={e => setNamesSearch(e.target.value)} placeholder="Search names..."
+            style={{ width: "100%", padding: "10px 14px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+        </div>
+        <div style={{ padding: "8px 14px" }}>
+          {filtered.map((name, i) => (
+            <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 14, marginBottom: 8, border: ".5px solid #e2e8e4", display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#1a4a5c,#1a7a8a)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{name.n}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{name.tr}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{name.en}</div>
+                  </div>
+                  <div className="ar" style={{ fontSize: 20, color: "#1a4a5c", fontWeight: 700 }}>{name.ar}</div>
+                </div>
+                <div style={{ fontSize: 12, color: "#9ba5b0", marginTop: 4, lineHeight: 1.5 }}>{name.meaning}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Nav />
+      </div>
+    );
+  };
+
+  // ── TASBIH SCREEN ───────────────────────────────────────────
+  const TASBIH_OPTIONS = [
+    { label: "سُبْحَانَ اللَّهِ", en: "SubhanAllah", target: 33 },
+    { label: "الْحَمْدُ لِلَّهِ", en: "Alhamdulillah", target: 33 },
+    { label: "اللَّهُ أَكْبَرُ", en: "AllahuAkbar", target: 34 },
+    { label: "لَا إِلَهَ إِلَّا اللَّهُ", en: "La ilaha illallah", target: 100 },
+    { label: "أَسْتَغْفِرُ اللَّهَ", en: "AstaghfirAllah", target: 100 },
+  ];
+
+  const TasbihScreen = () => (
+    <div className="fade" style={{ paddingBottom: 80, minHeight: "100vh", background: "linear-gradient(180deg,#0f5132,#1a1a2e)" }}>
+      <div style={{ padding: "14px 14px 8px" }}>
+        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer" }}>← Home</button>
+      </div>
+      <div style={{ textAlign: "center", padding: "10px 20px 20px" }}>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>DIGITAL TASBIH — مِسْبَحَة</div>
+        <div className="ar" style={{ fontSize: 32, color: "#c8a84b", fontWeight: 700, marginBottom: 4 }}>{tasbihLabel}</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.7)", marginBottom: 30 }}>{TASBIH_OPTIONS.find(t => t.label === tasbihLabel)?.en}</div>
+
+        {/* Big counter circle */}
+        <div onClick={() => setTasbihCount(c => {
+          const newC = c + 1;
+          if (newC >= tasbihTarget) {
+            setTimeout(() => setTasbihCount(0), 400);
+            return newC;
+          }
+          return newC;
+        })}
+          style={{ width: 180, height: 180, borderRadius: "50%", background: "linear-gradient(135deg,#c8a84b,#8b6914)", margin: "0 auto 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 8px 30px rgba(200,168,75,.4), inset 0 2px 6px rgba(255,255,255,.2)", userSelect: "none", WebkitUserSelect: "none" }}>
+          <div style={{ fontSize: 64, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{tasbihCount}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,.7)", marginTop: 4 }}>of {tasbihTarget}</div>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 3, margin: "0 30px 20px" }}>
+          <div style={{ height: "100%", width: `${Math.min((tasbihCount / tasbihTarget) * 100, 100)}%`, background: "#c8a84b", borderRadius: 3, transition: "width .2s" }} />
+        </div>
+
+        <button onClick={() => setTasbihCount(0)}
+          style={{ padding: "8px 20px", background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 20, color: "#fff", fontSize: 13, cursor: "pointer", marginBottom: 20 }}>
+          Reset
+        </button>
+
+        {/* Dhikr selector */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 10px" }}>
+          {TASBIH_OPTIONS.map((opt, i) => (
+            <button key={i} onClick={() => { setTasbihLabel(opt.label); setTasbihTarget(opt.target); setTasbihCount(0); }}
+              style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: tasbihLabel === opt.label ? "rgba(200,168,75,.3)" : "rgba(255,255,255,.08)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="ar" style={{ fontSize: 16 }}>{opt.label}</span>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.5)" }}>×{opt.target}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── KHATAM TRACKER ──────────────────────────────────────────
+  const KhatamWidget = () => {
+    const pct = Math.round((khatamVerses / TOTAL_VERSES) * 100);
+    return (
+      <div style={{ background: "#fff", borderRadius: 14, padding: 14, border: ".5px solid #e2e8e4", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: G }}>📖 Khatam Tracker</div>
+          <div style={{ fontSize: 12, color: "#9ba5b0" }}>{khatamVerses} / {TOTAL_VERSES} verses</div>
+        </div>
+        <div style={{ height: 8, background: "#f0f0f0", borderRadius: 4, marginBottom: 8 }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${G},#27ae60)`, borderRadius: 4, transition: "width .3s" }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "#9ba5b0" }}>{pct}% complete</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => { const n = Math.max(0, khatamVerses - 7); setKhatamVerses(n); try { localStorage.setItem("ql_khatam", n); } catch {} }}
+              style={{ padding: "4px 10px", borderRadius: 12, border: ".5px solid #ddd", background: "#fff", fontSize: 11, cursor: "pointer" }}>-Page</button>
+            <button onClick={() => { const n = Math.min(TOTAL_VERSES, khatamVerses + 7); setKhatamVerses(n); try { localStorage.setItem("ql_khatam", n); } catch {} }}
+              style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: G, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+Page</button>
+          </div>
+        </div>
+        {khatamVerses >= TOTAL_VERSES && <div style={{ textAlign: "center", marginTop: 8, fontSize: 14, color: G, fontWeight: 700 }}>🎉 MashAllah! Quran Complete!</div>}
+      </div>
+    );
+  };
+
   // ── ROOT RENDER ─────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%" }}>
@@ -3150,6 +3698,11 @@ export default function QuranLife() {
       {screen === "kids" && <KidsScreen />}
       {screen === "bookmarks" && <BookmarksScreen />}
       {screen === "mushaf" && <MushafReaderScreen />}
+      {screen === "prayer" && <PrayerScreen />}
+      {screen === "adhkar" && <AdhkarScreen />}
+      {screen === "duas" && <DuasScreen />}
+      {screen === "names" && <NamesScreen />}
+      {screen === "tasbih" && <TasbihScreen />}
     </div>
   );
 }
