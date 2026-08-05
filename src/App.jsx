@@ -1104,8 +1104,8 @@ async function askAI(prompt, langName, retries = 2) {
 
   try {
     return await geminiCall(
-      `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write your COMPLETE response in ${langName} language only. Plain flowing text only. No JSON. No bullet points. No markdown. Under 170 words.`,
-      500, key
+      `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
+      1200, key
     );
   } catch (e) {
     if (e.message === "RATE_LIMIT" && retries > 0) {
