@@ -1703,7 +1703,14 @@ export default function QuranLife() {
   }, []);
 
   const openMushafReader = useCallback((startPage = null) => {
-    const p = startPage || mushafPage || 1;
+    let p = startPage || mushafPage || 1;
+    // Resume from saved bookmark if no specific page given
+    if (!startPage) {
+      try {
+        const saved = localStorage.getItem("ql_mushaf_bookmark");
+        if (saved) { const bm = JSON.parse(saved); if (bm.page) p = bm.page; }
+      } catch {}
+    }
     setMushafPage(p);
     setScreen("mushaf");
     setNavTab("home");
@@ -2524,7 +2531,7 @@ export default function QuranLife() {
             { icon: "🔖", label: `${bookmarks.length}\nSaved`, bg: "linear-gradient(135deg,#8e44ad,#9b59b6)", shadow: "rgba(142,68,173,.25)", action: () => setShowBkSheet(true) },
             { icon: "🔊", label: "Meaning\nAudio", bg: "linear-gradient(135deg,#c0392b,#e74c3c)", shadow: "rgba(192,57,43,.25)", action: () => setShowAudioSheet(true) },
             { icon: "📚", label: "Juz\nIndex", bg: "linear-gradient(135deg,#2980b9,#3498db)", shadow: "rgba(41,128,185,.25)", action: () => setShowJuz(true) },
-            { icon: "📕", label: "Mushaf\nReader", bg: "linear-gradient(135deg,#6d4c1f,#8b6914)", shadow: "rgba(139,105,20,.25)", action: () => openMushafReader() },
+            { icon: "📕", label: "Complete\nQuran", bg: "linear-gradient(135deg,#6d4c1f,#8b6914)", shadow: "rgba(139,105,20,.25)", action: () => openMushafReader() },
             { icon: "📄", label: "Go To\nPage", bg: "linear-gradient(135deg,#16a085,#1abc9c)", shadow: "rgba(22,160,133,.25)", action: () => setShowGoto(true) },
           ].map(({ icon, label, bg, shadow, action }) => (
             <div key={label} onClick={action} style={{ background: bg, borderRadius: 12, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, boxShadow: `0 3px 10px ${shadow}` }}>
@@ -2968,51 +2975,60 @@ export default function QuranLife() {
     if (!kidsAudioStopRef.current) { setKidsAudioPlaying(false); setKidsAudioCurrent(null); }
   }, []);
 
-  // ── VOWEL AUDIO — real Arabic MP3 files ─────────────────────
-  const VOWEL_AUDIO = {
-    "short-0": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3", // Fatha sound — ba
-    "short-1": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/2.mp3", // Kasra
-    "short-2": "https://cdn.islamic.network/quran/audio/128/ar.alafasy/3.mp3", // Damma
-  };
-
+  // ── VOWEL AUDIO — reliable multi-fallback ───────────────────
   const speakVowel = useCallback((speakText, displayKey, englishName) => {
     setVowelPlaying(displayKey);
+    const done = () => setVowelPlaying(null);
 
-    // Always use Arabic TTS with the full Arabic name — most reliable cross-device
-    const tryArabicTTS = () => {
-      if (!("speechSynthesis" in window)) { setVowelPlaying(null); return; }
+    // Try Web Speech API first
+    if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
 
-      const speak = () => {
+      const doSpeak = () => {
         const voices = window.speechSynthesis.getVoices();
-        const arVoice = voices.find(v => v.lang.startsWith("ar"));
+        const arVoice = voices.find(v => v.lang && v.lang.startsWith("ar"));
         const u = new SpeechSynthesisUtterance(speakText);
-        if (arVoice) {
-          u.voice = arVoice;
-          u.lang = arVoice.lang;
-        } else {
-          u.lang = "ar-SA";
-        }
+        u.lang = arVoice ? arVoice.lang : "ar-SA";
+        if (arVoice) u.voice = arVoice;
         u.rate = 0.6;
         u.pitch = 1;
-        u.onend = () => setVowelPlaying(null);
-        u.onerror = () => setVowelPlaying(null);
+        u.onend = done;
+        u.onerror = () => {
+          // TTS failed — try English name as last resort
+          if (englishName) {
+            const u2 = new SpeechSynthesisUtterance(englishName);
+            u2.lang = "en-US";
+            u2.rate = 0.8;
+            u2.onend = done;
+            u2.onerror = done;
+            window.speechSynthesis.speak(u2);
+          } else done();
+        };
         window.speechSynthesis.speak(u);
+        // Safety timeout — if no end event fires in 4s, release
+        setTimeout(done, 4000);
       };
 
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        speak();
+      if (voices && voices.length > 0) {
+        doSpeak();
       } else {
+        // Mobile loads voices async
+        let resolved = false;
         window.speechSynthesis.onvoiceschanged = () => {
+          if (resolved) return;
+          resolved = true;
           window.speechSynthesis.onvoiceschanged = null;
-          speak();
+          doSpeak();
         };
-        setTimeout(speak, 400);
+        // Fallback timer — try anyway after 500ms
+        setTimeout(() => {
+          if (!resolved) { resolved = true; doSpeak(); }
+        }, 500);
       }
-    };
-
-    tryArabicTTS();
+    } else {
+      done();
+    }
   }, []);
 
   // ── KIDS SCREEN ─────────────────────────────────────────────
@@ -3287,6 +3303,11 @@ export default function QuranLife() {
             <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Loading..."}</div>
             <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
           </div>
+          <button onClick={() => {
+            try { localStorage.setItem("ql_mushaf_bookmark", JSON.stringify({ page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString() })); }
+            catch {}
+            alert(`✅ Page ${mushafPage} saved! You can continue from here next time.`);
+          }} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.3)", border: "1px solid #c8a84b", fontSize: 16, color: "#c8a84b", cursor: "pointer" }}>🔖</button>
           <button onClick={() => setShowGoto(true)}
             style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 12, color: "#e8d5a8", cursor: "pointer", fontWeight: 700 }}>⇱</button>
         </div>
