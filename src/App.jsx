@@ -1441,8 +1441,8 @@ export default function QuranLife() {
   const [versesLoading, setVersesLoading] = useState(false);
   const [versesError, setVersesError] = useState(null);
   const [query, setQuery] = useState("");
-  const searchInputRef = useRef(null);
   const [searchResults, setSearchResults] = useState([]);
+  const searchRef = useRef(null);
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
   const [openPanel, setOpenPanel] = useState(null); // verseNum
@@ -2466,46 +2466,45 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — PERMANENT FIX: input value never controlled by React state */}
+      {/* Search — DOM-based, never loses focus on any device or OS */}
       <div style={{ padding: "12px 13px 8px", position: "relative" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
           <input
-            ref={searchInputRef}
-            type="search"
+            id="ql-search"
+            type="text"
             placeholder="Search Surah name, number, meaning..."
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
-            inputMode="search"
-            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 16, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none", touchAction: "manipulation" }}
+            style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 16, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none" }}
             onFocus={e => e.target.style.borderColor = G}
             onBlur={e => e.target.style.borderColor = "#ddd"}
-            onChange={e => {
+            onInput={e => {
               const q = e.target.value;
-              // Update results without touching query state — keeps focus
-              const results = q.trim() === "" ? [] : SURAHS.filter(s => {
-                const ql = q.toLowerCase();
-                return s.name.toLowerCase().includes(ql) || s.ar.includes(q) ||
-                  s.meaning.toLowerCase().includes(ql) || String(s.n).includes(q);
-              }).slice(0, 8);
-              setSearchResults(results);
+              if (!q.trim()) { setSearchResults([]); return; }
+              const ql = q.toLowerCase();
+              setSearchResults(SURAHS.filter(s =>
+                s.name.toLowerCase().includes(ql) ||
+                s.ar.includes(q) ||
+                s.meaning.toLowerCase().includes(ql) ||
+                String(s.n).includes(q)
+              ).slice(0, 8));
             }}
           />
-          <button onClick={() => {
-            if (searchInputRef.current) { searchInputRef.current.value = ""; searchInputRef.current.focus(); }
-            setSearchResults([]);
-          }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 20, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, opacity: searchResults.length ? 1 : 0 }}>×</button>
+          {searchResults.length > 0 && (
+            <button
+              onMouseDown={e => { e.preventDefault(); setSearchResults([]); const el = document.getElementById("ql-search"); if(el){el.value="";el.focus();} }}
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 20, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+          )}
         </div>
         {searchResults.length > 0 && (
           <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 300, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
             {searchResults.map(s => (
-              <div key={s.n} onClick={() => {
-                openSurah(s.n);
-                setSearchResults([]);
-                if (searchInputRef.current) searchInputRef.current.value = "";
-              }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
+              <div key={s.n}
+                onMouseDown={e => { e.preventDefault(); openSurah(s.n); setSearchResults([]); const el = document.getElementById("ql-search"); if(el) el.value=""; }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
@@ -2981,59 +2980,45 @@ export default function QuranLife() {
     if (!kidsAudioStopRef.current) { setKidsAudioPlaying(false); setKidsAudioCurrent(null); }
   }, []);
 
-  // ── VOWEL AUDIO — reliable multi-fallback ───────────────────
+  // ── VOWEL AUDIO ─────────────────────────────────────────────
   const speakVowel = useCallback((speakText, displayKey, englishName) => {
     setVowelPlaying(displayKey);
     const done = () => setVowelPlaying(null);
 
-    // Try Web Speech API first
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+    // Use Web Speech API — works on all platforms
+    if (!("speechSynthesis" in window)) { done(); return; }
+    window.speechSynthesis.cancel();
 
-      const doSpeak = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const arVoice = voices.find(v => v.lang && v.lang.startsWith("ar"));
-        const u = new SpeechSynthesisUtterance(speakText);
-        u.lang = arVoice ? arVoice.lang : "ar-SA";
-        if (arVoice) u.voice = arVoice;
-        u.rate = 0.6;
-        u.pitch = 1;
-        u.onend = done;
-        u.onerror = () => {
-          // TTS failed — try English name as last resort
-          if (englishName) {
-            const u2 = new SpeechSynthesisUtterance(englishName);
-            u2.lang = "en-US";
-            u2.rate = 0.8;
-            u2.onend = done;
-            u2.onerror = done;
-            window.speechSynthesis.speak(u2);
-          } else done();
-        };
-        window.speechSynthesis.speak(u);
-        // Safety timeout — if no end event fires in 4s, release
-        setTimeout(done, 4000);
-      };
-
+    const trySpeak = (text, lang) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      u.rate = 0.55;
+      u.pitch = 1;
+      u.volume = 1;
+      u.onend = done;
+      u.onerror = done;
+      // Find best voice
       const voices = window.speechSynthesis.getVoices();
-      if (voices && voices.length > 0) {
-        doSpeak();
-      } else {
-        // Mobile loads voices async
-        let resolved = false;
-        window.speechSynthesis.onvoiceschanged = () => {
-          if (resolved) return;
-          resolved = true;
-          window.speechSynthesis.onvoiceschanged = null;
-          doSpeak();
-        };
-        // Fallback timer — try anyway after 500ms
-        setTimeout(() => {
-          if (!resolved) { resolved = true; doSpeak(); }
-        }, 500);
+      if (lang.startsWith("ar")) {
+        const arVoice = voices.find(v => v.lang && v.lang.startsWith("ar"));
+        if (arVoice) u.voice = arVoice;
       }
+      window.speechSynthesis.speak(u);
+      setTimeout(done, 5000); // safety
+    };
+
+    // Try Arabic first, then English name fallback
+    const go = () => trySpeak(speakText, "ar-SA");
+
+    // On mobile, voices load async — wait for them
+    if (window.speechSynthesis.getVoices().length > 0) {
+      go();
     } else {
-      done();
+      window.speechSynthesis.addEventListener("voiceschanged", function onVC() {
+        window.speechSynthesis.removeEventListener("voiceschanged", onVC);
+        go();
+      });
+      setTimeout(go, 600); // don't wait forever
     }
   }, []);
 
