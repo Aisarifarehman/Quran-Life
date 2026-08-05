@@ -1441,6 +1441,8 @@ export default function QuranLife() {
   const [versesLoading, setVersesLoading] = useState(false);
   const [versesError, setVersesError] = useState(null);
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef(null);
+  const [searchResults, setSearchResults] = useState([]);
   const [filter, setFilter] = useState("all");
   const [navTab, setNavTab] = useState("home");
   const [openPanel, setOpenPanel] = useState(null); // verseNum
@@ -2464,41 +2466,45 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — FIXED: uncontrolled input with ref, never loses focus on any device */}
+      {/* Search — PERMANENT FIX: input value never controlled by React state */}
       <div style={{ padding: "12px 13px 8px", position: "relative" }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
           <input
-            id="main-search"
-            defaultValue=""
-            onChange={e => setQuery(e.target.value)}
+            ref={searchInputRef}
+            type="search"
             placeholder="Search Surah name, number, meaning..."
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
-            autoFocus={false}
             spellCheck="false"
             inputMode="search"
             style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 16, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none", touchAction: "manipulation" }}
             onFocus={e => e.target.style.borderColor = G}
             onBlur={e => e.target.style.borderColor = "#ddd"}
+            onChange={e => {
+              const q = e.target.value;
+              // Update results without touching query state — keeps focus
+              const results = q.trim() === "" ? [] : SURAHS.filter(s => {
+                const ql = q.toLowerCase();
+                return s.name.toLowerCase().includes(ql) || s.ar.includes(q) ||
+                  s.meaning.toLowerCase().includes(ql) || String(s.n).includes(q);
+              }).slice(0, 8);
+              setSearchResults(results);
+            }}
           />
-          {query && (
-            <button onClick={() => {
-              setQuery("");
-              const el = document.getElementById("main-search");
-              if (el) { el.value = ""; el.focus(); }
-            }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 20, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
-          )}
+          <button onClick={() => {
+            if (searchInputRef.current) { searchInputRef.current.value = ""; searchInputRef.current.focus(); }
+            setSearchResults([]);
+          }} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 20, color: "#9ba5b0", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, opacity: searchResults.length ? 1 : 0 }}>×</button>
         </div>
-        {query && filtered.length > 0 && (
-          <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
-            {filtered.slice(0, 8).map(s => (
+        {searchResults.length > 0 && (
+          <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.12)", zIndex: 100, maxHeight: 300, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
+            {searchResults.map(s => (
               <div key={s.n} onClick={() => {
                 openSurah(s.n);
-                setQuery("");
-                const el = document.getElementById("main-search");
-                if (el) el.value = "";
+                setSearchResults([]);
+                if (searchInputRef.current) searchInputRef.current.value = "";
               }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
