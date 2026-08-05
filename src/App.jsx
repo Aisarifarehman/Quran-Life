@@ -2466,7 +2466,7 @@ export default function QuranLife() {
         </div>
       </div>
 
-      {/* Search — stable input, dropdown rendered outside HomeScreen */}
+      {/* Search — input keeps focus because screens render as function calls (no remount) */}
       <div style={{ padding: "12px 13px 8px", position: "relative", zIndex: 50 }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 15, pointerEvents: "none" }}>🔍</span>
@@ -2477,11 +2477,10 @@ export default function QuranLife() {
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
-            autoFocus={false}
             spellCheck="false"
             style={{ width: "100%", padding: "11px 36px 11px 40px", borderRadius: 12, border: ".5px solid #ddd", fontSize: 16, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.06)", WebkitAppearance: "none" }}
             onFocus={e => { e.target.style.borderColor = G; }}
-            onBlur={e => { e.target.style.borderColor = "#ddd"; setTimeout(() => setSearchResults([]), 200); }}
+            onBlur={e => { e.target.style.borderColor = "#ddd"; setTimeout(() => setSearchResults([]), 250); }}
             onInput={e => {
               const q = e.target.value;
               if (!q.trim()) { setSearchResults([]); return; }
@@ -2495,6 +2494,24 @@ export default function QuranLife() {
             }}
           />
         </div>
+        {searchResults.length > 0 && (
+          <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 13, right: 13, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.15)", zIndex: 200, maxHeight: 300, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
+            {searchResults.map(s => (
+              <div key={s.n}
+                onMouseDown={e => { e.preventDefault(); openSurah(s.n); setSearchResults([]); const el = document.getElementById("ql-search"); if(el) el.value=""; }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.meaning} · {s.verses} verses</div>
+                </div>
+                <div className="ar" style={{ fontSize: 16, color: G }}>{s.ar}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Feature tiles */}
@@ -2964,47 +2981,46 @@ export default function QuranLife() {
     const done = () => setVowelPlaying(null);
     if (!("speechSynthesis" in window)) { done(); return; }
 
-    // Cancel any ongoing speech
     try { window.speechSynthesis.cancel(); } catch {}
 
     const speak = () => {
       try {
         const voices = window.speechSynthesis.getVoices();
-        const arVoice = voices.find(v => v.lang && (v.lang.startsWith("ar")));
-        const u = new SpeechSynthesisUtterance(speakText);
-        u.lang = arVoice ? arVoice.lang : "ar-SA";
-        if (arVoice) u.voice = arVoice;
-        u.rate = 0.6;
+        const arVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith("ar"));
+        let u;
+        if (arVoice) {
+          u = new SpeechSynthesisUtterance(speakText);
+          u.voice = arVoice;
+          u.lang = arVoice.lang;
+          u.rate = 0.6;
+        } else {
+          // No Arabic voice on this device — speak English name directly (guaranteed sound)
+          u = new SpeechSynthesisUtterance(englishName || speakText);
+          u.lang = "en-US";
+          u.rate = 0.8;
+        }
         u.pitch = 1;
         u.volume = 1;
         u.onend = done;
-        u.onerror = () => {
-          // Arabic failed — say English name
-          try {
-            const u2 = new SpeechSynthesisUtterance(englishName || speakText);
-            u2.lang = "en-US";
-            u2.rate = 0.8;
-            u2.onend = done;
-            u2.onerror = done;
-            window.speechSynthesis.speak(u2);
-          } catch { done(); }
-        };
+        u.onerror = done;
         window.speechSynthesis.speak(u);
         setTimeout(done, 6000);
       } catch { done(); }
     };
 
+    // CRITICAL: Chrome bug — speak() right after cancel() = silence. Need delay.
+    const startSpeak = () => setTimeout(speak, 150);
+
     const voices = window.speechSynthesis.getVoices();
     if (voices && voices.length > 0) {
-      speak();
+      startSpeak();
     } else {
-      // Mobile — voices load async
       const handler = () => {
         window.speechSynthesis.removeEventListener("voiceschanged", handler);
-        speak();
+        startSpeak();
       };
       window.speechSynthesis.addEventListener("voiceschanged", handler);
-      setTimeout(speak, 800); // always try after 800ms regardless
+      setTimeout(startSpeak, 800);
     }
   }, []);
 
@@ -3624,42 +3640,16 @@ export default function QuranLife() {
   return (
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%", position: "relative" }}>
       <style>{css}</style>
-
-      {/* Search dropdown — rendered OUTSIDE HomeScreen so it never causes HomeScreen re-render */}
-      {screen === "home" && searchResults.length > 0 && (
-        <div style={{ position: "fixed", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 520, zIndex: 9999, pointerEvents: "none" }}>
-          <div style={{ margin: "0 13px", pointerEvents: "all" }}>
-            <div id="ql-dropdown" style={{ background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.18)", maxHeight: 320, overflowY: "auto", border: ".5px solid #e4e8e2", marginTop: 118 }}>
-              {searchResults.map(s => (
-                <div key={s.n}
-                  onMouseDown={e => { e.preventDefault(); openSurah(s.n); setSearchResults([]); const el = document.getElementById("ql-search"); if(el) el.value=""; }}
-                  onTouchEnd={e => { e.preventDefault(); openSurah(s.n); setSearchResults([]); const el = document.getElementById("ql-search"); if(el) el.value=""; }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.meaning} · {s.verses} verses</div>
-                  </div>
-                  <div className="ar" style={{ fontSize: 16, color: G }}>{s.ar}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {screen === "home" && <HomeScreen />}
-      {screen === "read" && <ReadScreen />}
-      {screen === "kids" && <KidsScreen />}
-      {screen === "bookmarks" && <BookmarksScreen />}
-      {screen === "mushaf" && <MushafReaderScreen />}
-      {screen === "prayer" && <PrayerScreen />}
-      {screen === "adhkar" && <AdhkarScreen />}
-      {screen === "duas" && <DuasScreen />}
-      {screen === "names" && <NamesScreen />}
-      {screen === "tasbih" && <TasbihScreen />}
+      {screen === "home" && HomeScreen()}
+      {screen === "read" && ReadScreen()}
+      {screen === "kids" && KidsScreen()}
+      {screen === "bookmarks" && BookmarksScreen()}
+      {screen === "mushaf" && MushafReaderScreen()}
+      {screen === "prayer" && PrayerScreen()}
+      {screen === "adhkar" && AdhkarScreen()}
+      {screen === "duas" && DuasScreen()}
+      {screen === "names" && NamesScreen()}
+      {screen === "tasbih" && TasbihScreen()}
     </div>
   );
 }
