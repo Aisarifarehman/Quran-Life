@@ -2572,7 +2572,7 @@ export default function QuranLife() {
             { icon: "🌅", label: "Adhkar", action: () => setScreen("adhkar") },
             { icon: "🤲", label: "Duas", action: () => setScreen("duas") },
             { icon: "✨", label: "99 Names", action: () => setScreen("names") },
-            { icon: "📖", label: "Khatam\nTracker", action: () => setScreen("khatam") },
+            { icon: "📖", label: "Khatam\nTracker", action: () => { const el = document.getElementById("khatam-widget"); if (el) el.scrollIntoView({ behavior: "smooth" }); } },
             { icon: "🌙", label: "Hijri\nDate", action: () => { const h = gregorianToHijri(new Date()); alert(`Today: ${h.day} ${h.monthName} ${h.year} AH`); } },
             { icon: "🧭", label: "Qibla", action: () => setScreen("prayer") },
           ].map(({ icon, label, action }) => (
@@ -2585,7 +2585,7 @@ export default function QuranLife() {
       </div>
 
       {/* Khatam Tracker */}
-      <div style={{ padding: "0 13px 10px" }}>
+      <div id="khatam-widget" style={{ padding: "0 13px 10px" }}>
         <KhatamWidget />
       </div>
 
@@ -3702,7 +3702,6 @@ export default function QuranLife() {
       {screen === "adhkar" && <AdhkarScreen />}
       {screen === "duas" && <DuasScreen />}
       {screen === "names" && <NamesScreen />}
-      {screen === "tasbih" && <TasbihScreen />}
-    </div>
+      {screen === "tasbih" && <TasbihScreen />}    </div>
   );
 }
