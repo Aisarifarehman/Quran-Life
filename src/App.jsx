@@ -1488,7 +1488,8 @@ export default function QuranLife() {
   const [langCountry, setLangCountry] = useState("all");
   const [gotoPage, setGotoPage] = useState("");
   const audioRef = useRef(null);
-  const [showQuranSplash, setShowQuranSplash] = useState(false); // kept for compat
+  const audioFinishTimerRef = useRef(null);
+  const [showQuranSplash, setShowQuranSplash] = useState(false); // unused, kept for compat
   const [showQuranNav, setShowQuranNav] = useState(false); // Quran navigation landing page
   const [audioPaused, setAudioPaused] = useState(false); // pause state for Quran recitation
 
@@ -1529,24 +1530,42 @@ export default function QuranLife() {
 
   // ── AUDIO ──────────────────────────────────────────────────
   const stopAudio = useCallback(() => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioFinishTimerRef.current) {
+      clearTimeout(audioFinishTimerRef.current);
+      audioFinishTimerRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setPlayKey(null);
     setAudioPaused(false);
     setContinueDialog(null);
   }, []);
 
   const pauseAudio = useCallback(() => {
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-      setAudioPaused(true);
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+
+    // IMPORTANT: pausing must cancel the end-safety timer.
+    // Otherwise the old timer can call handleFinished() while the user is paused.
+    if (audioFinishTimerRef.current) {
+      clearTimeout(audioFinishTimerRef.current);
+      audioFinishTimerRef.current = null;
     }
+
+    audio.pause();
+    setAudioPaused(true);
   }, []);
 
   const resumeAudio = useCallback(() => {
-    if (audioRef.current && audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
+    const audio = audioRef.current;
+    if (!audio || !audio.paused) return;
+
+    // Resume ONLY because the user clicked Resume.
+    audio.play().then(() => {
       setAudioPaused(false);
-    }
+    }).catch(() => {});
   }, []);
 
   // mode: "single" = play one verse only (inside reader)
@@ -1586,73 +1605,105 @@ export default function QuranLife() {
           // Last verse — just stop quietly
         }
     }
-function tryUrl(url, fallbacks) {
-  const audio = new Audio(url);
-  audioRef.current = audio;
 
-  // Clear any old timer before starting a new track
-  if (fallbackTimer) {
-    clearTimeout(fallbackTimer);
-    fallbackTimer = null;
-  }
+    function tryUrl(url, fallbacks) {
+      const audio = new Audio(url);
+      audioRef.current = audio;
 
-  // When metadata loads, set a fallback timer based on duration
-  audio.addEventListener("loadedmetadata", () => {
-    if (audio.duration && isFinite(audio.duration)) {
-      // Add 800ms buffer after duration
-      fallbackTimer = setTimeout(() => {
-        // Fix: Added !audio.paused check
-        if (audioRef.current === audio && !audio.paused) {
+      // Clear any safety timer belonging to an older audio element.
+      if (audioFinishTimerRef.current) {
+        clearTimeout(audioFinishTimerRef.current);
+        audioFinishTimerRef.current = null;
+      }
+
+      // Native "ended" is the primary and safest completion signal.
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) {
+          if (audioFinishTimerRef.current) {
+            clearTimeout(audioFinishTimerRef.current);
+            audioFinishTimerRef.current = null;
+          }
           handleFinished();
         }
-      }, (audio.duration * 1000) + 800);
-    }
-  });
+      });
 
-  audio.addEventListener("ended", () => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (audioRef.current === audio) handleFinished();
-  });
+      // Safety net only when audio is actually PLAYING and genuinely near the end.
+      // This timer is cancelled immediately when Pause is pressed.
+      audio.addEventListener("timeupdate", () => {
+        if (
+          audio.paused ||
+          audio.ended ||
+          !audio.duration ||
+          !isFinite(audio.duration) ||
+          audio.currentTime < audio.duration - 0.15
+        ) {
+          return;
+        }
 
-  audio.addEventListener("timeupdate", () => {
-    // Extra safety — if within 0.3s of end, trigger finish
-    // Fix: Added !audio.paused check
-    if (audio.duration && isFinite(audio.duration) &&
-        audio.currentTime >= audio.duration - 0.3) {
-      if (audioRef.current === audio && !audio.paused) {
-        handleFinished();
-      }
-    }
-  });
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+        }
 
-  // Clear fallback timer if audio is paused so it doesn't fire while paused
-  audio.addEventListener("pause", () => {
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-  });
+        audioFinishTimerRef.current = setTimeout(() => {
+          audioFinishTimerRef.current = null;
 
-  audio.addEventListener("error", () => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (fallbacks.length > 0) {
-      tryUrl(fallbacks[0], fallbacks.slice(1));
-    } else {
-      audioRef.current = null;
-      setPlayKey(null);
-    }
-  });
+          // Never finish a paused audio element.
+          if (
+            audioRef.current === audio &&
+            !audio.paused &&
+            !audio.ended &&
+            audio.duration &&
+            isFinite(audio.duration) &&
+            audio.currentTime >= audio.duration - 0.05
+          ) {
+            handleFinished();
+          }
+        }, 200);
+      });
 
-  audio.play().catch(() => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (fallbacks.length > 0) {
-      tryUrl(fallbacks[0], fallbacks.slice(1));
-    } else {
-      audioRef.current = null;
-      setPlayKey(null);
+      // PAUSE = stay paused. Never advance to the next verse.
+      audio.addEventListener("pause", () => {
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
+        }
+      });
+
+      audio.addEventListener("error", () => {
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
+        }
+
+        if (audioRef.current !== audio) return;
+
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+          setAudioPaused(false);
+        }
+      });
+
+      // This play() happens only when playVerse/tryUrl was explicitly started.
+      audio.play().catch(() => {
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
+        }
+
+        if (audioRef.current !== audio) return;
+
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+          setAudioPaused(false);
+        }
+      });
     }
-  });
-}
 
     // Play Bismillah before verse 1 of any Surah
     // EXCEPT: Al-Fatiha (1) — its verse 1 IS the Bismillah already
@@ -2555,33 +2606,30 @@ function tryUrl(url, fallbacks) {
   ) : null;
 
 
-  // ── HOME SCREEN — simple coloured button layout ──────────────
+  // ── HOME SCREEN — simple coloured button layout as requested ─
   const HomeScreen = () => (
     <div className="fade" style={{ minHeight: "100vh", background: "#f0f4f8", paddingBottom: 90 }}>
 
       {/* Welcome banner */}
       <div style={{ background: "linear-gradient(135deg,#1a7ab5,#2196c4)", margin: "16px 14px 0", borderRadius: 16, padding: "18px 20px", textAlign: "center", boxShadow: "0 4px 16px rgba(26,122,181,.3)" }}>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,.75)", letterSpacing: 1, marginBottom: 4 }}>WELCOME TO</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.75)", letterSpacing: 1, marginBottom: 3 }}>WELCOME TO</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: .5 }}>QURAN - INLIFE APP</div>
-        <div className="ar" style={{ fontSize: 16, color: "rgba(255,255,255,.7)", marginTop: 6 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>
+        <div className="ar" style={{ fontSize: 15, color: "rgba(255,255,255,.7)", marginTop: 5 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>
       </div>
 
-      {/* QURAN big button */}
+      {/* QURAN big green button */}
       <div style={{ padding: "14px 14px 0" }}>
         <button onClick={() => setShowQuranNav(true)}
-          style={{ width: "100%", padding: "18px 0", background: "linear-gradient(180deg,#4caf50,#2e7d32)", border: "none", borderRadius: 16, fontSize: 20, fontWeight: 800, color: "#fff", cursor: "pointer", boxShadow: "0 5px 0 #1b5e20, 0 8px 20px rgba(46,125,50,.4)", fontFamily: "inherit", letterSpacing: 2 }}>
+          style={{ width: "100%", padding: "18px 0", background: "linear-gradient(180deg,#4caf50,#2e7d32)", border: "none", borderRadius: 16, fontSize: 20, fontWeight: 800, color: "#fff", cursor: "pointer", boxShadow: "0 5px 0 #1b5e20,0 8px 20px rgba(46,125,50,.4)", fontFamily: "inherit", letterSpacing: 2 }}>
           📖  Q U R A N
         </button>
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       <div style={{ padding: "12px 14px 4px", position: "relative", zIndex: 50 }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 16, pointerEvents: "none" }}>🔍</span>
-          <input
-            id="ql-search"
-            type="text"
-            placeholder="Search..."
+          <input id="ql-search" type="text" placeholder="Search..."
             autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck="false"
             style={{ width: "100%", padding: "13px 14px 13px 44px", borderRadius: 14, border: "1.5px solid #dde3e8", fontSize: 15, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,.07)", WebkitAppearance: "none" }}
             onFocus={e => { e.target.style.borderColor = "#1a7ab5"; }}
@@ -2617,44 +2665,44 @@ function tryUrl(url, fallbacks) {
         )}
       </div>
 
-      {/* Row 1: Kids Corner · Prayer Times · Qibla Direction · Hijri Date */}
+      {/* Row 1 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "10px 14px 0" }}>
         {[
-          { label: "KIDS CORNER", bg: "#e67e22", shadow: "#a85414", action: () => { setScreen("kids"); setNavTab("kids"); setKidLetter(null); } },
-          { label: "PRAYER TIMES", bg: "#1a5276", shadow: "#0d2b3e", action: () => setScreen("prayer") },
-          { label: "QIBLA DIRECTION", bg: "#1a7ab5", shadow: "#0e4a6e", action: () => setScreen("prayer") },
-          { label: "HIJRI DATE", bg: "#7d3c98", shadow: "#4a2060", action: () => { const h = toHijri(new Date()); alert(`Today: ${h.day} ${h.monthName} ${h.year} AH`); } },
-        ].map(({ label, bg, shadow, action }) => (
-          <button key={label} onClick={action}
-            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${shadow})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .5, boxShadow: `0 4px 0 ${shadow}, 0 6px 14px ${bg}44`, lineHeight: 1.3 }}>
+          { label: "KIDS CORNER",      bg: "#e67e22", sh: "#a85414", fn: () => { setScreen("kids"); setNavTab("kids"); setKidLetter(null); } },
+          { label: "PRAYER TIMES",     bg: "#1a5276", sh: "#0d2b3e", fn: () => setScreen("prayer") },
+          { label: "QIBLA DIRECTION",  bg: "#1a7ab5", sh: "#0e4a6e", fn: () => setScreen("prayer") },
+          { label: "HIJRI DATE",       bg: "#7d3c98", sh: "#4a2060", fn: () => { const h = toHijri(new Date()); alert(`Today: ${h.day} ${h.monthName} ${h.year} AH`); } },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn}
+            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .3, boxShadow: `0 4px 0 ${sh},0 6px 14px ${bg}44`, lineHeight: 1.35 }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Row 2: Duas · 99 Names of Allah · Tasbih · Adhkar */}
+      {/* Row 2 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "10px 14px 0" }}>
         {[
-          { label: "DUAS", bg: "#1e8449", shadow: "#0e4224", action: () => setScreen("duas") },
-          { label: "99 NAMES\nOF ALLAH", bg: "#ca6f1e", shadow: "#7e5109", action: () => setScreen("names") },
-          { label: "TASBIH", bg: "#717d7e", shadow: "#424949", action: () => setScreen("tasbih") },
-          { label: "ADHKAR", bg: "#909497", shadow: "#5b6062", action: () => setScreen("adhkar") },
-        ].map(({ label, bg, shadow, action }) => (
-          <button key={label} onClick={action}
-            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${shadow})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .5, boxShadow: `0 4px 0 ${shadow}, 0 6px 14px ${bg}44`, lineHeight: 1.3, whiteSpace: "pre-line" }}>
+          { label: "DUAS",                bg: "#1e8449", sh: "#0e4224", fn: () => setScreen("duas") },
+          { label: "99 NAMES\nOF ALLAH", bg: "#ca6f1e", sh: "#7e5109", fn: () => setScreen("names") },
+          { label: "TASBIH",             bg: "#717d7e", sh: "#424949", fn: () => setScreen("tasbih") },
+          { label: "ADHKAR",             bg: "#909497", sh: "#5b6062", fn: () => setScreen("adhkar") },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn}
+            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .3, boxShadow: `0 4px 0 ${sh},0 6px 14px ${bg}44`, lineHeight: 1.35, whiteSpace: "pre-line" }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Row 3: Settings · Language */}
+      {/* Row 3 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "10px 14px 0" }}>
         {[
-          { label: "SETTINGS", bg: "#212f3d", shadow: "#0a0f14", action: () => setShowSettings(true) },
-          { label: "LANGUAGE", bg: "#27ae60", shadow: "#145a32", action: () => setShowLang(true) },
-        ].map(({ label, bg, shadow, action }) => (
-          <button key={label} onClick={action}
-            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${shadow})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .5, boxShadow: `0 4px 0 ${shadow}, 0 6px 14px ${bg}44` }}>
+          { label: "SETTINGS", bg: "#212f3d", sh: "#0a0f14", fn: () => setShowSettings(true) },
+          { label: "LANGUAGE", bg: "#27ae60", sh: "#145a32", fn: () => setShowLang(true) },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn}
+            style={{ padding: "20px 10px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 14, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .3, boxShadow: `0 4px 0 ${sh},0 6px 14px ${bg}44` }}>
             {label}
           </button>
         ))}
@@ -2666,7 +2714,7 @@ function tryUrl(url, fallbacks) {
     </div>
   );
 
-  // ── QURAN NAV SCREEN — shown when QURAN button tapped ────────
+  // ── QURAN NAV SCREEN — opens when QURAN button tapped ────────
   const QuranNavScreen = () => (
     <div className="fade" style={{ minHeight: "100vh", background: "#f0f4f8", paddingBottom: 90 }}>
 
@@ -2687,10 +2735,7 @@ function tryUrl(url, fallbacks) {
       <div style={{ padding: "12px 14px 4px", position: "relative", zIndex: 50 }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#9ba5b0", fontSize: 16, pointerEvents: "none" }}>🔍</span>
-          <input
-            id="ql-search-nav"
-            type="text"
-            placeholder="Search Surah name, number..."
+          <input id="ql-search-qnav" type="text" placeholder="Search Surah name, number..."
             autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck="false"
             style={{ width: "100%", padding: "13px 14px 13px 44px", borderRadius: 14, border: "1.5px solid #dde3e8", fontSize: 15, fontFamily: "inherit", outline: "none", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,.07)", WebkitAppearance: "none" }}
             onFocus={e => { e.target.style.borderColor = G; }}
@@ -2710,7 +2755,7 @@ function tryUrl(url, fallbacks) {
           <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 14, right: 14, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.15)", zIndex: 200, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
             {searchResults.map(s => (
               <div key={s.n}
-                onMouseDown={e => { e.preventDefault(); openSurah(s.n); setSearchResults([]); setShowQuranNav(false); }}
+                onMouseDown={e => { e.preventDefault(); setShowQuranNav(false); openSurah(s.n); setSearchResults([]); }}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -2726,38 +2771,47 @@ function tryUrl(url, fallbacks) {
         )}
       </div>
 
-      {/* Top 4 big navigation buttons */}
+      {/* 4 main navigation buttons */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "10px 14px 0" }}>
         {[
-          { label: "ALL 114\nSURAH -\nONE BY ONE", bg: "#27ae60", shadow: "#145a32", action: () => { setShowQuranNav(false); setFilter("all"); setNavTab("read"); setScreen("home"); } },
-          { label: "QUICK LINK\nOF SURAHS", bg: "#1a7ab5", shadow: "#0e4a6e", action: () => { setShowQuranNav(false); setNavTab("read"); setScreen("home"); } },
-          { label: "COMPLETE\nQURAN", bg: "#7d3c98", shadow: "#4a2060", action: () => { setShowQuranNav(false); openMushafReader(); } },
-          { label: "Juz Index", bg: "#1a5276", shadow: "#0d2b3e", action: () => { setShowJuz(true); } },
-        ].map(({ label, bg, shadow, action }) => (
-          <button key={label} onClick={action}
-            style={{ padding: "22px 10px", background: `linear-gradient(180deg,${bg},${shadow})`, border: "none", borderRadius: 16, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .3, boxShadow: `0 5px 0 ${shadow}, 0 8px 18px ${bg}55`, lineHeight: 1.5, whiteSpace: "pre-line", textAlign: "center" }}>
+          { label: "ALL 114\nSURAH -\nONE BY ONE", bg: "#27ae60", sh: "#145a32",
+            fn: () => { setShowQuranNav(false); setFilter("all"); } },
+          { label: "QUICK LINK\nOF SURAHS",  bg: "#1a7ab5", sh: "#0e4a6e",
+            fn: () => { setShowQuranNav(false); setFilter("all"); } },
+          { label: "COMPLETE\nQURAN",         bg: "#7d3c98", sh: "#4a2060",
+            fn: () => { setShowQuranNav(false); openMushafReader(); } },
+          { label: "Juz Index",               bg: "#1a5276", sh: "#0d2b3e",
+            fn: () => { setShowJuz(true); } },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn}
+            style={{ padding: "22px 10px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 16, fontSize: 13, fontWeight: 800, color: "#fff", cursor: "pointer", fontFamily: "inherit", letterSpacing: .3, boxShadow: `0 5px 0 ${sh},0 8px 18px ${bg}55`, lineHeight: 1.5, whiteSpace: "pre-line", textAlign: "center" }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Bottom row: audio + filters */}
+      {/* Bottom row — audio + filters */}
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr", gap: 8, padding: "10px 14px 0" }}>
         {[
-          { label: "Full Quran\nTranslation\nAudio", bg: "#212f3d", shadow: "#0a0f14", action: () => setShowAudioSheet(true) },
-          { label: "Meccan", bg: "#e67e22", shadow: "#a85414", action: () => { setShowQuranNav(false); setFilter("meccan"); setNavTab("read"); setScreen("home"); } },
-          { label: "Madinan", bg: "#27ae60", shadow: "#145a32", action: () => { setShowQuranNav(false); setFilter("medinan"); setNavTab("read"); setScreen("home"); } },
-          { label: "Long", bg: "#909497", shadow: "#5b6062", action: () => { setShowQuranNav(false); setFilter("long"); setNavTab("read"); setScreen("home"); } },
-          { label: "Short", bg: "#aab7b8", shadow: "#717d7e", action: () => { setShowQuranNav(false); setFilter("short"); setNavTab("read"); setScreen("home"); } },
-        ].map(({ label, bg, shadow, action }) => (
-          <button key={label} onClick={action}
-            style={{ padding: "14px 6px", background: `linear-gradient(180deg,${bg},${shadow})`, border: "none", borderRadius: 14, fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 0 ${shadow}`, lineHeight: 1.4, whiteSpace: "pre-line", textAlign: "center" }}>
+          { label: "Full Quran\nTranslation\nAudio", bg: "#212f3d", sh: "#0a0f14",
+            fn: () => setShowAudioSheet(true) },
+          { label: "Meccan",  bg: "#e67e22", sh: "#a85414",
+            fn: () => { setShowQuranNav(false); setFilter("meccan"); } },
+          { label: "Madinan", bg: "#27ae60", sh: "#145a32",
+            fn: () => { setShowQuranNav(false); setFilter("medinan"); } },
+          { label: "Long",    bg: "#909497", sh: "#5b6062",
+            fn: () => { setShowQuranNav(false); setFilter("long"); } },
+          { label: "Short",   bg: "#aab7b8", sh: "#717d7e",
+            fn: () => { setShowQuranNav(false); setFilter("short"); } },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn}
+            style={{ padding: "14px 4px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 14, fontSize: 10, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 0 ${sh}`, lineHeight: 1.4, whiteSpace: "pre-line", textAlign: "center" }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Reciter + Language chips */}
+      {/* Reciter + Language + utility chips */}
       <div style={{ display: "flex", gap: 8, padding: "12px 14px 0", flexWrap: "wrap" }}>
         <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
         <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
@@ -2765,12 +2819,59 @@ function tryUrl(url, fallbacks) {
         <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
       </div>
 
+      {/* Surah list — All 114 with Play · Stop · Read */}
+      <div style={{ padding: "14px 14px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .9 }}>All 114 Surahs</div>
+        <div style={{ fontSize: 11, color: "#9ba5b0" }}>Tap to read</div>
+      </div>
+      <div style={{ margin: "0 14px", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,.06)" }}>
+        {SURAHS.map((s, i) => (
+          <div key={s.n} className="srow" style={{ borderBottom: i < SURAHS.length - 1 ? ".5px solid #f0f0ec" : "none" }}>
+            <div style={{ width: 32, height: 32, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute" }}><polygon points="16,1.5 30,9 30,23 16,30.5 2,23 2,9" fill="none" stroke={G} strokeWidth="1.1" /></svg>
+              <span style={{ position: "relative", zIndex: 1, fontSize: 10, fontWeight: 700, color: G }}>{s.n}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+              <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 1 }}>
+                <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: s.type === "Meccan" ? "#e8f4ee" : "#e8eef8", color: s.type === "Meccan" ? "#1a6b3c" : "#1a4b8c", marginRight: 4 }}>{s.type}</span>
+                {s.verses}v · Juz {s.juz}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0, marginRight: 6 }}>
+              <div className="ar" style={{ fontSize: 17, color: G, lineHeight: 1.4 }}>{s.ar}</div>
+              <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+              {playKey && playKey.startsWith(`${s.n}:`) ? (
+                <>
+                  {!audioPaused ? (
+                    <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
+                  ) : (
+                    <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeAudio(); }}>▶</button>
+                  )}
+                  <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
+                </>
+              ) : (
+                <button className="pbtn" onClick={async e => {
+                  e.stopPropagation(); stopAudio(); setContinueDialog(null);
+                  try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
+                }}>▶ Play</button>
+              )}
+              <button className="rbtn" onClick={() => { setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ height: 14 }} />
       {JuzSheet()}{QariSheet()}{LangSheet()}{GotoSheet()}{BkSheet()}{AudioSheet()}
       {ScrollFab()}
       {AudioBar()}
     </div>
   );
 
+  // ── DEAD CODE REMOVED ──
   // ── READ SCREEN ─────────────────────────────────────────────
   const ReadScreen = () => {
     const s = curSurah || SURAHS[0];
