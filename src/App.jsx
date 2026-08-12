@@ -1461,9 +1461,13 @@ export default function QuranLife() {
   const [mushafPage, setMushafPage] = useState(1);
   const [mushafData, setMushafData] = useState(null);
   const [mushafLoading, setMushafLoading] = useState(false);
-  const [mushafQuickLink, setMushafQuickLink] = useState(null); // name of quick link if opened from Quick Links
-  const [mushafTranslations, setMushafTranslations] = useState({}); // key: "surah:verse" → translation text
+  const [mushafQuickLink, setMushafQuickLink] = useState(null);
+  const [mushafTranslations, setMushafTranslations] = useState({});
   const [mushafTransLoading, setMushafTransLoading] = useState(false);
+  const [mushafSearch, setMushafSearch] = useState("");
+  const [mushafSearchType, setMushafSearchType] = useState("surah");
+  const [mushafSearchResults, setMushafSearchResults] = useState([]);
+  const [showMushafBookmarks, setShowMushafBookmarks] = useState(false);
   const [mushafError, setMushafError] = useState(null);
   const [mushafDragX, setMushafDragX] = useState(0);
   const [mushafAnimating, setMushafAnimating] = useState(false);
@@ -3628,6 +3632,42 @@ export default function QuranLife() {
   );
 
   // ── MUSHAF READER SCREEN ────────────────────────────────────
+  const getMushafBookmarks = () => {
+    try { return JSON.parse(localStorage.getItem("ql_mushaf_bookmarks") || "[]"); } catch { return []; }
+  };
+
+  const saveMushafBookmark = useCallback(() => {
+    try {
+      const existing = getMushafBookmarks();
+      const entry = { page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString(), time: Date.now() };
+      const updated = [entry, ...existing.filter(b => b.page !== mushafPage)].slice(0, 20);
+      localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
+      alert(`✅ Page ${mushafPage} saved! Tap 📋 to return here.`);
+    } catch { alert("Could not save."); }
+  }, [mushafPage, mushafData]);
+
+  const handleMushafSearch = useCallback((val) => {
+    setMushafSearch(val);
+    if (!val.trim()) { setMushafSearchResults([]); return; }
+    const ql = val.toLowerCase();
+    if (mushafSearchType === "surah") {
+      setMushafSearchResults(SURAHS.filter(s =>
+        s.name.toLowerCase().includes(ql) || s.ar.includes(val) || String(s.n).includes(val)
+      ).slice(0, 6).map(s => ({ label: `${s.name} — Page ${s.page}`, page: s.page, sub: s.ar })));
+    } else if (mushafSearchType === "page") {
+      const p = parseInt(val);
+      if (p >= 1 && p <= 604) setMushafSearchResults([{ label: `Go to Page ${p}`, page: p, sub: "" }]);
+      else setMushafSearchResults([]);
+    } else if (mushafSearchType === "juz") {
+      const j = parseInt(val);
+      if (j >= 1 && j <= 30) {
+        const js = JUZ_STARTS[j];
+        const s = js ? SURAHS.find(x => x.n === js.surah) : null;
+        if (s) setMushafSearchResults([{ label: `Juz ${j} — ${s.name} — Page ${s.page}`, page: s.page, sub: `الجزء ${j}` }]);
+      } else setMushafSearchResults([]);
+    }
+  }, [mushafSearchType]);
+
   const MushafReaderScreen = () => {
     const handleDragStart = (clientX) => { if (mushafAnimating) return; mushafDragStartRef.current = clientX; };
     const handleDragMove = (clientX) => { if (mushafDragStartRef.current === null || mushafAnimating) return; setMushafDragX(clientX - mushafDragStartRef.current); };
@@ -3656,50 +3696,8 @@ export default function QuranLife() {
       if (group.length) versesBySurah.push({ surah: currentSurah, verses: group });
     }
 
-    const [mushafSearch, setMushafSearch] = useState("");
-    const [mushafSearchType, setMushafSearchType] = useState("surah"); // surah | page | juz
-    const [mushafSearchResults, setMushafSearchResults] = useState([]);
-    const [showMushafBookmarks, setShowMushafBookmarks] = useState(false);
+    const mushafBookmarks = getMushafBookmarks();
 
-    // Load all saved mushaf bookmarks
-    const mushafBookmarks = (() => {
-      try {
-        const raw = localStorage.getItem("ql_mushaf_bookmarks");
-        return raw ? JSON.parse(raw) : [];
-      } catch { return []; }
-    })();
-
-    const saveMushafBookmark = () => {
-      try {
-        const existing = (() => { try { return JSON.parse(localStorage.getItem("ql_mushaf_bookmarks") || "[]"); } catch { return []; } })();
-        const entry = { page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString(), time: Date.now() };
-        const updated = [entry, ...existing.filter(b => b.page !== mushafPage)].slice(0, 20);
-        localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
-        alert(`✅ Page ${mushafPage} saved! Tap 🔖 → select it to return here.`);
-      } catch { alert("Could not save."); }
-    };
-
-    const handleMushafSearch = (val) => {
-      setMushafSearch(val);
-      if (!val.trim()) { setMushafSearchResults([]); return; }
-      const ql = val.toLowerCase();
-      if (mushafSearchType === "surah") {
-        setMushafSearchResults(SURAHS.filter(s =>
-          s.name.toLowerCase().includes(ql) || s.ar.includes(val) || String(s.n).includes(val)
-        ).slice(0, 6).map(s => ({ label: `${s.name} — Page ${s.page}`, page: s.page, sub: s.ar })));
-      } else if (mushafSearchType === "page") {
-        const p = parseInt(val);
-        if (p >= 1 && p <= 604) setMushafSearchResults([{ label: `Go to Page ${p}`, page: p, sub: "" }]);
-        else setMushafSearchResults([]);
-      } else if (mushafSearchType === "juz") {
-        const j = parseInt(val);
-        if (j >= 1 && j <= 30) {
-          const js = JUZ_STARTS[j];
-          const s = SURAHS.find(x => x.n === js.surah);
-          if (s) setMushafSearchResults([{ label: `Juz ${j} — ${s.name} — Page ${s.page}`, page: s.page, sub: `الجزء ${j}` }]);
-        } else setMushafSearchResults([]);
-      }
-    };
 
     return (
       <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#1a0e04,#0d0802)", minHeight: "100vh" }}>
