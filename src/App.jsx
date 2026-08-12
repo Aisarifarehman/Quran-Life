@@ -1462,6 +1462,8 @@ export default function QuranLife() {
   const [mushafData, setMushafData] = useState(null);
   const [mushafLoading, setMushafLoading] = useState(false);
   const [mushafQuickLink, setMushafQuickLink] = useState(null);
+  const [mushafQuickLinkSurah, setMushafQuickLinkSurah] = useState(null); // surah number to isolate on the page
+  const [mushafHighlightVerse, setMushafHighlightVerse] = useState(null); // specific verse number to highlight (e.g. Ayatul Kursi)
   const [mushafTranslations, setMushafTranslations] = useState({});
   const [mushafTransLoading, setMushafTransLoading] = useState(false);
   const [mushafSearch, setMushafSearch] = useState("");
@@ -2393,6 +2395,8 @@ export default function QuranLife() {
                 setShowQuickLinks(false);
                 setShowQuranNav(false);
                 setMushafQuickLink(q.name);
+                setMushafQuickLinkSurah(q.surah);
+                setMushafHighlightVerse(q.verse > 1 ? q.verse : null);
                 setMushafTranslations({});
                 openMushafReader(q.page);
                 fetchMushafTranslations(q.page);
@@ -2918,7 +2922,7 @@ export default function QuranLife() {
           { label: "QUICK LINK\nOF SURAHS", bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
             fn: () => { setShowQuickLinks(true); } },
           { label: "COMPLETE\nQURAN", bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
-            fn: () => { setShowQuranNav(false); openMushafReader(); } },
+            fn: () => { setShowQuranNav(false); setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null); openMushafReader(); } },
           { label: "JUZ INDEX", bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
             fn: () => { setShowJuz(true); } },
         ].map(({ label, bg, sh, fn }) => (
@@ -3668,6 +3672,16 @@ export default function QuranLife() {
     }
   }, [mushafSearchType]);
 
+  // Scroll to the highlighted Quick Link verse (e.g. Ayatul Kursi) once its page renders
+  useEffect(() => {
+    if (mushafHighlightVerse && mushafData && screen === "mushaf") {
+      setTimeout(() => {
+        const el = document.getElementById("mushaf-highlight-verse");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 200);
+    }
+  }, [mushafHighlightVerse, mushafData, screen]);
+
   const MushafReaderScreen = () => {
     const handleDragStart = (clientX) => { if (mushafAnimating) return; mushafDragStartRef.current = clientX; };
     const handleDragMove = (clientX) => { if (mushafDragStartRef.current === null || mushafAnimating) return; setMushafDragX(clientX - mushafDragStartRef.current); };
@@ -3680,7 +3694,7 @@ export default function QuranLife() {
     };
 
     // Group verses by surah to show bismillah banners
-    const versesBySurah = [];
+    let versesBySurah = [];
     if (mushafData?.verses) {
       let currentSurah = null;
       let group = [];
@@ -3695,6 +3709,11 @@ export default function QuranLife() {
       }
       if (group.length) versesBySurah.push({ surah: currentSurah, verses: group });
     }
+    // In Quick Link mode: hide any OTHER surah's verses that happen to share this physical page
+    // (e.g. tail end of the previous surah), so only the target surah is shown — like other Quran apps.
+    if (mushafQuickLinkSurah) {
+      versesBySurah = versesBySurah.filter(g => parseInt(g.surah) === mushafQuickLinkSurah);
+    }
 
     const mushafBookmarks = getMushafBookmarks();
 
@@ -3705,7 +3724,7 @@ export default function QuranLife() {
         <div style={{ padding: "10px 14px 8px", position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#2a1505,#1a0e04)", borderBottom: "1px solid #3d2410" }}>
           {/* Row 1: back, title, bookmark, goto */}
           <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
-            <button onClick={() => { setShowQuranNav(true); setScreen("home"); setMushafQuickLink(null); setMushafTranslations({}); }}
+            <button onClick={() => { setShowQuranNav(true); setScreen("home"); setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null); setMushafTranslations({}); }}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
             <div style={{ flex: 1, textAlign: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Complete Quran"}</div>
@@ -3850,13 +3869,17 @@ export default function QuranLife() {
                           )}
                           {/* Verses — Arabic */}
                           <div style={{ fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
-                            {group.verses.map((v, i) => (
-                              <span key={i}>
-                                {v.arabic}
-                                <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
-                                {" "}
-                              </span>
-                            ))}
+                            {group.verses.map((v, i) => {
+                              const isHighlighted = mushafHighlightVerse && v.number === mushafHighlightVerse && parseInt(v.chapter) === mushafQuickLinkSurah;
+                              return (
+                                <span key={i} id={isHighlighted ? "mushaf-highlight-verse" : undefined}
+                                  style={isHighlighted ? { background: "linear-gradient(180deg,#fff3c4,#ffe08a)", borderRadius: 4, padding: "2px 4px", boxShadow: "0 0 0 2px #c9943a" } : undefined}>
+                                  {v.arabic}
+                                  <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
+                                  {" "}
+                                </span>
+                              );
+                            })}
                           </div>
                           {/* Translations — shown only in Quick Link mode */}
                           {mushafQuickLink && (
