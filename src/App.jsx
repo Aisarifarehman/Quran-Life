@@ -1491,6 +1491,7 @@ export default function QuranLife() {
   const audioFinishTimerRef = useRef(null);
   const [showQuranSplash, setShowQuranSplash] = useState(false); // unused, kept for compat
   const [showQuranNav, setShowQuranNav] = useState(false); // Quran navigation landing page
+  const [showQuickLinks, setShowQuickLinks] = useState(false); // Quick Link of Surahs panel
   const [audioPaused, setAudioPaused] = useState(false); // pause state for Quran recitation
 
   // Preload speech voices on startup — critical for Android/iOS
@@ -2327,6 +2328,7 @@ export default function QuranLife() {
               onClick={() => {
                 const start = JUZ_STARTS[i + 1];
                 setShowJuz(false);
+                setShowQuranNav(false);
                 if (start) openSurah(start.surah, false, start.verse, i + 1);
               }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: G, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{i + 1}</div>
@@ -2337,6 +2339,29 @@ export default function QuranLife() {
                 </div>
               </div>
               <div className="ar" style={{ fontSize: 16, color: G }}>الجزء {i + 1}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const QuickLinksSheet = () => showQuickLinks ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowQuickLinks(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>⚡ Quick Link of Surahs</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {QUICK_LINKS.map(q => (
+            <div key={q.name}
+              onClick={() => { setShowQuickLinks(false); setShowQuranNav(false); openSurah(q.surah); }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, background: "#f0faf5", border: `.5px solid ${G}33`, cursor: "pointer" }}>
+              <div style={{ fontSize: 26 }}>{q.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{q.name}</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 2 }}>Surah {q.surah} · Tap to read</div>
+              </div>
+              <div className="ar" style={{ fontSize: 20, color: G }}>{q.ar}</div>
             </div>
           ))}
         </div>
@@ -2775,9 +2800,9 @@ export default function QuranLife() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "10px 14px 0" }}>
         {[
           { label: "ALL 114\nSURAH -\nONE BY ONE", bg: "#27ae60", sh: "#145a32",
-            fn: () => { setShowQuranNav(false); setFilter("all"); } },
+            fn: () => { setShowQuranNav(false); setFilter("all"); setScreen("home"); setNavTab("home"); } },
           { label: "QUICK LINK\nOF SURAHS",  bg: "#1a7ab5", sh: "#0e4a6e",
-            fn: () => { setShowQuranNav(false); setFilter("all"); } },
+            fn: () => { setShowQuickLinks(true); } },
           { label: "COMPLETE\nQURAN",         bg: "#7d3c98", sh: "#4a2060",
             fn: () => { setShowQuranNav(false); openMushafReader(); } },
           { label: "Juz Index",               bg: "#1a5276", sh: "#0d2b3e",
@@ -2796,13 +2821,13 @@ export default function QuranLife() {
           { label: "Full Quran\nTranslation\nAudio", bg: "#212f3d", sh: "#0a0f14",
             fn: () => setShowAudioSheet(true) },
           { label: "Meccan",  bg: "#e67e22", sh: "#a85414",
-            fn: () => { setShowQuranNav(false); setFilter("meccan"); } },
+            fn: () => { setShowQuranNav(false); setFilter("meccan"); setScreen("home"); setNavTab("home"); } },
           { label: "Madinan", bg: "#27ae60", sh: "#145a32",
-            fn: () => { setShowQuranNav(false); setFilter("medinan"); } },
+            fn: () => { setShowQuranNav(false); setFilter("medinan"); setScreen("home"); setNavTab("home"); } },
           { label: "Long",    bg: "#909497", sh: "#5b6062",
-            fn: () => { setShowQuranNav(false); setFilter("long"); } },
+            fn: () => { setShowQuranNav(false); setFilter("long"); setScreen("home"); setNavTab("home"); } },
           { label: "Short",   bg: "#aab7b8", sh: "#717d7e",
-            fn: () => { setShowQuranNav(false); setFilter("short"); } },
+            fn: () => { setShowQuranNav(false); setFilter("short"); setScreen("home"); setNavTab("home"); } },
         ].map(({ label, bg, sh, fn }) => (
           <button key={label} onClick={fn}
             style={{ padding: "14px 4px", background: `linear-gradient(180deg,${bg},${sh})`, border: "none", borderRadius: 14, fontSize: 10, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 0 ${sh}`, lineHeight: 1.4, whiteSpace: "pre-line", textAlign: "center" }}>
@@ -2865,7 +2890,7 @@ export default function QuranLife() {
       </div>
 
       <div style={{ height: 14 }} />
-      {JuzSheet()}{QariSheet()}{LangSheet()}{GotoSheet()}{BkSheet()}{AudioSheet()}
+      {JuzSheet()}{QariSheet()}{LangSheet()}{GotoSheet()}{BkSheet()}{AudioSheet()}{QuickLinksSheet()}
       {ScrollFab()}
       {AudioBar()}
     </div>
