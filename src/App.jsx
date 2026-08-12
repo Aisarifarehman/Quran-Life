@@ -1586,74 +1586,54 @@ export default function QuranLife() {
           // Last verse — just stop quietly
         }
     }
-function tryUrl(url, fallbacks) {
-  const audio = new Audio(url);
-  audioRef.current = audio;
 
-  // Clear any old timer before starting a new track
-  if (fallbackTimer) {
-    clearTimeout(fallbackTimer);
-    fallbackTimer = null;
-  }
+    function tryUrl(url, fallbacks) {
+      const audio = new Audio(url);
+      audioRef.current = audio;
 
-  // When metadata loads, set a fallback timer based on duration
-  audio.addEventListener("loadedmetadata", () => {
-    if (audio.duration && isFinite(audio.duration)) {
-      // Add 800ms buffer after duration
-      fallbackTimer = setTimeout(() => {
-        // Fix: Added !audio.paused check
-        if (audioRef.current === audio && !audio.paused) {
-          handleFinished();
+      // When metadata loads, set a fallback timer based on duration
+      // This ensures ended always fires even if audio API misses it
+      audio.addEventListener("loadedmetadata", () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          // Add 800ms buffer after duration
+          fallbackTimer = setTimeout(() => {
+            if (audioRef.current === audio) handleFinished();
+          }, (audio.duration * 1000) + 800);
         }
-      }, (audio.duration * 1000) + 800);
+      });
+
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) handleFinished();
+      });
+
+      audio.addEventListener("timeupdate", () => {
+        // Extra safety — if within 0.3s of end, trigger finish
+        if (audio.duration && isFinite(audio.duration) &&
+            audio.currentTime >= audio.duration - 0.3) {
+          if (audioRef.current === audio) handleFinished();
+        }
+      });
+
+      audio.addEventListener("error", () => {
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+        }
+      });
+
+      audio.play().catch(() => {
+        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        if (fallbacks.length > 0) {
+          tryUrl(fallbacks[0], fallbacks.slice(1));
+        } else {
+          audioRef.current = null;
+          setPlayKey(null);
+        }
+      });
     }
-  });
-
-  audio.addEventListener("ended", () => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (audioRef.current === audio) handleFinished();
-  });
-
-  audio.addEventListener("timeupdate", () => {
-    // Extra safety — if within 0.3s of end, trigger finish
-    // Fix: Added !audio.paused check
-    if (audio.duration && isFinite(audio.duration) &&
-        audio.currentTime >= audio.duration - 0.3) {
-      if (audioRef.current === audio && !audio.paused) {
-        handleFinished();
-      }
-    }
-  });
-
-  // Clear fallback timer if audio is paused so it doesn't fire while paused
-  audio.addEventListener("pause", () => {
-    if (fallbackTimer) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-  });
-
-  audio.addEventListener("error", () => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (fallbacks.length > 0) {
-      tryUrl(fallbacks[0], fallbacks.slice(1));
-    } else {
-      audioRef.current = null;
-      setPlayKey(null);
-    }
-  });
-
-  audio.play().catch(() => {
-    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-    if (fallbacks.length > 0) {
-      tryUrl(fallbacks[0], fallbacks.slice(1));
-    } else {
-      audioRef.current = null;
-      setPlayKey(null);
-    }
-  });
-}
-
     // Play Bismillah before verse 1 of any Surah
     // EXCEPT: Al-Fatiha (1) — its verse 1 IS the Bismillah already
     // EXCEPT: At-Tawbah (9) — has no Bismillah
