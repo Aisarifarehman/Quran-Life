@@ -1488,6 +1488,7 @@ export default function QuranLife() {
   const [langCountry, setLangCountry] = useState("all");
   const [gotoPage, setGotoPage] = useState("");
   const audioRef = useRef(null);
+  const audioFinishTimerRef = useRef(null);
   const [showQuranSplash, setShowQuranSplash] = useState(false); // Islamic wallpaper before 114 Surahs
   const [audioPaused, setAudioPaused] = useState(false); // pause state for Quran recitation
 
@@ -1528,24 +1529,42 @@ export default function QuranLife() {
 
   // ── AUDIO ──────────────────────────────────────────────────
   const stopAudio = useCallback(() => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioFinishTimerRef.current) {
+      clearTimeout(audioFinishTimerRef.current);
+      audioFinishTimerRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setPlayKey(null);
     setAudioPaused(false);
     setContinueDialog(null);
   }, []);
 
   const pauseAudio = useCallback(() => {
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-      setAudioPaused(true);
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+
+    // IMPORTANT: pausing must cancel the end-safety timer.
+    // Otherwise the old timer can call handleFinished() while the user is paused.
+    if (audioFinishTimerRef.current) {
+      clearTimeout(audioFinishTimerRef.current);
+      audioFinishTimerRef.current = null;
     }
+
+    audio.pause();
+    setAudioPaused(true);
   }, []);
 
   const resumeAudio = useCallback(() => {
-    if (audioRef.current && audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
+    const audio = audioRef.current;
+    if (!audio || !audio.paused) return;
+
+    // Resume ONLY because the user clicked Resume.
+    audio.play().then(() => {
       setAudioPaused(false);
-    }
+    }).catch(() => {});
   }, []);
 
   // mode: "single" = play one verse only (inside reader)
@@ -1590,49 +1609,101 @@ export default function QuranLife() {
       const audio = new Audio(url);
       audioRef.current = audio;
 
-      // When metadata loads, set a fallback timer based on duration
-      // This ensures ended always fires even if audio API misses it
-      audio.addEventListener("loadedmetadata", () => {
-        if (audio.duration && isFinite(audio.duration)) {
-          // Add 800ms buffer after duration
-          fallbackTimer = setTimeout(() => {
-            if (audioRef.current === audio) handleFinished();
-          }, (audio.duration * 1000) + 800);
+      // Clear any safety timer belonging to an older audio element.
+      if (audioFinishTimerRef.current) {
+        clearTimeout(audioFinishTimerRef.current);
+        audioFinishTimerRef.current = null;
+      }
+
+      // Native "ended" is the primary and safest completion signal.
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) {
+          if (audioFinishTimerRef.current) {
+            clearTimeout(audioFinishTimerRef.current);
+            audioFinishTimerRef.current = null;
+          }
+          handleFinished();
         }
       });
 
-      audio.addEventListener("ended", () => {
-        if (audioRef.current === audio) handleFinished();
+      // Safety net only when audio is actually PLAYING and genuinely near the end.
+      // This timer is cancelled immediately when Pause is pressed.
+      audio.addEventListener("timeupdate", () => {
+        if (
+          audio.paused ||
+          audio.ended ||
+          !audio.duration ||
+          !isFinite(audio.duration) ||
+          audio.currentTime < audio.duration - 0.15
+        ) {
+          return;
+        }
+
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+        }
+
+        audioFinishTimerRef.current = setTimeout(() => {
+          audioFinishTimerRef.current = null;
+
+          // Never finish a paused audio element.
+          if (
+            audioRef.current === audio &&
+            !audio.paused &&
+            !audio.ended &&
+            audio.duration &&
+            isFinite(audio.duration) &&
+            audio.currentTime >= audio.duration - 0.05
+          ) {
+            handleFinished();
+          }
+        }, 200);
       });
 
-      audio.addEventListener("timeupdate", () => {
-        // Extra safety — if within 0.3s of end, trigger finish
-        if (audio.duration && isFinite(audio.duration) &&
-            audio.currentTime >= audio.duration - 0.3) {
-          if (audioRef.current === audio) handleFinished();
+      // PAUSE = stay paused. Never advance to the next verse.
+      audio.addEventListener("pause", () => {
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
         }
       });
 
       audio.addEventListener("error", () => {
-        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
+        }
+
+        if (audioRef.current !== audio) return;
+
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
         } else {
           audioRef.current = null;
           setPlayKey(null);
+          setAudioPaused(false);
         }
       });
 
+      // This play() happens only when playVerse/tryUrl was explicitly started.
       audio.play().catch(() => {
-        if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+        if (audioFinishTimerRef.current) {
+          clearTimeout(audioFinishTimerRef.current);
+          audioFinishTimerRef.current = null;
+        }
+
+        if (audioRef.current !== audio) return;
+
         if (fallbacks.length > 0) {
           tryUrl(fallbacks[0], fallbacks.slice(1));
         } else {
           audioRef.current = null;
           setPlayKey(null);
+          setAudioPaused(false);
         }
       });
     }
+
     // Play Bismillah before verse 1 of any Surah
     // EXCEPT: Al-Fatiha (1) — its verse 1 IS the Bismillah already
     // EXCEPT: At-Tawbah (9) — has no Bismillah
