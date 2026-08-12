@@ -335,11 +335,11 @@ function getRukuNumber(surahNum, verseNum) {
 
 const QUICK_LINKS = [
   {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,verse:255,page:42,icon:"👑"},
-  {name:"Al-Kahf",ar:"الكهف",surah:18,verse:1,page:null,icon:"🕌"},
-  {name:"Al-Mulk",ar:"الملك",surah:67,verse:1,page:null,icon:"🌙"},
-  {name:"Ar-Rahman",ar:"الرحمن",surah:55,verse:1,page:null,icon:"💚"},
-  {name:"Ya-Sin",ar:"يس",surah:36,verse:1,page:null,icon:"⭐"},
-  {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,verse:1,page:null,icon:"🤲"},
+  {name:"Ya-Sin",ar:"يس",surah:36,verse:1,page:440,icon:"⭐"},
+  {name:"Al-Mulk",ar:"الملك",surah:67,verse:1,page:562,icon:"🌙"},
+  {name:"Ar-Rahman",ar:"الرحمن",surah:55,verse:1,page:531,icon:"💚"},
+  {name:"Al-Kahf",ar:"الكهف",surah:18,verse:1,page:293,icon:"🕌"},
+  {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,verse:1,page:604,icon:"🤲"},
 ];
 
 const ARABIC_ALPHA = [
@@ -1461,6 +1461,9 @@ export default function QuranLife() {
   const [mushafPage, setMushafPage] = useState(1);
   const [mushafData, setMushafData] = useState(null);
   const [mushafLoading, setMushafLoading] = useState(false);
+  const [mushafQuickLink, setMushafQuickLink] = useState(null); // name of quick link if opened from Quick Links
+  const [mushafTranslations, setMushafTranslations] = useState({}); // key: "surah:verse" → translation text
+  const [mushafTransLoading, setMushafTransLoading] = useState(false);
   const [mushafError, setMushafError] = useState(null);
   const [mushafDragX, setMushafDragX] = useState(0);
   const [mushafAnimating, setMushafAnimating] = useState(false);
@@ -1795,6 +1798,28 @@ export default function QuranLife() {
       setMushafError("Could not load this page. Check your connection and try again.");
     } finally {
       setMushafLoading(false);
+    }
+  }, []);
+
+  const fetchMushafTranslations = useCallback(async (pageNum) => {
+    setMushafTransLoading(true);
+    try {
+      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&translations=131&fields=text_uthmani`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      const map = {};
+      (d.verses || []).forEach(v => {
+        const key = v.verse_key; // e.g. "2:255"
+        const t = v.translations?.[0]?.text || "";
+        // Strip footnote markers like "1" at end
+        map[key] = t.replace(/<[^>]+>/g, "").replace(/\d+$/, "").trim();
+      });
+      setMushafTranslations(map);
+    } catch {
+      setMushafTranslations({});
+    } finally {
+      setMushafTransLoading(false);
     }
   }, []);
 
@@ -2360,12 +2385,19 @@ export default function QuranLife() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {QUICK_LINKS.map(q => (
             <div key={q.name}
-              onClick={() => { setShowQuickLinks(false); setShowQuranNav(false); cameFromQuranNav.current = true; openSurah(q.surah, false, q.verse > 1 ? q.verse : null); }}
+              onClick={() => {
+                setShowQuickLinks(false);
+                setShowQuranNav(false);
+                setMushafQuickLink(q.name);
+                setMushafTranslations({});
+                openMushafReader(q.page);
+                fetchMushafTranslations(q.page);
+              }}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 14px", borderRadius: 12, background: "#f0faf5", border: `.5px solid ${G}33`, cursor: "pointer" }}>
               <div style={{ fontSize: 26 }}>{q.icon}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{q.name}</div>
-                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 2 }}>Surah {q.surah} · Tap to read</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0", marginTop: 2 }}>Opens in Mushaf · Page {q.page}</div>
               </div>
               <div className="ar" style={{ fontSize: 20, color: G }}>{q.ar}</div>
             </div>
@@ -3675,7 +3707,7 @@ export default function QuranLife() {
         <div style={{ padding: "10px 14px 8px", position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#2a1505,#1a0e04)", borderBottom: "1px solid #3d2410" }}>
           {/* Row 1: back, title, bookmark, goto */}
           <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
-            <button onClick={() => { setShowQuranNav(true); setScreen("home"); }}
+            <button onClick={() => { setShowQuranNav(true); setScreen("home"); setMushafQuickLink(null); setMushafTranslations({}); }}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
             <div style={{ flex: 1, textAlign: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Complete Quran"}</div>
@@ -3818,7 +3850,7 @@ export default function QuranLife() {
                               <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#1a0800", fontWeight: 700, direction: "rtl" }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
                             </div>
                           )}
-                          {/* Verses */}
+                          {/* Verses — Arabic */}
                           <div style={{ fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
                             {group.verses.map((v, i) => (
                               <span key={i}>
@@ -3828,6 +3860,25 @@ export default function QuranLife() {
                               </span>
                             ))}
                           </div>
+                          {/* Translations — shown only in Quick Link mode */}
+                          {mushafQuickLink && (
+                            <div style={{ marginTop: 10, marginBottom: 8 }}>
+                              {mushafTransLoading && Object.keys(mushafTranslations).length === 0 && (
+                                <div style={{ textAlign: "center", fontSize: 12, color: "#8b6914", padding: "8px 0" }}>Loading translation...</div>
+                              )}
+                              {group.verses.map((v) => {
+                                const key = `${v.chapter}:${v.number}`;
+                                const tr = mushafTranslations[key];
+                                if (!tr) return null;
+                                return (
+                                  <div key={key} style={{ padding: "8px 10px", marginBottom: 6, background: "#fdf8ef", borderLeft: "3px solid #c8a84b", borderRadius: "0 6px 6px 0" }}>
+                                    <div style={{ fontSize: 10, color: "#8b6914", fontWeight: 700, marginBottom: 3 }}>Verse {v.number}</div>
+                                    <div style={{ fontSize: 13, color: "#2a1a00", lineHeight: 1.7 }}>{tr}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -3845,11 +3896,11 @@ export default function QuranLife() {
 
         {/* Navigation */}
         <div style={{ display: "flex", gap: 10, padding: "0 14px", marginTop: 8 }}>
-          <button onClick={() => mushafGoToPage(mushafPage - 1)} disabled={mushafPage <= 1}
+          <button onClick={() => { mushafGoToPage(mushafPage - 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage - 1); }} disabled={mushafPage <= 1}
             style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: mushafPage <= 1 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
             → Previous
           </button>
-          <button onClick={() => mushafGoToPage(mushafPage + 1)} disabled={mushafPage >= 604}
+          <button onClick={() => { mushafGoToPage(mushafPage + 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage + 1); }} disabled={mushafPage >= 604}
             style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: mushafPage >= 604 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
             Next ←
           </button>
