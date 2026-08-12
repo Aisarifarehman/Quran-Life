@@ -334,12 +334,12 @@ function getRukuNumber(surahNum, verseNum) {
 }
 
 const QUICK_LINKS = [
-  {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,verse:255,icon:"👑"},
-  {name:"Al-Kahf",ar:"الكهف",surah:18,verse:1,icon:"🕌"},
-  {name:"Al-Mulk",ar:"الملك",surah:67,verse:1,icon:"🌙"},
-  {name:"Ar-Rahman",ar:"الرحمن",surah:55,verse:1,icon:"💚"},
-  {name:"Ya-Sin",ar:"يس",surah:36,verse:1,icon:"⭐"},
-  {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,verse:1,icon:"🤲"},
+  {name:"Ayatul Kursi",ar:"آية الكرسي",surah:2,verse:255,page:42,icon:"👑"},
+  {name:"Al-Kahf",ar:"الكهف",surah:18,verse:1,page:null,icon:"🕌"},
+  {name:"Al-Mulk",ar:"الملك",surah:67,verse:1,page:null,icon:"🌙"},
+  {name:"Ar-Rahman",ar:"الرحمن",surah:55,verse:1,page:null,icon:"💚"},
+  {name:"Ya-Sin",ar:"يس",surah:36,verse:1,page:null,icon:"⭐"},
+  {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,verse:1,page:null,icon:"🤲"},
 ];
 
 const ARABIC_ALPHA = [
@@ -1799,19 +1799,12 @@ export default function QuranLife() {
   }, []);
 
   const openMushafReader = useCallback((startPage = null) => {
-    let p = startPage || mushafPage || 1;
-    // Resume from saved bookmark if no specific page given
-    if (!startPage) {
-      try {
-        const saved = localStorage.getItem("ql_mushaf_bookmark");
-        if (saved) { const bm = JSON.parse(saved); if (bm.page) p = bm.page; }
-      } catch {}
-    }
+    const p = startPage || 1; // Always start page 1 unless explicitly given a page
     setMushafPage(p);
     setScreen("mushaf");
     setNavTab("home");
     fetchMushafPage(p);
-  }, [mushafPage, fetchMushafPage]);
+  }, [fetchMushafPage]);
 
   const mushafGoToPage = useCallback((newPage) => {
     if (newPage < 1 || newPage > 604 || mushafAnimating) return;
@@ -2367,8 +2360,8 @@ export default function QuranLife() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {QUICK_LINKS.map(q => (
             <div key={q.name}
-              onClick={() => { setShowQuickLinks(false); setShowQuranNav(false); cameFromQuranNav.current = true; openSurah(q.surah, false, q.verse || 1); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, background: "#f0faf5", border: `.5px solid ${G}33`, cursor: "pointer" }}>
+              onClick={() => { setShowQuickLinks(false); setShowQuranNav(false); cameFromQuranNav.current = true; openSurah(q.surah, false, q.verse > 1 ? q.verse : null); }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 14px", borderRadius: 12, background: "#f0faf5", border: `.5px solid ${G}33`, cursor: "pointer" }}>
               <div style={{ fontSize: 26 }}>{q.icon}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{q.name}</div>
@@ -3631,23 +3624,122 @@ export default function QuranLife() {
       if (group.length) versesBySurah.push({ surah: currentSurah, verses: group });
     }
 
+    const [mushafSearch, setMushafSearch] = useState("");
+    const [mushafSearchType, setMushafSearchType] = useState("surah"); // surah | page | juz
+    const [mushafSearchResults, setMushafSearchResults] = useState([]);
+    const [showMushafBookmarks, setShowMushafBookmarks] = useState(false);
+
+    // Load all saved mushaf bookmarks
+    const mushafBookmarks = (() => {
+      try {
+        const raw = localStorage.getItem("ql_mushaf_bookmarks");
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    })();
+
+    const saveMushafBookmark = () => {
+      try {
+        const existing = (() => { try { return JSON.parse(localStorage.getItem("ql_mushaf_bookmarks") || "[]"); } catch { return []; } })();
+        const entry = { page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString(), time: Date.now() };
+        const updated = [entry, ...existing.filter(b => b.page !== mushafPage)].slice(0, 20);
+        localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
+        alert(`✅ Page ${mushafPage} saved! Tap 🔖 → select it to return here.`);
+      } catch { alert("Could not save."); }
+    };
+
+    const handleMushafSearch = (val) => {
+      setMushafSearch(val);
+      if (!val.trim()) { setMushafSearchResults([]); return; }
+      const ql = val.toLowerCase();
+      if (mushafSearchType === "surah") {
+        setMushafSearchResults(SURAHS.filter(s =>
+          s.name.toLowerCase().includes(ql) || s.ar.includes(val) || String(s.n).includes(val)
+        ).slice(0, 6).map(s => ({ label: `${s.name} — Page ${s.page}`, page: s.page, sub: s.ar })));
+      } else if (mushafSearchType === "page") {
+        const p = parseInt(val);
+        if (p >= 1 && p <= 604) setMushafSearchResults([{ label: `Go to Page ${p}`, page: p, sub: "" }]);
+        else setMushafSearchResults([]);
+      } else if (mushafSearchType === "juz") {
+        const j = parseInt(val);
+        if (j >= 1 && j <= 30) {
+          const js = JUZ_STARTS[j];
+          const s = SURAHS.find(x => x.n === js.surah);
+          if (s) setMushafSearchResults([{ label: `Juz ${j} — ${s.name} — Page ${s.page}`, page: s.page, sub: `الجزء ${j}` }]);
+        } else setMushafSearchResults([]);
+      }
+    };
+
     return (
       <div className="fade" style={{ paddingBottom: 80, background: "linear-gradient(180deg,#1a0e04,#0d0802)", minHeight: "100vh" }}>
         {/* Top bar */}
-        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 9, position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#2a1505,#1a0e04)", borderBottom: "1px solid #3d2410" }}>
-          <button onClick={() => { setScreen("home"); setNavTab("home"); }}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer" }}>←</button>
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Loading..."}</div>
-            <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
+        <div style={{ padding: "10px 14px 8px", position: "sticky", top: 0, zIndex: 40, background: "linear-gradient(135deg,#2a1505,#1a0e04)", borderBottom: "1px solid #3d2410" }}>
+          {/* Row 1: back, title, bookmark, goto */}
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+            <button onClick={() => { setShowQuranNav(true); setScreen("home"); }}
+              style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Complete Quran"}</div>
+              <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
+            </div>
+            <button onClick={saveMushafBookmark}
+              style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.3)", border: "1px solid #c8a84b", fontSize: 16, color: "#c8a84b", cursor: "pointer", flexShrink: 0 }} title="Save this page">🔖</button>
+            <button onClick={() => setShowMushafBookmarks(b => !b)}
+              style={{ width: 32, height: 32, borderRadius: 8, background: showMushafBookmarks ? "#c8a84b" : "rgba(200,168,75,.15)", border: "1px solid #c8a84b55", fontSize: 11, color: showMushafBookmarks ? "#1a0e04" : "#c8a84b", cursor: "pointer", fontWeight: 700, flexShrink: 0 }} title="My saved pages">📋</button>
           </div>
-          <button onClick={() => {
-            try { localStorage.setItem("ql_mushaf_bookmark", JSON.stringify({ page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString() })); }
-            catch {}
-            alert(`✅ Page ${mushafPage} saved! You can continue from here next time.`);
-          }} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.3)", border: "1px solid #c8a84b", fontSize: 16, color: "#c8a84b", cursor: "pointer" }}>🔖</button>
-          <button onClick={() => setShowGoto(true)}
-            style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 12, color: "#e8d5a8", cursor: "pointer", fontWeight: 700 }}>⇱</button>
+
+          {/* Saved bookmarks panel */}
+          {showMushafBookmarks && (
+            <div style={{ background: "#1a0e04", border: "1px solid #c8a84b44", borderRadius: 10, padding: "8px 0", marginBottom: 8, maxHeight: 180, overflowY: "auto" }}>
+              {mushafBookmarks.length === 0
+                ? <div style={{ padding: "12px 14px", color: "#a8916a", fontSize: 12, textAlign: "center" }}>No saved pages yet. Tap 🔖 to save a page.</div>
+                : mushafBookmarks.map((b, i) => (
+                  <div key={i} onClick={() => { mushafGoToPage(b.page); setShowMushafBookmarks(false); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer", borderBottom: i < mushafBookmarks.length - 1 ? "1px solid #3d241044" : "none" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#2a1505"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg,#8b6914,#c9943a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>P{b.page}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#e8d5a8" }}>Page {b.page} — {b.surah}</div>
+                      <div style={{ fontSize: 10, color: "#a8916a" }}>Juz {b.juz} · Saved {b.date}</div>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#c8a84b", fontWeight: 700 }}>Go →</div>
+                  </div>
+                ))
+              }
+            </div>
+          )}
+
+          {/* Row 2: Search bar with type selector */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <select value={mushafSearchType} onChange={e => { setMushafSearchType(e.target.value); setMushafSearch(""); setMushafSearchResults([]); }}
+              style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid #c8a84b44", background: "#2a1505", color: "#e8d5a8", fontSize: 11, fontFamily: "inherit", outline: "none", flexShrink: 0, cursor: "pointer" }}>
+              <option value="surah">Surah</option>
+              <option value="page">Page</option>
+              <option value="juz">Juz</option>
+            </select>
+            <div style={{ flex: 1, position: "relative" }}>
+              <input value={mushafSearch} onChange={e => handleMushafSearch(e.target.value)}
+                placeholder={mushafSearchType === "surah" ? "Search surah name..." : mushafSearchType === "page" ? "Enter page (1-604)" : "Enter juz (1-30)"}
+                type={mushafSearchType === "surah" ? "text" : "number"}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #c8a84b44", background: "#2a1505", color: "#e8d5a8", fontSize: 12, fontFamily: "inherit", outline: "none" }}
+              />
+              {mushafSearchResults.length > 0 && (
+                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1a0e04", border: "1px solid #c8a84b44", borderRadius: 8, zIndex: 100, maxHeight: 200, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
+                  {mushafSearchResults.map((r, i) => (
+                    <div key={i} onClick={() => { mushafGoToPage(r.page); setMushafSearch(""); setMushafSearchResults([]); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: i < mushafSearchResults.length - 1 ? "1px solid #3d241044" : "none" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#2a1505"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#e8d5a8" }}>{r.label}</div>
+                      </div>
+                      {r.sub && <div className="ar" style={{ fontSize: 14, color: "#c8a84b" }}>{r.sub}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Page card */}
