@@ -1518,7 +1518,7 @@ const VOTD_VERSES = [
 
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
-  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | adhkar | duas | names | tasbih | hifz | extraknowledge | dream
+  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | adhkar | duas | names | tasbih | hifz | extraknowledge | dream | offline
   const [votd, setVotd] = useState(null);
   const [votdLoading, setVotdLoading] = useState(false);
   // Hifz Tracker
@@ -2306,6 +2306,7 @@ export default function QuranLife() {
     .splash-fade{animation:fade .4s ease}
     /* AUDIO CONTROLS — pause/stop bar */
     .audio-bar{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:490px;background:linear-gradient(135deg,#051a0e,#0f5132);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:400;animation:pop .2s ease}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
   `;
 
   // ── TAJWEED COLOR HELPER ─────────────────────────────────────
@@ -2313,9 +2314,7 @@ export default function QuranLife() {
   // Colors: Red=Qalqalah, Green=Ghunnah, Blue=Madd elongation, Purple=Idgham
   function applyTajweedColors(text) {
     if (!tajweedColors || !text) return <span>{text}</span>;
-    const qalqalah = /[قطبجد]/g;
-    const madd = /[اوي]/g;
-    const ghunnah = /[نم]ّ/g; // shadda on nun/mim
+    const SHADDA = "\u0651";
     const result = [];
     let i = 0;
     const chars = [...text];
@@ -2323,7 +2322,7 @@ export default function QuranLife() {
       const ch = chars[i];
       const next = chars[i + 1] || "";
       // Ghunnah — nun or mim with shadda
-      if ((ch === "ن" || ch === "م") && next === "ّ") {
+      if ((ch === "ن" || ch === "م") && next === SHADDA) {
         result.push(<span key={i} style={{ color: "#27ae60", fontWeight: 700 }}>{ch}{next}</span>);
         i += 2; continue;
       }
@@ -2597,57 +2596,6 @@ export default function QuranLife() {
               <div style={{ color: "#9ba5b0", marginTop: 4 }}>Colors appear in the Quran reader. Full tajweed rules require a qualified teacher.</div>
             </div>
           )}
-        </div>
-
-        {/* Offline Mode */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>📥 Offline Mode</div>
-          <div style={{ padding: "12px 14px", borderRadius: 10, border: ".5px solid #e2e8e4", background: "#fafafa" }}>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10, lineHeight: 1.6 }}>
-              Save short Surahs (Al-Fatiha, last 10) to your device so they load without internet.
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <button onClick={async () => {
-                setOfflineDownloading(true);
-                const shortSurahs = [1,108,109,110,111,112,113,114,103,104,105,106,107];
-                const saved = [];
-                for (const sn of shortSurahs) {
-                  try {
-                    const url = `https://api.quran.com/api/v4/verses/by_chapter/${sn}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-                    const r = await fetch(url);
-                    if (r.ok) {
-                      const d = await r.json();
-                      localStorage.setItem(`ql_offline_s${sn}`, JSON.stringify(d.verses));
-                      saved.push(sn);
-                    }
-                  } catch {}
-                }
-                setOfflineSurahs(saved);
-                localStorage.setItem("ql_offline_surahs", JSON.stringify(saved));
-                localStorage.setItem("ql_offline","on");
-                setOfflineMode(true);
-                setOfflineDownloading(false);
-                alert(`✅ ${saved.length} Surahs saved for offline use!`);
-              }} disabled={offlineDownloading}
-                style={{ flex: 1, padding: "10px", borderRadius: 10, background: G, color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: offlineDownloading ? "default" : "pointer" }}>
-                {offlineDownloading ? "Downloading..." : "📥 Download Now"}
-              </button>
-              {offlineMode && (
-                <button onClick={() => {
-                  offlineSurahs.forEach(sn => localStorage.removeItem(`ql_offline_s${sn}`));
-                  localStorage.removeItem("ql_offline");
-                  localStorage.removeItem("ql_offline_surahs");
-                  setOfflineMode(false);
-                  setOfflineSurahs([]);
-                  alert("Offline data cleared.");
-                }}
-                  style={{ padding: "10px 14px", borderRadius: 10, background: "#fff", border: "1px solid #c0392b", color: "#c0392b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                  🗑 Clear
-                </button>
-              )}
-            </div>
-            {offlineMode && <div style={{ fontSize: 11, color: G, fontWeight: 600 }}>✅ {offlineSurahs.length} Surahs saved offline</div>}
-          </div>
         </div>
 
         <button onClick={() => setShowSettings(false)}
@@ -3221,11 +3169,15 @@ export default function QuranLife() {
         ))}
       </div>
 
-      {/* Row 4 — Extra Knowledge */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, padding: "12px 14px 0" }}>
+      {/* Row 4 — Extra Knowledge + Offline */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px 14px 0" }}>
         <button onClick={() => setScreen("extraknowledge")} className="nav-btn"
           style={{ background: "linear-gradient(180deg,#4a235a,#1a0828)", boxShadow: "0 5px 0 #0d0414,0 8px 16px rgba(0,0,0,.25)", fontSize: 17, padding: "22px 10px" }}>
-          🔮 EXTRA KNOWLEDGE
+          🔮 EXTRA\nKNOWLEDGE
+        </button>
+        <button onClick={() => setScreen("offline")} className="nav-btn"
+          style={{ background: "linear-gradient(180deg,#1a3a6c,#0d1f3a)", boxShadow: "0 5px 0 #060e1c,0 8px 16px rgba(0,0,0,.25)", fontSize: 17, padding: "22px 10px" }}>
+          📥 OFFLINE\nMODE
         </button>
       </div>
 
@@ -4909,7 +4861,7 @@ export default function QuranLife() {
     return (
       <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
         <div style={{ background: "linear-gradient(135deg,#0f5132,#1a7a4a)", padding: "14px 14px 16px" }}>
-          <button onClick={() => { setShowQuranNav(true); setScreen("home"); }} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Quran</button>
+          <button onClick={() => { setShowQuranNav(true); }} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Quran</button>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📗 Hifz Tracker</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Track your Quran memorization progress</div>
         </div>
@@ -5208,11 +5160,17 @@ IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpr
 
           {/* Verse selector */}
           <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>Select Verse to Recite</div>
-          <select value={mistakesVerseNum || ""} onChange={e => { setMistakesVerseNum(parseInt(e.target.value)); setMistakesResult(null); setMistakesError(null); }}
-            style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${mistakesVerseNum ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 12, background: "#fff", cursor: "pointer" }}>
-            <option value="">— Choose a verse —</option>
-            {verses.map(v => <option key={v.number} value={v.number}>Verse {v.number}</option>)}
-          </select>
+          {verses.length === 0 ? (
+            <div style={{ padding: "12px 14px", background: "#fffbea", borderRadius: 10, border: ".5px solid #e8b84b", fontSize: 12, color: "#7a5a00", marginBottom: 12 }}>
+              ⚠️ Please open a Surah first, then tap 🎙 Check to use this feature.
+            </div>
+          ) : (
+            <select value={mistakesVerseNum || ""} onChange={e => { setMistakesVerseNum(parseInt(e.target.value)); setMistakesResult(null); setMistakesError(null); }}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${mistakesVerseNum ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 12, background: "#fff", cursor: "pointer" }}>
+              <option value="">— Choose a verse —</option>
+              {verses.map(v => <option key={v.number} value={v.number}>Verse {v.number}</option>)}
+            </select>
+          )}
 
           {/* Show selected verse Arabic */}
           {selectedVerse && (
@@ -5287,6 +5245,117 @@ IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpr
     );
   };
 
+  // ── OFFLINE SCREEN ───────────────────────────────────────────
+  const OfflineScreen = () => (
+    <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
+      <div style={{ background: "linear-gradient(135deg,#1a3a6c,#0d1f3a)", padding: "14px 14px 16px" }}>
+        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📥 Offline Mode</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Save Surahs to read without internet</div>
+      </div>
+
+      <div style={{ padding: "14px 14px 0" }}>
+        {/* Status card */}
+        <div style={{ background: offlineMode ? "#f0faf5" : "#fff", borderRadius: 14, padding: 16, marginBottom: 14, border: `.5px solid ${offlineMode ? "#27ae60" : "#e2e8e4"}` }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: offlineMode ? "#27ae60" : "#1a1a1a", marginBottom: 4 }}>
+            {offlineMode ? "✅ Offline Data Saved" : "📡 No Offline Data Yet"}
+          </div>
+          <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
+            {offlineMode
+              ? `${offlineSurahs.length} Surahs saved to your browser. They will load without internet.`
+              : "Download short Surahs so they load instantly even without internet connection."}
+          </div>
+          {offlineMode && (
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {offlineSurahs.map(sn => {
+                const s = SURAHS.find(x => x.n === sn);
+                return s ? (
+                  <span key={sn} style={{ background: "#e8f5ee", color: "#1a5c2e", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}>
+                    {s.name}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Info box */}
+        <div style={{ background: "#fffbea", borderRadius: 12, padding: 14, marginBottom: 14, border: ".5px solid #e8b84b" }}>
+          <div style={{ fontSize: 12, color: "#7a5a00", lineHeight: 1.7 }}>
+            <strong>📌 Important to know:</strong><br />
+            • Data is saved in your browser memory<br />
+            • Always use <strong>normal browser</strong> — not incognito<br />
+            • If you clear browser cache, data will be deleted<br />
+            • Full offline support comes when app is on Play Store
+          </div>
+        </div>
+
+        {/* Surahs that will be saved */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 10 }}>Surahs Included in Download</div>
+        {[1,103,104,105,106,107,108,109,110,111,112,113,114].map(sn => {
+          const s = SURAHS.find(x => x.n === sn);
+          const saved = offlineSurahs.includes(sn);
+          return s ? (
+            <div key={sn} style={{ background: "#fff", borderRadius: 10, padding: "10px 14px", marginBottom: 6, border: `.5px solid ${saved ? "#27ae60" : "#e2e8e4"}`, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 7, background: saved ? "#27ae60" : "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: saved ? "#fff" : "#9ba5b0", flexShrink: 0 }}>
+                {saved ? "✓" : sn}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.verses} verses</div>
+              </div>
+              <div className="ar" style={{ fontSize: 15, color: saved ? "#27ae60" : G }}>{s.ar}</div>
+            </div>
+          ) : null;
+        })}
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <button onClick={async () => {
+            setOfflineDownloading(true);
+            const shortSurahs = [1,108,109,110,111,112,113,114,103,104,105,106,107];
+            const saved = [];
+            for (const sn of shortSurahs) {
+              try {
+                const url = `https://api.quran.com/api/v4/verses/by_chapter/${sn}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+                const r = await fetch(url);
+                if (r.ok) {
+                  const d = await r.json();
+                  localStorage.setItem(`ql_offline_s${sn}`, JSON.stringify(d.verses));
+                  saved.push(sn);
+                }
+              } catch {}
+            }
+            setOfflineSurahs(saved);
+            localStorage.setItem("ql_offline_surahs", JSON.stringify(saved));
+            localStorage.setItem("ql_offline", "on");
+            setOfflineMode(true);
+            setOfflineDownloading(false);
+            alert(`✅ ${saved.length} Surahs saved for offline use!`);
+          }} disabled={offlineDownloading}
+            style={{ flex: 1, padding: "14px", borderRadius: 12, background: offlineDownloading ? "#ccc" : "linear-gradient(135deg,#1a3a6c,#0d1f3a)", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: offlineDownloading ? "default" : "pointer", fontFamily: "inherit" }}>
+            {offlineDownloading ? "⏳ Downloading..." : "📥 Download Now"}
+          </button>
+          {offlineMode && (
+            <button onClick={() => {
+              offlineSurahs.forEach(sn => localStorage.removeItem(`ql_offline_s${sn}`));
+              localStorage.removeItem("ql_offline");
+              localStorage.removeItem("ql_offline_surahs");
+              setOfflineMode(false);
+              setOfflineSurahs([]);
+              alert("Offline data cleared.");
+            }}
+              style={{ padding: "14px 16px", borderRadius: 12, background: "#fff", border: "1px solid #c0392b", color: "#c0392b", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              🗑 Clear
+            </button>
+          )}
+        </div>
+      </div>
+      <Nav />
+      {ScrollFab()}
+    </div>
+  );
+
   // ── ROOT RENDER ─────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%", position: "relative" }}>
@@ -5307,6 +5376,7 @@ IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpr
       {!showSurahList && !showQuranNav && screen === "hifz" && HifzScreen()}
       {!showSurahList && !showQuranNav && screen === "extraknowledge" && ExtraKnowledgeScreen()}
       {!showSurahList && !showQuranNav && screen === "dream" && DreamScreen()}
+      {!showSurahList && !showQuranNav && screen === "offline" && OfflineScreen()}
       {ReportModal()}
     </div>
   );
