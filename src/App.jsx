@@ -348,31 +348,31 @@ const QUICK_LINKS = [
 // not specify them, and most claimed dates online come from unverified
 // Isra'iliyyat material. Icon = simple faceless symbol, never a face.
 const PROPHETS = [
-  {ar:"آدَم",en:"Adam",icon:"🌱",surahRefs:"Al-Baqarah 2:30-39 · Al-A'raf 7:11-25 · Ta-Ha 20:115-123"},
-  {ar:"إِدْرِيس",en:"Idris",icon:"📜",surahRefs:"Maryam 19:56-57 · Al-Anbiya 21:85"},
-  {ar:"نُوح",en:"Nuh",icon:"🚢",surahRefs:"Hud 11:25-49 · Nuh (Surah 71) · Al-Ankabut 29:14"},
-  {ar:"هُود",en:"Hud",icon:"🏜️",surahRefs:"Al-A'raf 7:65-72 · Hud 11:50-60"},
-  {ar:"صَالِح",en:"Salih",icon:"🐫",surahRefs:"Al-A'raf 7:73-79 · Hud 11:61-68"},
-  {ar:"إِبْرَاهِيم",en:"Ibrahim",icon:"🔥",surahRefs:"Al-Baqarah 2:124-141 · As-Saffat 37:83-113 · Al-Anbiya 21:51-73"},
-  {ar:"لُوط",en:"Lut",icon:"🏘️",surahRefs:"Hud 11:77-83 · Ash-Shu'ara 26:160-175"},
-  {ar:"إِسْمَاعِيل",en:"Ismail",icon:"🕋",surahRefs:"As-Saffat 37:100-113 · Al-Baqarah 2:127"},
-  {ar:"إِسْحَاق",en:"Ishaq",icon:"⛺",surahRefs:"As-Saffat 37:112-113 · Hud 11:71"},
-  {ar:"يَعْقُوب",en:"Yaqub",icon:"👨‍👦",surahRefs:"Yusuf 12:4-6, 68 · Al-Baqarah 2:132-133"},
-  {ar:"يُوسُف",en:"Yusuf",icon:"🌙",surahRefs:"Surah Yusuf (Surah 12, entire)"},
-  {ar:"أَيُّوب",en:"Ayyub",icon:"🕊️",surahRefs:"Al-Anbiya 21:83-84 · Sad 38:41-44"},
-  {ar:"شُعَيْب",en:"Shuaib",icon:"⚖️",surahRefs:"Al-A'raf 7:85-93 · Hud 11:84-95"},
-  {ar:"مُوسَى",en:"Musa",icon:"🌊",surahRefs:"Al-Baqarah 2:49-61 · Ta-Ha 20:9-98 · Al-Qasas 28:3-46"},
-  {ar:"هَارُون",en:"Harun",icon:"🗣️",surahRefs:"Ta-Ha 20:29-36, 90-94 · Al-A'raf 7:142-151"},
-  {ar:"ذُو الْكِفْل",en:"Dhul-Kifl",icon:"🤲",surahRefs:"Al-Anbiya 21:85-86 · Sad 38:48"},
-  {ar:"دَاوُد",en:"Dawud",icon:"👑",surahRefs:"Sad 38:17-26 · Al-Anbiya 21:78-80 · Saba 34:10-11"},
-  {ar:"سُلَيْمَان",en:"Sulaiman",icon:"💍",surahRefs:"An-Naml 27:15-44 · Sad 38:30-40"},
-  {ar:"إِلْيَاس",en:"Ilyas",icon:"⛰️",surahRefs:"As-Saffat 37:123-132 · Al-An'am 6:85"},
-  {ar:"اَلْيَسَع",en:"Al-Yasa",icon:"🌾",surahRefs:"Al-An'am 6:86 · Sad 38:48"},
-  {ar:"يُونُس",en:"Yunus",icon:"🐋",surahRefs:"As-Saffat 37:139-148 · Yunus 10:98 · Al-Anbiya 21:87-88"},
-  {ar:"زَكَرِيَّا",en:"Zakariya",icon:"🕌",surahRefs:"Maryam 19:2-11 · Ali Imran 3:37-41"},
-  {ar:"يَحْيَى",en:"Yahya",icon:"💧",surahRefs:"Maryam 19:12-15 · Ali Imran 3:39"},
-  {ar:"عِيسَى",en:"Isa",icon:"✨",surahRefs:"Maryam 19:16-34 · Ali Imran 3:42-55 · Al-Ma'idah 5:110-120"},
-  {ar:"مُحَمَّد ﷺ",en:"Muhammad",icon:"📖",surahRefs:"Al-Ahzab 33:40 · Al-Fath 48:29 · Muhammad (Surah 47)"},
+  {ar:"آدَم",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Adam",icon:"🌱",surahRefs:"Al-Baqarah 2:30-39 · Al-A'raf 7:11-25 · Ta-Ha 20:115-123"},
+  {ar:"إِدْرِيس",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Idris",icon:"📜",surahRefs:"Maryam 19:56-57 · Al-Anbiya 21:85"},
+  {ar:"نُوح",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Nuh",icon:"🚢",surahRefs:"Hud 11:25-49 · Nuh (Surah 71) · Al-Ankabut 29:14"},
+  {ar:"هُود",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Hud",icon:"🏜️",surahRefs:"Al-A'raf 7:65-72 · Hud 11:50-60"},
+  {ar:"صَالِح",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Salih",icon:"🐫",surahRefs:"Al-A'raf 7:73-79 · Hud 11:61-68"},
+  {ar:"إِبْرَاهِيم",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Ibrahim",icon:"🔥",surahRefs:"Al-Baqarah 2:124-141 · As-Saffat 37:83-113 · Al-Anbiya 21:51-73"},
+  {ar:"لُوط",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Lut",icon:"🏘️",surahRefs:"Hud 11:77-83 · Ash-Shu'ara 26:160-175"},
+  {ar:"إِسْمَاعِيل",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Ismail",icon:"🕋",surahRefs:"As-Saffat 37:100-113 · Al-Baqarah 2:127"},
+  {ar:"إِسْحَاق",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Ishaq",icon:"⛺",surahRefs:"As-Saffat 37:112-113 · Hud 11:71"},
+  {ar:"يَعْقُوب",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Yaqub",icon:"👨‍👦",surahRefs:"Yusuf 12:4-6, 68 · Al-Baqarah 2:132-133"},
+  {ar:"يُوسُف",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Yusuf",icon:"🌙",surahRefs:"Surah Yusuf (Surah 12, entire)"},
+  {ar:"أَيُّوب",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Ayyub",icon:"🕊️",surahRefs:"Al-Anbiya 21:83-84 · Sad 38:41-44"},
+  {ar:"شُعَيْب",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Shuaib",icon:"⚖️",surahRefs:"Al-A'raf 7:85-93 · Hud 11:84-95"},
+  {ar:"مُوسَى",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Musa",icon:"🌊",surahRefs:"Al-Baqarah 2:49-61 · Ta-Ha 20:9-98 · Al-Qasas 28:3-46"},
+  {ar:"هَارُون",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Harun",icon:"🗣️",surahRefs:"Ta-Ha 20:29-36, 90-94 · Al-A'raf 7:142-151"},
+  {ar:"ذُو الْكِفْل",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Dhul-Kifl",icon:"🤲",surahRefs:"Al-Anbiya 21:85-86 · Sad 38:48"},
+  {ar:"دَاوُد",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Dawud",icon:"👑",surahRefs:"Sad 38:17-26 · Al-Anbiya 21:78-80 · Saba 34:10-11"},
+  {ar:"سُلَيْمَان",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Sulaiman",icon:"💍",surahRefs:"An-Naml 27:15-44 · Sad 38:30-40"},
+  {ar:"إِلْيَاس",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Ilyas",icon:"⛰️",surahRefs:"As-Saffat 37:123-132 · Al-An'am 6:85"},
+  {ar:"اَلْيَسَع",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Al-Yasa",icon:"🌾",surahRefs:"Al-An'am 6:86 · Sad 38:48"},
+  {ar:"يُونُس",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Yunus",icon:"🐋",surahRefs:"As-Saffat 37:139-148 · Yunus 10:98 · Al-Anbiya 21:87-88"},
+  {ar:"زَكَرِيَّا",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Zakariya",icon:"🕌",surahRefs:"Maryam 19:2-11 · Ali Imran 3:37-41"},
+  {ar:"يَحْيَى",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Yahya",icon:"💧",surahRefs:"Maryam 19:12-15 · Ali Imran 3:39"},
+  {ar:"عِيسَى",salutation:"عَلَيْهِ ٱلسَّلَام",salEn:"Alaihi as-Salam (Peace be upon him)",en:"Isa",icon:"✨",surahRefs:"Maryam 19:16-34 · Ali Imran 3:42-55 · Al-Ma'idah 5:110-120"},
+  {ar:"مُحَمَّد",salutation:"ﷺ",salEn:"Sallallahu Alaihi Wasallam (Peace and blessings of Allah be upon him)",en:"Muhammad",icon:"📖",surahRefs:"Al-Ahzab 33:40 · Al-Fath 48:29 · Muhammad (Surah 47)"},
 ];
 
 const ARABIC_ALPHA = [
@@ -1010,8 +1010,8 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
   for (const tid of translationIds) {
     try {
-      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${tid}&fields=text_uthmani`;
-      const r = await fetch(url);
+      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&translations=${tid}&fields=text_uthmani&_cb=${Date.now()}`;
+      const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
       const d = await r.json();
       if (!d.verses || d.verses.length === 0) continue;
@@ -1036,8 +1036,8 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   // If all IDs failed, still return Arabic only
   if (!verses) {
     try {
-      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&fields=text_uthmani`;
-      const r = await fetch(url);
+      const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&fields=text_uthmani&_cb=${Date.now()}`;
+      const r = await fetch(url, { cache: "no-store" });
       const d = await r.json();
       verses = d.verses.map(v => ({
         number: v.verse_number,
@@ -1519,6 +1519,10 @@ export default function QuranLife() {
   const [mushafSearchType, setMushafSearchType] = useState("surah");
   const [mushafSearchResults, setMushafSearchResults] = useState([]);
   const [showMushafBookmarks, setShowMushafBookmarks] = useState(false);
+  const [showMushafStyleSelect, setShowMushafStyleSelect] = useState(false); // choose Amiri vs Mushaf style
+  const [mushafFontStyle, setMushafFontStyle] = useState(() => {
+    try { return localStorage.getItem("ql_mushaf_font_style") || "amiri"; } catch { return "amiri"; }
+  }); // "amiri" (new, bigger, comfortable) | "classic" (original, denser)
   const [mushafError, setMushafError] = useState(null);
   const [mushafDragX, setMushafDragX] = useState(0);
   const [mushafAnimating, setMushafAnimating] = useState(false);
@@ -1832,8 +1836,8 @@ export default function QuranLife() {
     setMushafLoading(true);
     setMushafError(null);
     try {
-      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&fields=text_uthmani`;
-      const r = await fetch(url);
+      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&fields=text_uthmani&_cb=${Date.now()}`;
+      const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error(`API ${r.status}`);
       const d = await r.json();
       const verses = (d.verses || []).map(v => ({
@@ -1864,8 +1868,8 @@ export default function QuranLife() {
   const fetchMushafTranslations = useCallback(async (pageNum) => {
     setMushafTransLoading(true);
     try {
-      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&translations=131&fields=text_uthmani`;
-      const r = await fetch(url);
+      const url = `https://api.quran.com/api/v4/verses/by_page/${pageNum}?language=en&words=false&per_page=50&translations=131&fields=text_uthmani&_cb=${Date.now()}`;
+      const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error();
       const d = await r.json();
       const map = {};
@@ -2038,7 +2042,7 @@ export default function QuranLife() {
 
   // ── STYLES ──────────────────────────────────────────────────
   const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Inter:wght@300;400;500;600&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
     html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}
     body{font-family:'Inter',sans-serif;background:${darkMode ? "#0f0f0f" : "#f5f3ee"};color:${darkMode ? "#e8e8e8" : "#1a1a1a"}}
@@ -2049,7 +2053,7 @@ export default function QuranLife() {
     .mushaf-wrap{background:#fdf6e3;border-radius:8px;padding:20px 16px;margin:10px 0;position:relative;box-shadow:0 2px 20px rgba(139,105,20,.15),inset 0 0 60px rgba(139,105,20,.04)}
     .mushaf-wrap::before{content:'';position:absolute;inset:6px;border:1.5px solid rgba(139,105,20,.25);border-radius:4px;pointer-events:none}
     .mushaf-wrap::after{content:'';position:absolute;inset:10px;border:.5px solid rgba(139,105,20,.1);border-radius:2px;pointer-events:none}
-    .mushaf-text{font-family:'Amiri',serif;font-size:24px;line-height:3;direction:rtl;text-align:justify;text-align-last:right;color:#1a0500;word-spacing:2px;width:100%;display:block}
+    .mushaf-text{font-family:'Amiri Quran','Amiri',serif;font-size:29px;line-height:2.65;direction:rtl;text-align:justify;text-align-last:right;color:#1a0500;word-spacing:2px;width:100%;display:block}
     .mushaf-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8b6914,#c9943a);color:#fff;font-size:10px;font-weight:700;margin:0 3px;vertical-align:middle;flex-shrink:0;font-family:'Inter',sans-serif;line-height:1}
     .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%}
     .mode-btn{padding:6px 14px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
@@ -2496,6 +2500,49 @@ export default function QuranLife() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  ) : null;
+
+  const MushafStyleSelectSheet = () => showMushafStyleSelect ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowMushafStyleSelect(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, textAlign: "center" }}>📖 Read Full Quran in Arabic</div>
+        <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 16, textAlign: "center" }}>Choose your preferred reading style</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <button onClick={() => {
+              setMushafFontStyle("amiri");
+              try { localStorage.setItem("ql_mushaf_font_style", "amiri"); } catch {}
+              setShowMushafStyleSelect(false);
+              setShowQuranNav(false);
+              setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null);
+              openMushafReader();
+            }}
+            style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px", borderRadius: 14, background: "linear-gradient(135deg,#f0faf5,#e8f4ee)", border: `1.5px solid ${G}55`, cursor: "pointer", textAlign: "left" }}>
+            <div style={{ fontSize: 30 }}>📖</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Amiri Style</div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>Bigger font, more spacing — comfortable reading</div>
+            </div>
+          </button>
+          <button onClick={() => {
+              setMushafFontStyle("classic");
+              try { localStorage.setItem("ql_mushaf_font_style", "classic"); } catch {}
+              setShowMushafStyleSelect(false);
+              setShowQuranNav(false);
+              setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null);
+              openMushafReader();
+            }}
+            style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px", borderRadius: 14, background: "linear-gradient(135deg,#fdf8ef,#faf1dc)", border: "1.5px solid #c8a84b55", cursor: "pointer", textAlign: "left" }}>
+            <div style={{ fontSize: 30 }}>📜</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Mushaf Style</div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>Traditional, denser layout — classic look</div>
+            </div>
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: "#c4c4c4", textAlign: "center", marginTop: 14 }}>Same authentic Uthmani text either way — you can switch anytime</div>
       </div>
     </div>
   ) : null;
@@ -3038,8 +3085,8 @@ export default function QuranLife() {
             fn: () => { setFilter("all"); setSurahListTitle("All 114 Surahs"); setShowSurahList(true); } },
           { label: "QUICK LINK\nOF SURAHS", bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
             fn: () => { setShowQuickLinks(true); } },
-          { label: "COMPLETE\nQURAN", bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
-            fn: () => { setShowQuranNav(false); setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null); openMushafReader(); } },
+          { label: "Read Full\nQuran in\nArabic", bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
+            fn: () => { setShowMushafStyleSelect(true); } },
           { label: "JUZ INDEX", bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
             fn: () => { setShowJuz(true); } },
         ].map(({ label, bg, sh, fn }) => (
@@ -3646,10 +3693,13 @@ export default function QuranLife() {
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#e67e22,#f39c12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, color: "#fff" }}>{i + 1}</div>
                 <div style={{ fontSize: 22 }}>{p.icon}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{p.en}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{p.en} <span style={{ fontSize: 10, color: "#c9943a", fontWeight: 500 }}>({p.salEn.split(" (")[0]})</span></div>
                   <div style={{ fontSize: 11, color: "#9ba5b0" }}>{curLang.na} · {p.en}</div>
                 </div>
-                <div className="ar" style={{ fontSize: 18, color: "#e67e22" }}>{p.ar}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div className="ar" style={{ fontSize: 18, color: "#e67e22" }}>{p.ar}</div>
+                  <div className="ar" style={{ fontSize: 12, color: "#c9943a" }}>{p.salutation}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -3673,8 +3723,9 @@ export default function QuranLife() {
             {/* Name header */}
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 2 }}>Prophet #{selectedProphet + 1}</div>
-              <div className="ar" style={{ fontSize: 30, color: "#e67e22", marginBottom: 4 }}>{p.ar}</div>
+              <div className="ar" style={{ fontSize: 30, color: "#e67e22", marginBottom: 2 }}>{p.ar} <span style={{ fontSize: 18, color: "#c9943a" }}>{p.salutation}</span></div>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a" }}>{p.en}</div>
+              <div style={{ fontSize: 11, color: "#c9943a", fontWeight: 600, marginTop: 2 }}>{p.salEn}</div>
               <div style={{ fontSize: 12, color: "#9ba5b0", marginTop: 2 }}>{curLang.na}: {p.en}</div>
             </div>
 
@@ -3964,6 +4015,15 @@ export default function QuranLife() {
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.3)", border: "1px solid #c8a84b", fontSize: 16, color: "#c8a84b", cursor: "pointer", flexShrink: 0 }} title="Save this page">🔖</button>
             <button onClick={() => setShowMushafBookmarks(b => !b)}
               style={{ width: 32, height: 32, borderRadius: 8, background: showMushafBookmarks ? "#c8a84b" : "rgba(200,168,75,.15)", border: "1px solid #c8a84b55", fontSize: 11, color: showMushafBookmarks ? "#1a0e04" : "#c8a84b", cursor: "pointer", fontWeight: 700, flexShrink: 0 }} title="My saved pages">📋</button>
+            <button onClick={() => {
+                const next = mushafFontStyle === "amiri" ? "classic" : "amiri";
+                setMushafFontStyle(next);
+                try { localStorage.setItem("ql_mushaf_font_style", next); } catch {}
+              }}
+              style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.15)", border: "1px solid #c8a84b55", fontSize: 13, color: "#c8a84b", cursor: "pointer", flexShrink: 0 }}
+              title={mushafFontStyle === "amiri" ? "Switch to Mushaf Style" : "Switch to Amiri Style"}>
+              {mushafFontStyle === "amiri" ? "📜" : "📖"}
+            </button>
           </div>
 
           {/* Saved bookmarks panel */}
@@ -4098,7 +4158,10 @@ export default function QuranLife() {
                             </div>
                           )}
                           {/* Verses — Arabic */}
-                          <div style={{ fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
+                          <div style={mushafFontStyle === "classic"
+                            ? { fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }
+                            : { fontFamily: "'Amiri Quran','Amiri',serif", fontSize: 27, lineHeight: 2.5, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }
+                          }>
                             {group.verses.map((v, i) => {
                               const isHighlighted = mushafHighlightVerse && v.number === mushafHighlightVerse && parseInt(v.chapter) === mushafQuickLinkSurah;
                               return (
@@ -4383,6 +4446,7 @@ export default function QuranLife() {
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%", position: "relative" }}>
       <style>{css}</style>
       {showSurahList && SurahListScreen()}
+      {MushafStyleSelectSheet()}
       {!showSurahList && showQuranNav && QuranNavScreen()}
       {!showSurahList && !showQuranNav && screen === "home" && HomeScreen()}
       {!showSurahList && !showQuranNav && screen === "read" && ReadScreen()}
