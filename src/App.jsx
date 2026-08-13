@@ -1463,6 +1463,14 @@ const DUAS=[
   {cat:"😟 Anxiety",ar:"لَا إِلَهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ",en:"There is no god but You, glory be to You, indeed I was among the wrongdoers.",src:"Quran 21:87"},
   {cat:"🤲 Forgiveness",ar:"رَبِّ اغْفِرْ لِي وَتُبْ عَلَيَّ إِنَّكَ أَنْتَ التَّوَّابُ الرَّحِيمُ",en:"My Lord, forgive me and accept my repentance. Indeed, You are the Accepting of Repentance, the Merciful.",src:"Tirmidhi"},
   {cat:"🌧 Rain",ar:"اللَّهُمَّ صَيِّبًا نَافِعًا",en:"O Allah, make it a beneficial rain.",src:"Bukhari"},
+  {cat:"😰 Fear & Distress",ar:"حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ",en:"Allah is sufficient for me. There is no god but He. In Him I put my trust. He is the Lord of the Mighty Throne.",src:"Abu Dawud 5081 — Sahih"},
+  {cat:"😰 Fear & Distress",ar:"اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ، وَالْعَجْزِ وَالْكَسَلِ، وَالْبُخْلِ وَالْجُبْنِ، وَضَلَعِ الدَّيْنِ وَغَلَبَةِ الرِّجَالِ",en:"O Allah, I seek refuge in You from anxiety and grief, from weakness and laziness, from miserliness and cowardice, from the burden of debt and the oppression of people.",src:"Bukhari 2893 — Sahih"},
+  {cat:"😔 Depression & Sadness",ar:"لَا إِلَهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ",en:"There is no god but You. Glory be to You. Indeed, I was among the wrongdoers.",src:"Quran 21:87 — Dua of Prophet Yunus (AS). The Prophet ﷺ said whoever recites it will have his supplication answered. (Tirmidhi 3505 — Hasan)"},
+  {cat:"😔 Depression & Sadness",ar:"اللَّهُمَّ رَحْمَتَكَ أَرْجُو فَلَا تَكِلْنِي إِلَى نَفْسِي طَرْفَةَ عَيْنٍ، وَأَصْلِحْ لِي شَأْنِي كُلَّهُ",en:"O Allah, I hope for Your mercy. Do not leave me to myself even for the blink of an eye. Correct all my affairs.",src:"Abu Dawud 5090 — Hasan"},
+  {cat:"💸 Financial Difficulty",ar:"اللَّهُمَّ اكْفِنِي بِحَلَالِكَ عَنْ حَرَامِكَ، وَأَغْنِنِي بِفَضْلِكَ عَمَّنْ سِوَاكَ",en:"O Allah, suffice me with what You have made lawful, sparing me from what You have made unlawful, and make me independent of all others by Your bounty.",src:"Tirmidhi 3563 — Hasan"},
+  {cat:"💸 Financial Difficulty",ar:"اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْفَقْرِ، وَالْقِلَّةِ، وَالذِّلَّةِ، وَأَعُوذُ بِكَ مِنْ أَنْ أَظْلِمَ أَوْ أُظْلَمَ",en:"O Allah, I seek refuge in You from poverty, scarcity, and humiliation. And I seek refuge in You from wronging others or being wronged.",src:"Abu Dawud 1544 — Sahih"},
+  {cat:"🧿 Evil Eye Protection",ar:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّةِ مِنْ كُلِّ شَيْطَانٍ وَهَامَّةٍ، وَمِنْ كُلِّ عَيْنٍ لَامَّةٍ",en:"I seek refuge in the perfect words of Allah from every devil and every poisonous creature, and from every evil eye.",src:"Bukhari 3371 — Sahih. The Prophet ﷺ used to seek refuge for Hasan and Husayn with these words."},
+  {cat:"🧿 Evil Eye Protection",ar:"بِسْمِ اللَّهِ أَرْقِيكَ، مِنْ كُلِّ شَيْءٍ يُؤْذِيكَ، مِنْ شَرِّ كُلِّ نَفْسٍ أَوْ عَيْنِ حَاسِدٍ، اللَّهُ يَشْفِيكَ، بِسْمِ اللَّهِ أَرْقِيكَ",en:"In the name of Allah I perform ruqyah for you, from everything that harms you, from the evil of every soul or envious eye. May Allah cure you. In the name of Allah I perform ruqyah for you.",src:"Muslim 2186 — Sahih — Ruqyah of Jibreel (AS) for the Prophet ﷺ"},
 ];
 
 // ─── TASBIH OPTIONS ───────────────────────────────────────────
@@ -1474,9 +1482,45 @@ const TASBIH_OPTS=[
   {ar:"أَسْتَغْفِرُ اللَّهَ",en:"AstaghfirAllah",t:100},
 ];
 
+// ─── VERSE OF THE DAY — 30 curated verses, rotates daily ────
+const VOTD_VERSES = [
+  {surahNum:2,verseNum:255,surahName:"Al-Baqarah",ar:"ٱللَّهُ لَآ إِلَـٰهَ إِلَّا هُوَ ٱلْحَىُّ ٱلْقَيُّومُ",en:"Allah — there is no deity except Him, the Ever-Living, the Sustainer of existence."},
+  {surahNum:2,verseNum:286,surahName:"Al-Baqarah",ar:"لَا يُكَلِّفُ ٱللَّهُ نَفْسًا إِلَّا وُسْعَهَا",en:"Allah does not burden a soul beyond that it can bear."},
+  {surahNum:3,verseNum:173,surahName:"Ali Imran",ar:"حَسْبُنَا ٱللَّهُ وَنِعْمَ ٱلْوَكِيلُ",en:"Sufficient for us is Allah, and He is the best Disposer of affairs."},
+  {surahNum:94,verseNum:5,surahName:"Ash-Sharh",ar:"فَإِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",en:"For indeed, with hardship will be ease."},
+  {surahNum:13,verseNum:28,surahName:"Ar-Rad",ar:"أَلَا بِذِكْرِ ٱللَّهِ تَطْمَئِنُّ ٱلْقُلُوبُ",en:"Verily, in the remembrance of Allah do hearts find rest."},
+  {surahNum:65,verseNum:3,surahName:"At-Talaq",ar:"وَمَن يَتَوَكَّلْ عَلَى ٱللَّهِ فَهُوَ حَسْبُهُۥ",en:"And whoever relies upon Allah — then He is sufficient for him."},
+  {surahNum:2,verseNum:152,surahName:"Al-Baqarah",ar:"فَٱذْكُرُونِىٓ أَذْكُرْكُمْ وَٱشْكُرُوا۟ لِى وَلَا تَكْفُرُونِ",en:"So remember Me; I will remember you. And be grateful to Me and do not deny Me."},
+  {surahNum:39,verseNum:53,surahName:"Az-Zumar",ar:"لَا تَقْنَطُوا۟ مِن رَّحْمَةِ ٱللَّهِ ۚ إِنَّ ٱللَّهَ يَغْفِرُ ٱلذُّنُوبَ جَمِيعًا",en:"Do not despair of the mercy of Allah. Indeed, Allah forgives all sins."},
+  {surahNum:9,verseNum:51,surahName:"At-Tawbah",ar:"قُل لَّن يُصِيبَنَآ إِلَّا مَا كَتَبَ ٱللَّهُ لَنَا هُوَ مَوْلَىٰنَا",en:"Say, Never will we be struck except by what Allah has decreed for us; He is our protector."},
+  {surahNum:14,verseNum:7,surahName:"Ibrahim",ar:"لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ",en:"If you are grateful, I will surely increase you in favor."},
+  {surahNum:2,verseNum:45,surahName:"Al-Baqarah",ar:"وَٱسْتَعِينُوا۟ بِٱلصَّبْرِ وَٱلصَّلَوٰةِ",en:"Seek help through patience and prayer."},
+  {surahNum:49,verseNum:13,surahName:"Al-Hujurat",ar:"إِنَّ أَكْرَمَكُمْ عِندَ ٱللَّهِ أَتْقَىٰكُمْ",en:"Indeed, the most noble of you in the sight of Allah is the most righteous."},
+  {surahNum:16,verseNum:97,surahName:"An-Nahl",ar:"مَنْ عَمِلَ صَـٰلِحًا مِّن ذَكَرٍ أَوْ أُنثَىٰ وَهُوَ مُؤْمِنٌ فَلَنُحْيِيَنَّهُۥ حَيَوٰةً طَيِّبَةً",en:"Whoever does righteousness, whether male or female, while a believer — We will surely cause him to live a good life."},
+  {surahNum:55,verseNum:13,surahName:"Ar-Rahman",ar:"فَبِأَىِّ ءَالَآءِ رَبِّكُمَا تُكَذِّبَانِ",en:"So which of the favors of your Lord would you deny?"},
+  {surahNum:3,verseNum:139,surahName:"Ali Imran",ar:"وَلَا تَهِنُوا۟ وَلَا تَحْزَنُوا۟ وَأَنتُمُ ٱلْأَعْلَوْنَ إِن كُنتُم مُّؤْمِنِينَ",en:"Do not weaken and do not grieve, and you will be superior if you are truly believers."},
+  {surahNum:20,verseNum:114,surahName:"Ta-Ha",ar:"وَقُل رَّبِّ زِدْنِى عِلْمًا",en:"And say: My Lord, increase me in knowledge."},
+  {surahNum:17,verseNum:44,surahName:"Al-Isra",ar:"وَإِن مِّن شَىْءٍ إِلَّا يُسَبِّحُ بِحَمْدِهِۦ وَلَـٰكِن لَّا تَفْقَهُونَ تَسْبِيحَهُمْ",en:"There is not a thing except that it exalts Allah by His praise, but you do not understand their exaltation."},
+  {surahNum:57,verseNum:4,surahName:"Al-Hadid",ar:"وَهُوَ مَعَكُمْ أَيْنَ مَا كُنتُمْ",en:"And He is with you wherever you are."},
+  {surahNum:2,verseNum:186,surahName:"Al-Baqarah",ar:"وَإِذَا سَأَلَكَ عِبَادِى عَنِّى فَإِنِّى قَرِيبٌ ۖ أُجِيبُ دَعْوَةَ ٱلدَّاعِ إِذَا دَعَانِ",en:"And when My servants ask you concerning Me — indeed I am near. I respond to the invocation of the supplicant when he calls upon Me."},
+  {surahNum:93,verseNum:5,surahName:"Ad-Duha",ar:"وَلَسَوْفَ يُعْطِيكَ رَبُّكَ فَتَرْضَىٰ",en:"And your Lord is going to give you, and you will be satisfied."},
+  {surahNum:18,verseNum:10,surahName:"Al-Kahf",ar:"رَبَّنَآ ءَاتِنَا مِن لَّدُنكَ رَحْمَةً وَهَيِّئْ لَنَا مِنْ أَمْرِنَا رَشَدًا",en:"Our Lord, grant us from Yourself mercy and prepare for us from our affair right guidance."},
+  {surahNum:7,verseNum:23,surahName:"Al-Araf",ar:"رَبَّنَا ظَلَمْنَآ أَنفُسَنَا وَإِن لَّمْ تَغْفِرْ لَنَا وَتَرْحَمْنَا لَنَكُونَنَّ مِنَ ٱلْخَـٰسِرِينَ",en:"Our Lord, we have wronged ourselves, and if You do not forgive us and have mercy upon us, we will surely be among the losers."},
+  {surahNum:3,verseNum:8,surahName:"Ali Imran",ar:"رَبَّنَا لَا تُزِغْ قُلُوبَنَا بَعْدَ إِذْ هَدَيْتَنَا وَهَبْ لَنَا مِن لَّدُنكَ رَحْمَةً",en:"Our Lord, let not our hearts deviate after You have guided us and grant us from Yourself mercy."},
+  {surahNum:25,verseNum:74,surahName:"Al-Furqan",ar:"رَبَّنَا هَبْ لَنَا مِنْ أَزْوَٰجِنَا وَذُرِّيَّـٰتِنَا قُرَّةَ أَعْيُنٍ وَٱجْعَلْنَا لِلْمُتَّقِينَ إِمَامًا",en:"Our Lord, grant us from among our wives and offspring comfort to our eyes and make us an example for the righteous."},
+  {surahNum:67,verseNum:1,surahName:"Al-Mulk",ar:"تَبَـٰرَكَ ٱلَّذِى بِيَدِهِ ٱلْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَىْءٍ قَدِيرٌ",en:"Blessed is He in whose hand is dominion, and He is over all things competent."},
+  {surahNum:112,verseNum:1,surahName:"Al-Ikhlas",ar:"قُلْ هُوَ ٱللَّهُ أَحَدٌ",en:"Say, He is Allah, the One."},
+  {surahNum:24,verseNum:35,surahName:"An-Nur",ar:"ٱللَّهُ نُورُ ٱلسَّمَـٰوَٰتِ وَٱلْأَرْضِ",en:"Allah is the Light of the heavens and the earth."},
+  {surahNum:59,verseNum:22,surahName:"Al-Hashr",ar:"هُوَ ٱللَّهُ ٱلَّذِى لَآ إِلَـٰهَ إِلَّا هُوَ ۖ عَـٰلِمُ ٱلْغَيْبِ وَٱلشَّهَـٰدَةِ",en:"He is Allah, other than whom there is no deity, Knower of the unseen and the witnessed."},
+  {surahNum:41,verseNum:30,surahName:"Fussilat",ar:"إِنَّ ٱلَّذِينَ قَالُوا۟ رَبُّنَا ٱللَّهُ ثُمَّ ٱسْتَقَـٰمُوا۟ تَتَنَزَّلُ عَلَيْهِمُ ٱلْمَلَـٰٓئِكَةُ",en:"Indeed, those who have said Our Lord is Allah, and then remained steadfast — the angels will descend upon them."},
+  {surahNum:76,verseNum:9,surahName:"Al-Insan",ar:"إِنَّمَا نُطْعِمُكُمْ لِوَجْهِ ٱللَّهِ لَا نُرِيدُ مِنكُمْ جَزَآءً وَلَا شُكُورًا",en:"We feed you only for the countenance of Allah. We wish not from you reward or gratitude."},
+];
+
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
   const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | adhkar | duas | names | tasbih
+  const [votd, setVotd] = useState(null); // { arabic, translation, surahName, verseNum, surahNum }
+  const [votdLoading, setVotdLoading] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [qiblaAngle, setQiblaAngle] = useState(null);
@@ -1590,6 +1634,14 @@ export default function QuranLife() {
         window.speechSynthesis.getVoices();
       };
     }
+  }, []);
+
+  // Verse of the Day — rotates daily, picked by day-of-year mod total verses
+  useEffect(() => {
+    const now = new Date();
+    const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    const idx = dayOfYear % VOTD_VERSES.length;
+    setVotd(VOTD_VERSES[idx]);
   }, []);
 
   const curLang = LANGS.find(l => l.c === lang) || LANGS[0];
@@ -2926,6 +2978,20 @@ export default function QuranLife() {
         <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: .5 }}>QURAN - INLIFE APP</div>
         <div className="ar" style={{ fontSize: 15, color: "rgba(255,255,255,.7)", marginTop: 5 }}>بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>
       </div>
+
+      {/* Verse of the Day */}
+      {votd && (
+        <div style={{ margin: "12px 14px 0", background: "linear-gradient(135deg,#0a3020,#1a6040)", borderRadius: 16, padding: "14px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.18)", cursor: "pointer" }}
+          onClick={() => openSurah(votd.surahNum)}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#c8a84b", letterSpacing: 1.5, textTransform: "uppercase" }}>✨ Verse of the Day</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", fontWeight: 600 }}>{votd.surahName} {votd.surahNum}:{votd.verseNum}</div>
+          </div>
+          <div className="ar" style={{ fontSize: 20, color: "#fff", lineHeight: 1.9, textAlign: "right", direction: "rtl", marginBottom: 10, fontWeight: 500 }}>{votd.ar}</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.8)", lineHeight: 1.6, fontStyle: "italic" }}>{votd.en}</div>
+          <div style={{ marginTop: 8, fontSize: 10, color: "#c8a84b", fontWeight: 600 }}>Tap to read full Surah →</div>
+        </div>
+      )}
 
       {/* Search bar — ABOVE the Quran button */}
       <div style={{ padding: "12px 14px 0", position: "relative", zIndex: 50 }}>
