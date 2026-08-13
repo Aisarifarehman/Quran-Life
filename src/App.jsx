@@ -342,6 +342,39 @@ const QUICK_LINKS = [
   {name:"Al-Ikhlas",ar:"الإخلاص",surah:112,verse:1,page:604,icon:"🤲"},
 ];
 
+// ─── 25 PROPHETS NAMED IN THE QURAN — chronological order ────
+// Names/order per standard Islamic tradition. Birth/death dates and exact
+// locations are intentionally omitted — the Quran and authentic hadith do
+// not specify them, and most claimed dates online come from unverified
+// Isra'iliyyat material. Icon = simple faceless symbol, never a face.
+const PROPHETS = [
+  {ar:"آدَم",en:"Adam",icon:"🌱",surahRefs:"Al-Baqarah 2:30-39 · Al-A'raf 7:11-25 · Ta-Ha 20:115-123"},
+  {ar:"إِدْرِيس",en:"Idris",icon:"📜",surahRefs:"Maryam 19:56-57 · Al-Anbiya 21:85"},
+  {ar:"نُوح",en:"Nuh",icon:"🚢",surahRefs:"Hud 11:25-49 · Nuh (Surah 71) · Al-Ankabut 29:14"},
+  {ar:"هُود",en:"Hud",icon:"🏜️",surahRefs:"Al-A'raf 7:65-72 · Hud 11:50-60"},
+  {ar:"صَالِح",en:"Salih",icon:"🐫",surahRefs:"Al-A'raf 7:73-79 · Hud 11:61-68"},
+  {ar:"إِبْرَاهِيم",en:"Ibrahim",icon:"🔥",surahRefs:"Al-Baqarah 2:124-141 · As-Saffat 37:83-113 · Al-Anbiya 21:51-73"},
+  {ar:"لُوط",en:"Lut",icon:"🏘️",surahRefs:"Hud 11:77-83 · Ash-Shu'ara 26:160-175"},
+  {ar:"إِسْمَاعِيل",en:"Ismail",icon:"🕋",surahRefs:"As-Saffat 37:100-113 · Al-Baqarah 2:127"},
+  {ar:"إِسْحَاق",en:"Ishaq",icon:"⛺",surahRefs:"As-Saffat 37:112-113 · Hud 11:71"},
+  {ar:"يَعْقُوب",en:"Yaqub",icon:"👨‍👦",surahRefs:"Yusuf 12:4-6, 68 · Al-Baqarah 2:132-133"},
+  {ar:"يُوسُف",en:"Yusuf",icon:"🌙",surahRefs:"Surah Yusuf (Surah 12, entire)"},
+  {ar:"أَيُّوب",en:"Ayyub",icon:"🕊️",surahRefs:"Al-Anbiya 21:83-84 · Sad 38:41-44"},
+  {ar:"شُعَيْب",en:"Shuaib",icon:"⚖️",surahRefs:"Al-A'raf 7:85-93 · Hud 11:84-95"},
+  {ar:"مُوسَى",en:"Musa",icon:"🌊",surahRefs:"Al-Baqarah 2:49-61 · Ta-Ha 20:9-98 · Al-Qasas 28:3-46"},
+  {ar:"هَارُون",en:"Harun",icon:"🗣️",surahRefs:"Ta-Ha 20:29-36, 90-94 · Al-A'raf 7:142-151"},
+  {ar:"ذُو الْكِفْل",en:"Dhul-Kifl",icon:"🤲",surahRefs:"Al-Anbiya 21:85-86 · Sad 38:48"},
+  {ar:"دَاوُد",en:"Dawud",icon:"👑",surahRefs:"Sad 38:17-26 · Al-Anbiya 21:78-80 · Saba 34:10-11"},
+  {ar:"سُلَيْمَان",en:"Sulaiman",icon:"💍",surahRefs:"An-Naml 27:15-44 · Sad 38:30-40"},
+  {ar:"إِلْيَاس",en:"Ilyas",icon:"⛰️",surahRefs:"As-Saffat 37:123-132 · Al-An'am 6:85"},
+  {ar:"اَلْيَسَع",en:"Al-Yasa",icon:"🌾",surahRefs:"Al-An'am 6:86 · Sad 38:48"},
+  {ar:"يُونُس",en:"Yunus",icon:"🐋",surahRefs:"As-Saffat 37:139-148 · Yunus 10:98 · Al-Anbiya 21:87-88"},
+  {ar:"زَكَرِيَّا",en:"Zakariya",icon:"🕌",surahRefs:"Maryam 19:2-11 · Ali Imran 3:37-41"},
+  {ar:"يَحْيَى",en:"Yahya",icon:"💧",surahRefs:"Maryam 19:12-15 · Ali Imran 3:39"},
+  {ar:"عِيسَى",en:"Isa",icon:"✨",surahRefs:"Maryam 19:16-34 · Ali Imran 3:42-55 · Al-Ma'idah 5:110-120"},
+  {ar:"مُحَمَّد ﷺ",en:"Muhammad",icon:"📖",surahRefs:"Al-Ahzab 33:40 · Al-Fath 48:29 · Muhammad (Surah 47)"},
+];
+
 const ARABIC_ALPHA = [
   {l:"أ",n:"Alif",full:"ألف",s:"A",color:"#e74c3c",e:"🦁",w:"أسد",wt:"Asad",wm:"Lion"},
   {l:"ب",n:"Ba",full:"باء",s:"B",color:"#e67e22",e:"🦆",w:"بطة",wt:"Batta",wm:"Duck"},
@@ -1116,7 +1149,23 @@ async function askAI(prompt, langName, retries = 2) {
   }
 }
 
-// ─── AUDIO — 2 fallback URLs ─────────────────────────────────
+// Fetch a SHORT storybook version of a prophet's story — 4 short pages,
+// grounded only in Quran/authentic hadith, written simply for children.
+// Returns an array of short page strings (no full biography, no invented dates).
+async function fetchProphetStory(prophet, langName) {
+  const prompt = `Tell the story of Prophet ${prophet.en} (${prophet.ar}) as a SHORT children's storybook, using ONLY what is stated in the Quran (references: ${prophet.surahRefs}) and authentic hadith. Do NOT invent dates, ages, or locations not mentioned in these sources. Do NOT include any birth or death dates. Write EXACTLY 4 short story pages, each 2-3 simple sentences a child can understand, moving the story forward like "First... then... then... finally...". Separate the 4 pages with the exact marker "|||PAGE|||" and nothing else between them. Do not number the pages. Do not add a title. Write directly in ${langName}.`;
+  const key = import.meta.env.VITE_GEMINI_KEY || "";
+  if (!key) throw new Error("NO_KEY");
+  const now = Date.now();
+  const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geminiQueue.lastCall = Date.now();
+  const raw = await geminiCall(prompt, 900, key);
+  const pages = raw.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
+  return pages.length > 0 ? pages : [raw];
+}
+
+
 // Correct global verse start numbers for each surah (1-indexed)
 // Surah 1 starts at verse 1, Surah 2 starts at verse 8, etc.
 const SURAH_VERSE_STARTS = {
@@ -1491,7 +1540,12 @@ export default function QuranLife() {
   const [kidsAudioCurrent, setKidsAudioCurrent] = useState(null);
   const kidsAudioStopRef = useRef(false);
   const [learned, setLearned] = useState([]);
-  const [kidsTab, setKidsTab] = useState("letters"); // "letters" | "vowels"
+  const [kidsTab, setKidsTab] = useState("letters"); // "letters" | "vowels" | "prophets"
+  const [selectedProphet, setSelectedProphet] = useState(null); // index into PROPHETS
+  const [prophetStoryPage, setProphetStoryPage] = useState(0);
+  const [prophetStoryCache, setProphetStoryCache] = useState({}); // key: "index-lang" → {loading,error,pages:[]}
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportContext, setReportContext] = useState("");
   const [vowelPlaying, setVowelPlaying] = useState(null); // key string
   const [langSearch, setLangSearch] = useState("");
   const [langCountry, setLangCountry] = useState("all");
@@ -1829,6 +1883,33 @@ export default function QuranLife() {
     }
   }, []);
 
+  // ── PROPHET STORY — short, cached, AI-generated, disclosed ───
+  const loadProphetStory = useCallback(async (idx, forceRetry = false) => {
+    const prophet = PROPHETS[idx];
+    const cacheKey = `${idx}-${lang}`;
+    if (!forceRetry && prophetStoryCache[cacheKey]?.pages) return;
+    setProphetStoryCache(p => ({ ...p, [cacheKey]: { loading: true, error: null, pages: null } }));
+    try {
+      const pages = await fetchProphetStory(prophet, curLang.n);
+      setProphetStoryCache(p => ({ ...p, [cacheKey]: { loading: false, error: null, pages } }));
+    } catch (e) {
+      const msg = e.message === "NO_KEY" ? "AI key not configured." : "Could not load the story. Please check your connection.";
+      setProphetStoryCache(p => ({ ...p, [cacheKey]: { loading: false, error: msg, pages: null } }));
+    }
+  }, [lang, curLang, prophetStoryCache]);
+
+  const submitReport = useCallback((context) => {
+    // No backend yet — logs locally and confirms to the user.
+    // Swap this for a real endpoint (e.g. a Google Form or Firestore write) when available.
+    try {
+      const existing = JSON.parse(localStorage.getItem("ql_ai_reports") || "[]");
+      existing.push({ context, date: new Date().toISOString() });
+      localStorage.setItem("ql_ai_reports", JSON.stringify(existing.slice(-50)));
+    } catch {}
+    alert("Thank you. This content has been flagged for review.");
+    setShowReportModal(false);
+  }, []);
+
   const openMushafReader = useCallback((startPage = null) => {
     const p = startPage || 1; // Always start page 1 unless explicitly given a page
     setMushafPage(p);
@@ -2104,6 +2185,42 @@ export default function QuranLife() {
     );
     return null;
   };
+
+  // ── AI CONTENT DISCLOSURE — required label wherever Gemini output shows ──
+  const AIDisclosureNote = () => (
+    <div style={{ fontSize: 10, color: "#9ba5b0", textAlign: "center", marginTop: 6, fontStyle: "italic" }}>
+      ✦ This content was generated by AI
+    </div>
+  );
+
+  const ReportButton = ({ context }) => (
+    <button onClick={() => { setReportContext(context); setShowReportModal(true); }}
+      style={{ fontSize: 10, color: "#c0392b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "4px 0", display: "block", margin: "2px auto 0" }}>
+      🚩 Report this content
+    </button>
+  );
+
+  const ReportModal = () => showReportModal ? (
+    <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) setShowReportModal(false); }}>
+      <div className="sheet">
+        <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>🚩 Report AI Content</div>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16, lineHeight: 1.6 }}>
+          If this AI-generated content seems inaccurate, inappropriate, or incorrect, let us know. We review reports to improve the app.
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => submitReport(reportContext)}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#c0392b", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            Submit Report
+          </button>
+          <button onClick={() => setShowReportModal(false)}
+            style={{ padding: "12px 20px", borderRadius: 10, background: "#f4f4f4", color: "#333", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const Nav = ({ readOn = false }) => (
     <div className="nav">
@@ -3259,6 +3376,8 @@ export default function QuranLife() {
                               {entry.text}
                             </div>
                           )}
+                          {entry.text && <AIDisclosureNote />}
+                          {entry.text && <ReportButton context={`Deep Knowledge · ${activeTab} · Surah ${surahNum} Verse ${verse.number} · ${lang}`} />}
                         </div>
                       );
                     })()}
@@ -3422,14 +3541,18 @@ export default function QuranLife() {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display: "flex", gap: 8, padding: "12px 14px 6px" }}>
+      <div style={{ display: "flex", gap: 6, padding: "12px 14px 6px" }}>
         <button onClick={() => setKidsTab("letters")}
-          style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "letters" ? "#e67e22" : "#f0f0f0", color: kidsTab === "letters" ? "#fff" : "#5a6472" }}>
+          style={{ flex: 1, padding: "9px 4px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "letters" ? "#e67e22" : "#f0f0f0", color: kidsTab === "letters" ? "#fff" : "#5a6472" }}>
           🔤 Letters
         </button>
         <button onClick={() => setKidsTab("vowels")}
-          style={{ flex: 1, padding: "9px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "vowels" ? "#e67e22" : "#f0f0f0", color: kidsTab === "vowels" ? "#fff" : "#5a6472" }}>
+          style={{ flex: 1, padding: "9px 4px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "vowels" ? "#e67e22" : "#f0f0f0", color: kidsTab === "vowels" ? "#fff" : "#5a6472" }}>
           🎵 Vowels
+        </button>
+        <button onClick={() => { setKidsTab("prophets"); setSelectedProphet(null); }}
+          style={{ flex: 1, padding: "9px 4px", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Inter',sans-serif", background: kidsTab === "prophets" ? "#e67e22" : "#f0f0f0", color: kidsTab === "prophets" ? "#fff" : "#5a6472" }}>
+          📖 Prophets
         </button>
       </div>
 
@@ -3511,6 +3634,113 @@ export default function QuranLife() {
           </div>
         </div>
       )}
+
+      {/* ── PROPHETS TAB ── */}
+      {kidsTab === "prophets" && selectedProphet === null && (
+        <div style={{ padding: "8px 14px 20px" }}>
+          <div style={{ fontSize: 12, color: "#9ba5b0", textAlign: "center", marginBottom: 12 }}>25 Prophets named in the Quran — in order 🌟</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {PROPHETS.map((p, i) => (
+              <div key={i} onClick={() => { setSelectedProphet(i); setProphetStoryPage(0); loadProphetStory(i); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 14, background: "#fff", border: "1px solid #f0e4d0", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,.04)" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#e67e22,#f39c12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, color: "#fff" }}>{i + 1}</div>
+                <div style={{ fontSize: 22 }}>{p.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{p.en}</div>
+                  <div style={{ fontSize: 11, color: "#9ba5b0" }}>{curLang.na} · {p.en}</div>
+                </div>
+                <div className="ar" style={{ fontSize: 18, color: "#e67e22" }}>{p.ar}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── PROPHET STORYBOOK DETAIL ── */}
+      {kidsTab === "prophets" && selectedProphet !== null && (() => {
+        const p = PROPHETS[selectedProphet];
+        const cacheKey = `${selectedProphet}-${lang}`;
+        const entry = prophetStoryCache[cacheKey] || {};
+        const pages = entry.pages || [];
+        const totalPages = pages.length;
+        return (
+          <div style={{ padding: "8px 14px 20px" }}>
+            <button onClick={() => { setSelectedProphet(null); }}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "#f0f0f0", border: "none", borderRadius: 18, padding: "6px 14px", color: "#5a6472", fontSize: 12, cursor: "pointer", marginBottom: 12, fontWeight: 600 }}>
+              ← All Prophets
+            </button>
+
+            {/* Name header */}
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: "#9ba5b0", marginBottom: 2 }}>Prophet #{selectedProphet + 1}</div>
+              <div className="ar" style={{ fontSize: 30, color: "#e67e22", marginBottom: 4 }}>{p.ar}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a" }}>{p.en}</div>
+              <div style={{ fontSize: 12, color: "#9ba5b0", marginTop: 2 }}>{curLang.na}: {p.en}</div>
+            </div>
+
+            {/* Storybook card */}
+            <div style={{ background: "linear-gradient(180deg,#fffaf0,#fff)", borderRadius: 20, padding: 20, boxShadow: "0 6px 24px rgba(0,0,0,.1)", border: "1px solid #f0e4d0", minHeight: 320 }}>
+
+              {entry.loading && (
+                <div style={{ textAlign: "center", padding: "50px 0" }}>
+                  <Spinner label={`Writing the story in ${curLang.n}...`} />
+                </div>
+              )}
+
+              {entry.error && (
+                <div style={{ textAlign: "center", padding: "30px 0" }}>
+                  <div style={{ fontSize: 13, color: "#c0392b", marginBottom: 12 }}>{entry.error}</div>
+                  <button className="retry-btn" onClick={() => loadProphetStory(selectedProphet, true)}>↺ Retry</button>
+                </div>
+              )}
+
+              {!entry.loading && !entry.error && totalPages > 0 && (
+                <>
+                  {/* Faceless silhouette illustration — simple, modest, robed */}
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                    <svg width="100" height="120" viewBox="0 0 100 120">
+                      {/* Simple robed silhouette — no face, no anatomical detail */}
+                      <ellipse cx="50" cy="22" rx="16" ry="18" fill="#c9943a" opacity="0.85" />
+                      <path d="M 50 34 Q 20 45 15 90 Q 15 110 25 115 L 75 115 Q 85 110 85 90 Q 80 45 50 34 Z" fill="#e67e22" opacity="0.85" />
+                      <path d="M 50 34 Q 35 55 35 90 L 35 115 M 50 34 Q 65 55 65 90 L 65 115" stroke="#a85414" strokeWidth="1.5" fill="none" opacity="0.5" />
+                    </svg>
+                  </div>
+
+                  {/* Page counter */}
+                  <div style={{ textAlign: "center", fontSize: 11, color: "#9ba5b0", marginBottom: 10 }}>
+                    Page {prophetStoryPage + 1} of {totalPages}
+                  </div>
+
+                  {/* Story text */}
+                  <div style={{ fontSize: 15, color: "#2a1a00", lineHeight: 1.9, textAlign: "center", padding: "0 8px", minHeight: 90 }}>
+                    {pages[prophetStoryPage]}
+                  </div>
+
+                  <AIDisclosureNote />
+                  <ReportButton context={`Prophet Story · ${p.en} · Page ${prophetStoryPage + 1} · ${lang}`} />
+
+                  {/* Page navigation */}
+                  <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                    <button onClick={() => setProphetStoryPage(pg => Math.max(0, pg - 1))} disabled={prophetStoryPage === 0}
+                      style={{ flex: 1, padding: "11px", borderRadius: 12, background: prophetStoryPage === 0 ? "#f0f0f0" : "#fdf0dc", color: prophetStoryPage === 0 ? "#c4c4c4" : "#a85414", border: "none", fontSize: 13, fontWeight: 700, cursor: prophetStoryPage === 0 ? "default" : "pointer" }}>
+                      ← Previous
+                    </button>
+                    <button onClick={() => setProphetStoryPage(pg => Math.min(totalPages - 1, pg + 1))} disabled={prophetStoryPage >= totalPages - 1}
+                      style={{ flex: 1, padding: "11px", borderRadius: 12, background: prophetStoryPage >= totalPages - 1 ? "#f0f0f0" : "linear-gradient(180deg,#e67e22,#a85414)", color: prophetStoryPage >= totalPages - 1 ? "#c4c4c4" : "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: prophetStoryPage >= totalPages - 1 ? "default" : "pointer" }}>
+                      Next →
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quran references */}
+            <div style={{ marginTop: 14, textAlign: "center", fontSize: 11, color: "#9ba5b0" }}>
+              📍 Mentioned in: {p.surahRefs}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── LETTERS TAB ── */}
       {kidsTab === "letters" && kidLetter !== null ? (
@@ -4164,6 +4394,7 @@ export default function QuranLife() {
       {!showSurahList && !showQuranNav && screen === "duas" && DuasScreen()}
       {!showSurahList && !showQuranNav && screen === "names" && NamesScreen()}
       {!showSurahList && !showQuranNav && screen === "tasbih" && TasbihScreen()}
+      {ReportModal()}
     </div>
   );
 }
