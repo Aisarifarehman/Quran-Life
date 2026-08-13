@@ -1518,9 +1518,31 @@ const VOTD_VERSES = [
 
 // ─── MAIN APP ────────────────────────────────────────────────
 export default function QuranLife() {
-  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | adhkar | duas | names | tasbih
-  const [votd, setVotd] = useState(null); // { arabic, translation, surahName, verseNum, surahNum }
+  const [screen, setScreen] = useState("home"); // home | read | kids | bookmarks | mushaf | prayer | adhkar | duas | names | tasbih | hifz | extraknowledge | dream
+  const [votd, setVotd] = useState(null);
   const [votdLoading, setVotdLoading] = useState(false);
+  // Hifz Tracker
+  const [hifzData, setHifzData] = useState(() => { try { return JSON.parse(localStorage.getItem("ql_hifz") || "{}"); } catch { return {}; } });
+  // Extra Knowledge / Dream Interpretation
+  const [dreamInput, setDreamInput] = useState("");
+  const [dreamResult, setDreamResult] = useState(null);
+  const [dreamLoading, setDreamLoading] = useState(false);
+  const [dreamError, setDreamError] = useState(null);
+  // Tajweed colors toggle
+  const [tajweedColors, setTajweedColors] = useState(() => { try { return localStorage.getItem("ql_tajweed") === "on"; } catch { return false; } });
+  // Offline mode
+  const [offlineMode, setOfflineMode] = useState(() => { try { return localStorage.getItem("ql_offline") === "on"; } catch { return false; } });
+  const [offlineSurahs, setOfflineSurahs] = useState(() => { try { return JSON.parse(localStorage.getItem("ql_offline_surahs") || "[]"); } catch { return []; } });
+  const [offlineDownloading, setOfflineDownloading] = useState(false);
+  // Mistakes Corrector
+  const [showMistakes, setShowMistakes] = useState(false);
+  const [mistakesVerseNum, setMistakesVerseNum] = useState(null);
+  const [mistakesRecording, setMistakesRecording] = useState(false);
+  const [mistakesResult, setMistakesResult] = useState(null);
+  const [mistakesLoading, setMistakesLoading] = useState(false);
+  const [mistakesError, setMistakesError] = useState(null);
+  const mistakesRecorderRef = useRef(null);
+  const mistakesChunksRef = useRef([]);
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [qiblaAngle, setQiblaAngle] = useState(null);
@@ -2286,6 +2308,41 @@ export default function QuranLife() {
     .audio-bar{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:490px;background:linear-gradient(135deg,#051a0e,#0f5132);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:400;animation:pop .2s ease}
   `;
 
+  // ── TAJWEED COLOR HELPER ─────────────────────────────────────
+  // Applies color spans to Arabic letters based on basic tajweed rules.
+  // Colors: Red=Qalqalah, Green=Ghunnah, Blue=Madd elongation, Purple=Idgham
+  function applyTajweedColors(text) {
+    if (!tajweedColors || !text) return <span>{text}</span>;
+    const qalqalah = /[قطبجد]/g;
+    const madd = /[اوي]/g;
+    const ghunnah = /[نم]ّ/g; // shadda on nun/mim
+    const result = [];
+    let i = 0;
+    const chars = [...text];
+    while (i < chars.length) {
+      const ch = chars[i];
+      const next = chars[i + 1] || "";
+      // Ghunnah — nun or mim with shadda
+      if ((ch === "ن" || ch === "م") && next === "ّ") {
+        result.push(<span key={i} style={{ color: "#27ae60", fontWeight: 700 }}>{ch}{next}</span>);
+        i += 2; continue;
+      }
+      // Qalqalah letters
+      if ("قطبجد".includes(ch)) {
+        result.push(<span key={i} style={{ color: "#c0392b" }}>{ch}</span>);
+        i++; continue;
+      }
+      // Madd letters
+      if ("اوي".includes(ch)) {
+        result.push(<span key={i} style={{ color: "#2980b9" }}>{ch}</span>);
+        i++; continue;
+      }
+      result.push(<span key={i}>{ch}</span>);
+      i++;
+    }
+    return <>{result}</>;
+  }
+
   // ── SHARED HELPERS ──────────────────────────────────────────
   const Spinner = ({ label }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 0" }}>
@@ -2514,6 +2571,82 @@ export default function QuranLife() {
             </div>
             <button onClick={() => setFontSize(f => Math.min(40, f + 2))}
               style={{ width: 36, height: 36, borderRadius: "50%", background: G, color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>A+</button>
+          </div>
+        </div>
+
+        {/* Tajweed Colors */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>🌈 Tajweed Color Coding</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setTajweedColors(true); localStorage.setItem("ql_tajweed","on"); }}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: `.5px solid ${tajweedColors ? G : "#ddd"}`, background: tajweedColors ? "#f0faf5" : "#fff", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, fontSize: 13, color: tajweedColors ? G : "#666" }}>
+              🌈 Colors On
+            </button>
+            <button onClick={() => { setTajweedColors(false); localStorage.setItem("ql_tajweed","off"); }}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: `.5px solid ${!tajweedColors ? G : "#ddd"}`, background: !tajweedColors ? "#f0faf5" : "#fff", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, fontSize: 13, color: !tajweedColors ? G : "#666" }}>
+              Off
+            </button>
+          </div>
+          {tajweedColors && (
+            <div style={{ marginTop: 10, padding: "10px 12px", background: "#fffbea", borderRadius: 9, border: ".5px solid #e8b84b", fontSize: 11, lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4, color: "#7a5a00" }}>Tajweed Color Guide:</div>
+              <div><span style={{ color: "#c0392b", fontWeight: 700 }}>■ Red</span> — Qalqalah (echoing letters: ق ط ب ج د)</div>
+              <div><span style={{ color: "#27ae60", fontWeight: 700 }}>■ Green</span> — Ghunnah / nasal sound (ن م with shadda)</div>
+              <div><span style={{ color: "#2980b9", fontWeight: 700 }}>■ Blue</span> — Madd (elongation letters: ا و ي)</div>
+              <div><span style={{ color: "#8e44ad", fontWeight: 700 }}>■ Purple</span> — Idgham / merging sounds</div>
+              <div style={{ color: "#9ba5b0", marginTop: 4 }}>Colors appear in the Quran reader. Full tajweed rules require a qualified teacher.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Offline Mode */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>📥 Offline Mode</div>
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: ".5px solid #e2e8e4", background: "#fafafa" }}>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10, lineHeight: 1.6 }}>
+              Save short Surahs (Al-Fatiha, last 10) to your device so they load without internet.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <button onClick={async () => {
+                setOfflineDownloading(true);
+                const shortSurahs = [1,108,109,110,111,112,113,114,103,104,105,106,107];
+                const saved = [];
+                for (const sn of shortSurahs) {
+                  try {
+                    const url = `https://api.quran.com/api/v4/verses/by_chapter/${sn}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
+                    const r = await fetch(url);
+                    if (r.ok) {
+                      const d = await r.json();
+                      localStorage.setItem(`ql_offline_s${sn}`, JSON.stringify(d.verses));
+                      saved.push(sn);
+                    }
+                  } catch {}
+                }
+                setOfflineSurahs(saved);
+                localStorage.setItem("ql_offline_surahs", JSON.stringify(saved));
+                localStorage.setItem("ql_offline","on");
+                setOfflineMode(true);
+                setOfflineDownloading(false);
+                alert(`✅ ${saved.length} Surahs saved for offline use!`);
+              }} disabled={offlineDownloading}
+                style={{ flex: 1, padding: "10px", borderRadius: 10, background: G, color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: offlineDownloading ? "default" : "pointer" }}>
+                {offlineDownloading ? "Downloading..." : "📥 Download Now"}
+              </button>
+              {offlineMode && (
+                <button onClick={() => {
+                  offlineSurahs.forEach(sn => localStorage.removeItem(`ql_offline_s${sn}`));
+                  localStorage.removeItem("ql_offline");
+                  localStorage.removeItem("ql_offline_surahs");
+                  setOfflineMode(false);
+                  setOfflineSurahs([]);
+                  alert("Offline data cleared.");
+                }}
+                  style={{ padding: "10px 14px", borderRadius: 10, background: "#fff", border: "1px solid #c0392b", color: "#c0392b", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  🗑 Clear
+                </button>
+              )}
+            </div>
+            {offlineMode && <div style={{ fontSize: 11, color: G, fontWeight: 600 }}>✅ {offlineSurahs.length} Surahs saved offline</div>}
           </div>
         </div>
 
@@ -3088,6 +3221,14 @@ export default function QuranLife() {
         ))}
       </div>
 
+      {/* Row 4 — Extra Knowledge */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, padding: "12px 14px 0" }}>
+        <button onClick={() => setScreen("extraknowledge")} className="nav-btn"
+          style={{ background: "linear-gradient(180deg,#4a235a,#1a0828)", boxShadow: "0 5px 0 #0d0414,0 8px 16px rgba(0,0,0,.25)", fontSize: 17, padding: "22px 10px" }}>
+          🔮 EXTRA KNOWLEDGE
+        </button>
+      </div>
+
       <Nav />
       {SettingsSheet()}{LangSheet()}{QariSheet()}{PrayerSheet()}{JuzSheet()}{GotoSheet()}{BkSheet()}{AudioSheet()}
       {AudioBar()}
@@ -3270,6 +3411,7 @@ export default function QuranLife() {
         <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
         <button className="chip" onClick={() => setShowGoto(true)}>📄 Go To Page</button>
         <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
+        <button className="chip" onClick={() => { setShowQuranNav(false); setScreen("hifz"); }} style={{ background: "#e8f5e9", color: "#1a5c2e", borderColor: "#1a5c2e" }}>📗 Hifz Tracker</button>
       </div>
 
       {/* Surah list — All 114 with Play · Stop · Read */}
@@ -3350,6 +3492,8 @@ export default function QuranLife() {
             <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
               <button className={`mode-btn${!mushafMode ? " active" : ""}`} onClick={() => setMushafMode(false)}>📋 Normal</button>
               <button className={`mode-btn${mushafMode ? " active" : ""}`} onClick={() => setMushafMode(true)}>📖 Mushaf</button>
+              <button className="mode-btn" onClick={() => { setShowMistakes(true); setMistakesVerseNum(null); setMistakesResult(null); setMistakesError(null); }}
+                style={{ background: "rgba(231,76,60,.25)", borderColor: "#e74c3c", color: "#fff" }}>🎙 Check</button>
               <div style={{ flex: 1 }} />
               {/* Dark mode toggle */}
               <button onClick={() => setDarkMode(d => !d)}
@@ -3514,7 +3658,7 @@ export default function QuranLife() {
                 {/* Arabic + translation shown automatically below it */}
                 <div style={{ padding: "14px 14px 12px" }}>
                   <div className="ar zoom-arabic" style={{ fontSize: fontSize, lineHeight: 2.2, direction: "rtl", textAlign: "right", color: darkMode ? "#e8e8e8" : "#1a1a1a", marginBottom: 10, paddingBottom: 10, borderBottom: `.5px solid ${darkMode ? "#2a2a2a" : "#f4f4f4"}` }}>
-                    {verse.arabic}
+                    {tajweedColors ? applyTajweedColors(verse.arabic) : verse.arabic}
                   </div>
                   {(() => {
                     const directTranslation = verse.translation || "";
@@ -3582,6 +3726,7 @@ export default function QuranLife() {
         </div>
         <Nav readOn />
         {SettingsSheet()}{LangSheet()}{QariSheet()}{BkSheet()}
+        {MistakesSheet()}
         {ScrollFab()}
         {AudioBar()}
 
@@ -4746,6 +4891,402 @@ export default function QuranLife() {
     </div>
   );
 
+  // ── HIFZ TRACKER SCREEN ─────────────────────────────────────
+  const HifzScreen = () => {
+    const memorized = Object.keys(hifzData).filter(k => hifzData[k] === "memorized").map(Number);
+    const inProgress = Object.keys(hifzData).filter(k => hifzData[k] === "progress").map(Number);
+    const totalVerses = memorized.reduce((sum, sn) => { const s = SURAHS.find(x => x.n === sn); return sum + (s ? s.verses : 0); }, 0);
+    const pct = Math.round((memorized.length / 114) * 100);
+
+    function setStatus(surahNum, status) {
+      const updated = { ...hifzData };
+      if (updated[surahNum] === status) { delete updated[surahNum]; }
+      else { updated[surahNum] = status; }
+      setHifzData(updated);
+      try { localStorage.setItem("ql_hifz", JSON.stringify(updated)); } catch {}
+    }
+
+    return (
+      <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
+        <div style={{ background: "linear-gradient(135deg,#0f5132,#1a7a4a)", padding: "14px 14px 16px" }}>
+          <button onClick={() => { setShowQuranNav(true); setScreen("home"); }} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Quran</button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📗 Hifz Tracker</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Track your Quran memorization progress</div>
+        </div>
+
+        {/* Progress summary */}
+        <div style={{ margin: "12px 14px 0", background: "#fff", borderRadius: 14, padding: 16, border: ".5px solid #e2e8e4" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: G }}>📖 {memorized.length} / 114 Surahs Memorized</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>{pct}%</div>
+          </div>
+          <div style={{ height: 8, background: "#e8f5ee", borderRadius: 4, marginBottom: 8 }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,#27ae60,#1a7a4a)", borderRadius: 4, transition: "width .4s" }} />
+          </div>
+          <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#6b7280" }}>
+            <span>✅ {memorized.length} Memorized</span>
+            <span>🔄 {inProgress.length} In Progress</span>
+            <span>📝 {totalVerses} Verses Done</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 8, padding: "10px 14px 4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#6b7280" }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#27ae60" }} /> Memorized
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#6b7280" }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#e8b84b" }} /> In Progress
+          </div>
+          <div style={{ fontSize: 11, color: "#9ba5b0", marginLeft: 4 }}>Tap to toggle status</div>
+        </div>
+
+        {/* Surah list */}
+        <div style={{ padding: "6px 14px" }}>
+          {SURAHS.map(s => {
+            const status = hifzData[s.n];
+            return (
+              <div key={s.n} style={{ background: status === "memorized" ? "#f0faf5" : status === "progress" ? "#fffbea" : "#fff", borderRadius: 12, padding: "10px 14px", marginBottom: 6, border: `.5px solid ${status === "memorized" ? "#27ae60" : status === "progress" ? "#e8b84b" : "#e2e8e4"}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: status === "memorized" ? "#27ae60" : status === "progress" ? "#e8b84b" : "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: status ? "#fff" : "#9ba5b0", flexShrink: 0 }}>
+                  {status === "memorized" ? "✓" : status === "progress" ? "~" : s.n}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: "#9ba5b0" }}>{s.verses} verses · Juz {s.juz}</div>
+                </div>
+                <div className="ar" style={{ fontSize: 15, color: G, marginRight: 8 }}>{s.ar}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <button onClick={() => setStatus(s.n, "memorized")}
+                    style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: status === "memorized" ? "#27ae60" : "#e8f5ee", color: status === "memorized" ? "#fff" : "#27ae60", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    ✓ Done
+                  </button>
+                  <button onClick={() => setStatus(s.n, "progress")}
+                    style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: status === "progress" ? "#e8b84b" : "#fffbea", color: status === "progress" ? "#fff" : "#c9943a", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    ~ WIP
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Nav />
+        {ScrollFab()}
+      </div>
+    );
+  };
+
+  // ── EXTRA KNOWLEDGE SCREEN — menu for future features ────────
+  const ExtraKnowledgeScreen = () => (
+    <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
+      <div style={{ background: "linear-gradient(135deg,#2e0050,#4a235a)", padding: "14px 14px 16px" }}>
+        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>🔮 Extra Knowledge</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Advanced Islamic knowledge tools</div>
+      </div>
+
+      <div style={{ padding: "14px 14px 0" }}>
+        {/* Dream Interpretation */}
+        <div onClick={() => setScreen("dream")}
+          style={{ background: "#fff", borderRadius: 16, padding: 18, marginBottom: 12, border: ".5px solid #e2e8e4", cursor: "pointer", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 2px 10px rgba(0,0,0,.06)" }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#2e0050,#4a235a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>🌙</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>Dream Interpretation</div>
+            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>Understand dreams through Islamic knowledge. Based on Quran, Hadith and classical scholars.</div>
+          </div>
+          <div style={{ fontSize: 18, color: "#9ba5b0" }}>›</div>
+        </div>
+
+        {/* Coming Soon placeholders */}
+        {[
+          { icon: "📜", title: "Isnad Checker", desc: "Verify Hadith chain of narrators — coming soon" },
+          { icon: "🌍", title: "Prophets Map", desc: "Interactive map of prophet journeys — coming soon" },
+          { icon: "📊", title: "Quran Statistics", desc: "Word counts, letter frequencies, patterns — coming soon" },
+        ].map((item, i) => (
+          <div key={i} style={{ background: "#f8f8f8", borderRadius: 16, padding: 18, marginBottom: 12, border: ".5px solid #e8e8e8", display: "flex", alignItems: "center", gap: 14, opacity: 0.6 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#e8e8e8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{item.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#666", marginBottom: 3 }}>{item.title}</div>
+              <div style={{ fontSize: 12, color: "#9ba5b0", lineHeight: 1.5 }}>{item.desc}</div>
+            </div>
+            <div style={{ fontSize: 11, color: "#bbb", fontWeight: 600 }}>Soon</div>
+          </div>
+        ))}
+      </div>
+      <Nav />
+    </div>
+  );
+
+  // ── DREAM INTERPRETATION SCREEN ──────────────────────────────
+  const DreamScreen = () => {
+    async function interpretDream() {
+      if (!dreamInput.trim()) return;
+      setDreamLoading(true);
+      setDreamResult(null);
+      setDreamError(null);
+      try {
+        const langName = LANG_NAMES[lang] || "English";
+        const prompt = `You are an Islamic dream interpreter. A person has described this dream: "${dreamInput}". 
+
+Interpret this dream according to Islamic tradition. Use knowledge from:
+1. The Quran where relevant
+2. Authentic Hadith — especially the interpretations of Prophet Muhammad ﷺ and Ibn Sirin (the famous Islamic dream scholar)
+3. Classical Islamic dream interpretation principles
+
+Structure your answer clearly:
+- What this dream may symbolize in Islamic tradition
+- Any relevant Quranic verses or authentic Hadith related to the symbols
+- General guidance
+
+Be honest: if the dream has no specific Islamic interpretation, say so clearly. Never invent Hadith or fabricate Islamic rulings. Write in ${langName}.
+
+IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpretation is not a religious ruling (fatwa), that only scholars can give authoritative interpretations, and that good dreams are from Allah while bad dreams should be ignored and one should seek refuge in Allah.`;
+
+        const result = await askAI(prompt, langName);
+        setDreamResult(result);
+      } catch (e) {
+        setDreamError("Could not interpret dream. Please check your connection and try again.");
+      }
+      setDreamLoading(false);
+    }
+
+    return (
+      <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
+        <div style={{ background: "linear-gradient(135deg,#2e0050,#4a235a)", padding: "14px 14px 16px" }}>
+          <button onClick={() => setScreen("extraknowledge")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Extra Knowledge</button>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>🌙 Dream Interpretation</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Based on Quran, Hadith & Islamic scholarship</div>
+        </div>
+
+        <div style={{ padding: "14px 14px 0" }}>
+          {/* Important note */}
+          <div style={{ background: "#fffbea", borderRadius: 12, padding: 14, marginBottom: 14, border: ".5px solid #e8b84b" }}>
+            <div style={{ fontSize: 12, color: "#7a5a00", lineHeight: 1.7 }}>
+              <strong>📌 Islamic Guidance on Dreams:</strong><br />
+              The Prophet ﷺ said: <em>"A good dream is from Allah, and a bad dream is from Satan."</em> (Bukhari 3292)<br />
+              Good dreams: praise Allah. Bad dreams: seek refuge in Allah, do not share them.
+            </div>
+          </div>
+
+          {/* Input */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#5a6472", marginBottom: 8, textTransform: "uppercase", letterSpacing: .8 }}>Describe Your Dream</div>
+          <textarea
+            value={dreamInput}
+            onChange={e => setDreamInput(e.target.value)}
+            placeholder="Describe your dream in as much detail as you remember..."
+            style={{ width: "100%", minHeight: 120, padding: 14, borderRadius: 12, border: ".5px solid #dde3e8", fontSize: 14, fontFamily: "inherit", outline: "none", resize: "vertical", background: "#fff", lineHeight: 1.6 }}
+          />
+
+          <button onClick={interpretDream} disabled={dreamLoading || !dreamInput.trim()}
+            style={{ width: "100%", padding: "14px", borderRadius: 12, background: dreamLoading || !dreamInput.trim() ? "#ccc" : "linear-gradient(135deg,#2e0050,#4a235a)", color: "#fff", border: "none", fontSize: 15, fontWeight: 700, cursor: dreamLoading || !dreamInput.trim() ? "default" : "pointer", marginTop: 10, fontFamily: "inherit" }}>
+            {dreamLoading ? "Interpreting..." : "🔮 Interpret Dream"}
+          </button>
+
+          {dreamError && (
+            <div style={{ marginTop: 14, padding: 14, background: "#fff5f5", borderRadius: 12, border: ".5px solid #fca5a5", fontSize: 13, color: "#dc2626" }}>
+              ⚠️ {dreamError}
+            </div>
+          )}
+
+          {dreamResult && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 14, padding: 16, border: ".5px solid #e2e8e4", lineHeight: 1.8, fontSize: 13, color: "#1a1a1a" }}>
+                {dreamResult}
+              </div>
+              <AIDisclosureNote />
+              <ReportButton context={`Dream interpretation: ${dreamInput.substring(0, 80)}`} />
+            </div>
+          )}
+        </div>
+        <Nav />
+        {ScrollFab()}
+      </div>
+    );
+  };
+
+  // ── MISTAKES CORRECTOR SHEET ─────────────────────────────────
+  // User selects a verse, records their recitation, AI compares to correct text
+  const MistakesSheet = () => {
+    if (!showMistakes) return null;
+
+    const s = curSurah || SURAHS[0];
+    const selectedVerse = verses.find(v => v.number === mistakesVerseNum);
+
+    async function startRecording() {
+      setMistakesResult(null);
+      setMistakesError(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mistakesChunksRef.current = [];
+        const recorder = new MediaRecorder(stream);
+        mistakesRecorderRef.current = recorder;
+        recorder.ondataavailable = e => { if (e.data.size > 0) mistakesChunksRef.current.push(e.data); };
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          await analyzeRecitation();
+        };
+        recorder.start();
+        setMistakesRecording(true);
+      } catch (e) {
+        setMistakesError("Microphone access denied. Please allow microphone in your browser settings.");
+      }
+    }
+
+    function stopRecording() {
+      if (mistakesRecorderRef.current && mistakesRecording) {
+        mistakesRecorderRef.current.stop();
+        setMistakesRecording(false);
+      }
+    }
+
+    async function analyzeRecitation() {
+      if (!selectedVerse) return;
+      setMistakesLoading(true);
+      setMistakesError(null);
+      try {
+        // Convert audio blob to base64
+        const blob = new Blob(mistakesChunksRef.current, { type: "audio/webm" });
+        const base64 = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(",")[1]);
+          reader.readAsDataURL(blob);
+        });
+
+        // Send to Gemini with the correct Arabic verse text for comparison
+        const key = import.meta.env.VITE_GEMINI_KEY || "";
+        if (!key) throw new Error("NO_KEY");
+
+        const body = JSON.stringify({
+          contents: [{
+            parts: [
+              { text: `You are an expert Quran recitation teacher. The student just recited this Quranic verse: "${selectedVerse.arabic}" (${s.name}, Verse ${selectedVerse.number}).\n\nListen carefully to their audio recording and:\n1. Identify any pronunciation mistakes\n2. Point out specific letters or words that were wrong\n3. Explain the correct pronunciation clearly\n4. Give an overall assessment (Excellent / Good / Needs Practice)\n\nBe encouraging but honest. If you cannot clearly hear the audio, say so. Write in English.` },
+              { inline_data: { mime_type: "audio/webm", data: base64 } }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 800, temperature: 0.4 }
+        });
+
+        // Try models that support audio
+        const audioModels = ["gemini-2.0-flash", "gemini-2.5-flash"];
+        let result = null;
+        for (const model of audioModels) {
+          const r = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body }
+          );
+          if (r.ok) {
+            const d = await r.json();
+            result = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            if (result) break;
+          }
+        }
+
+        if (!result) throw new Error("Could not analyze audio. Please try again.");
+        setMistakesResult(result);
+      } catch (e) {
+        if (e.message === "NO_KEY") {
+          setMistakesError("AI key not configured. Please add your Gemini key in Vercel settings.");
+        } else {
+          setMistakesError(e.message || "Analysis failed. Please try again.");
+        }
+      }
+      setMistakesLoading(false);
+    }
+
+    return (
+      <div className="overlay" onClick={e => { if (e.target.classList.contains("overlay")) { if (mistakesRecording) stopRecording(); setShowMistakes(false); } }}>
+        <div className="sheet" style={{ maxHeight: "85vh", overflowY: "auto" }}>
+          <div style={{ width: 38, height: 4, background: "#ddd", borderRadius: 2, margin: "0 auto 14px" }} />
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🎙 Recitation Checker</div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16, lineHeight: 1.6 }}>
+            Select a verse, record yourself reciting it, and get feedback on your pronunciation.
+          </div>
+
+          {/* Important note */}
+          <div style={{ background: "#fffbea", borderRadius: 10, padding: 12, marginBottom: 14, border: ".5px solid #e8b84b", fontSize: 11, color: "#7a5a00", lineHeight: 1.6 }}>
+            ⚠️ <strong>Note:</strong> This tool uses AI to give general feedback. It is NOT a substitute for learning from a qualified Quran teacher (Ustadh/Ustadha). Always learn Tajweed from a human teacher.
+          </div>
+
+          {/* Verse selector */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a6472", textTransform: "uppercase", letterSpacing: .8, marginBottom: 8 }}>Select Verse to Recite</div>
+          <select value={mistakesVerseNum || ""} onChange={e => { setMistakesVerseNum(parseInt(e.target.value)); setMistakesResult(null); setMistakesError(null); }}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `.5px solid ${mistakesVerseNum ? G : "#ddd"}`, fontSize: 13, fontFamily: "inherit", outline: "none", marginBottom: 12, background: "#fff", cursor: "pointer" }}>
+            <option value="">— Choose a verse —</option>
+            {verses.map(v => <option key={v.number} value={v.number}>Verse {v.number}</option>)}
+          </select>
+
+          {/* Show selected verse Arabic */}
+          {selectedVerse && (
+            <div style={{ background: "#f0faf5", borderRadius: 12, padding: 14, marginBottom: 14, border: `.5px solid ${G}` }}>
+              <div style={{ fontSize: 11, color: G, fontWeight: 700, marginBottom: 6 }}>Verse {selectedVerse.number} — Recite this:</div>
+              <div className="ar" style={{ fontSize: 22, direction: "rtl", textAlign: "right", lineHeight: 2, color: "#1a0800" }}>{selectedVerse.arabic}</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8, lineHeight: 1.6 }}>{selectedVerse.translation}</div>
+            </div>
+          )}
+
+          {/* Recording controls */}
+          {selectedVerse && (
+            <div style={{ marginBottom: 14 }}>
+              {!mistakesRecording ? (
+                <button onClick={startRecording} disabled={mistakesLoading}
+                  style={{ width: "100%", padding: "14px", borderRadius: 12, background: mistakesLoading ? "#ccc" : "linear-gradient(135deg,#c0392b,#922b21)", color: "#fff", border: "none", fontSize: 15, fontWeight: 700, cursor: mistakesLoading ? "default" : "pointer", fontFamily: "inherit" }}>
+                  🎙 Start Recording
+                </button>
+              ) : (
+                <button onClick={stopRecording}
+                  style={{ width: "100%", padding: "14px", borderRadius: 12, background: "linear-gradient(135deg,#e74c3c,#c0392b)", color: "#fff", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", animation: "pulse 1s infinite" }}>
+                  ⏹ Stop & Analyze
+                </button>
+              )}
+              {mistakesRecording && (
+                <div style={{ textAlign: "center", marginTop: 10, fontSize: 13, color: "#c0392b", fontWeight: 600 }}>
+                  🔴 Recording... Recite the verse now, then tap Stop
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Loading */}
+          {mistakesLoading && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 8 }}>
+                {[0,.15,.3].map((d,i) => <span key={i} className="bn" style={{ animationDelay: `${d}s` }} />)}
+              </div>
+              <div style={{ fontSize: 13, color: "#6b7280" }}>Analyzing your recitation...</div>
+            </div>
+          )}
+
+          {/* Error */}
+          {mistakesError && (
+            <div style={{ padding: 14, background: "#fff5f5", borderRadius: 12, border: ".5px solid #fca5a5", fontSize: 13, color: "#dc2626", marginBottom: 14, lineHeight: 1.6 }}>
+              ⚠️ {mistakesError}
+            </div>
+          )}
+
+          {/* Result */}
+          {mistakesResult && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: G, marginBottom: 8, textTransform: "uppercase", letterSpacing: .5 }}>📋 Feedback</div>
+              <div style={{ background: "#f8fafb", borderRadius: 12, padding: 14, border: ".5px solid #e2e8e4", fontSize: 13, lineHeight: 1.9, color: "#1a1a1a", whiteSpace: "pre-wrap" }}>
+                {mistakesResult}
+              </div>
+              <AIDisclosureNote />
+              <ReportButton context={`Recitation check: ${s.name} verse ${mistakesVerseNum}`} />
+              <button onClick={() => { setMistakesResult(null); setMistakesError(null); }}
+                style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, background: "#f0f0f0", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#333", fontFamily: "inherit" }}>
+                🔄 Try Again
+              </button>
+            </div>
+          )}
+
+          <button onClick={() => { if (mistakesRecording) stopRecording(); setShowMistakes(false); }}
+            style={{ width: "100%", padding: "12px", borderRadius: 12, background: "#f4f4f4", color: "#333", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // ── ROOT RENDER ─────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 520, margin: "0 auto", fontFamily: "'Inter', sans-serif", background: "#f5f3ee", minHeight: "100vh", overflowX: "hidden", width: "100%", position: "relative" }}>
@@ -4763,6 +5304,9 @@ export default function QuranLife() {
       {!showSurahList && !showQuranNav && screen === "duas" && DuasScreen()}
       {!showSurahList && !showQuranNav && screen === "names" && NamesScreen()}
       {!showSurahList && !showQuranNav && screen === "tasbih" && TasbihScreen()}
+      {!showSurahList && !showQuranNav && screen === "hifz" && HifzScreen()}
+      {!showSurahList && !showQuranNav && screen === "extraknowledge" && ExtraKnowledgeScreen()}
+      {!showSurahList && !showQuranNav && screen === "dream" && DreamScreen()}
       {ReportModal()}
     </div>
   );
