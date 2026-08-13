@@ -1000,6 +1000,16 @@ async function aiTranslateChunk(chunk, langName, apiKey) {
   } catch { return null; }
 }
 
+// Lightweight fetch — Arabic Uthmani text only, no translations.
+// Used by the Amiri Style reader to paginate a full surah into custom pages.
+async function fetchSurahArabicOnly(surahNum) {
+  const url = `https://api.quran.com/api/v4/verses/by_chapter/${surahNum}?language=en&words=false&per_page=300&fields=text_uthmani&_cb=${Date.now()}`;
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`API ${r.status}`);
+  const d = await r.json();
+  return (d.verses || []).map(v => ({ number: v.verse_number, chapter: parseInt(surahNum), arabic: v.text_uthmani }));
+}
+
 async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
@@ -1523,6 +1533,13 @@ export default function QuranLife() {
   const [mushafFontStyle, setMushafFontStyle] = useState(() => {
     try { return localStorage.getItem("ql_mushaf_font_style") || "amiri"; } catch { return "amiri"; }
   }); // "amiri" (new, bigger, comfortable) | "classic" (original, denser)
+  // Amiri Style — custom 10-line-per-page pagination, one surah at a time (never mixes surahs on a page)
+  const [amiriPages, setAmiriPages] = useState([]); // [{surah, verses:[{number,arabic}]}]
+  const [amiriPageIndex, setAmiriPageIndex] = useState(0);
+  const [amiriSurahNum, setAmiriSurahNum] = useState(1);
+  const [amiriLoading, setAmiriLoading] = useState(false);
+  const [amiriError, setAmiriError] = useState(null);
+  const amiriMeasureRef = useRef(null);
   const [mushafError, setMushafError] = useState(null);
   const [mushafDragX, setMushafDragX] = useState(0);
   const [mushafAnimating, setMushafAnimating] = useState(false);
@@ -1561,6 +1578,7 @@ export default function QuranLife() {
   const [showQuickLinks, setShowQuickLinks] = useState(false);
   const [showSurahList, setShowSurahList] = useState(false); // dedicated surah list screen
   const [surahListTitle, setSurahListTitle] = useState("All 114 Surahs");
+  const [scrollToSurahNum, setScrollToSurahNum] = useState(null); // scroll+highlight target when opened from search
   const [audioPaused, setAudioPaused] = useState(false);
   const cameFromQuranNav = useRef(false);
 
@@ -1913,6 +1931,62 @@ export default function QuranLife() {
     alert("Thank you. This content has been flagged for review.");
     setShowReportModal(false);
   }, []);
+
+  // ── AMIRI STYLE PAGINATION — measures real rendered height so each
+  // page holds exactly ~10 lines. Never splits a verse across pages,
+  // never mixes two surahs on one page. ──────────────────────────
+  const AMIRI_FONT_SIZE = 27;
+  const AMIRI_LINE_HEIGHT_MULT = 2.5;
+  const AMIRI_LINES_PER_PAGE = 10;
+
+  const paginateAmiri = useCallback(async (surahNum, anchorVerse = null, landOnLastPage = false) => {
+    setAmiriLoading(true);
+    setAmiriError(null);
+    try {
+      const verses = await fetchSurahArabicOnly(surahNum);
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
+      const measureEl = amiriMeasureRef.current;
+      const contentWidth = Math.min(window.innerWidth, 520) - 88;
+      if (measureEl) measureEl.style.width = contentWidth + "px";
+      const targetHeight = AMIRI_LINES_PER_PAGE * (AMIRI_FONT_SIZE * AMIRI_LINE_HEIGHT_MULT);
+      const pages = [];
+      let current = [];
+      for (let i = 0; i < verses.length; i++) {
+        const tentative = [...current, verses[i]];
+        if (measureEl) {
+          measureEl.textContent = tentative.map(v => `${v.arabic} \u06DD${v.number}\u06DE `).join(" ");
+          const h = measureEl.scrollHeight;
+          if (h > targetHeight && current.length > 0) {
+            pages.push({ surah: surahNum, verses: current });
+            current = [verses[i]];
+            continue;
+          }
+        }
+        current = tentative;
+      }
+      if (current.length) pages.push({ surah: surahNum, verses: current });
+      if (pages.length === 0) pages.push({ surah: surahNum, verses: [] });
+      setAmiriPages(pages);
+      setAmiriSurahNum(surahNum);
+      let idx = 0;
+      if (landOnLastPage) idx = pages.length - 1;
+      else if (anchorVerse) {
+        const found = pages.findIndex(p => p.verses.some(v => v.number === anchorVerse));
+        if (found >= 0) idx = found;
+      }
+      setAmiriPageIndex(idx);
+    } catch (e) {
+      setAmiriError("Could not load this Surah. Please check your connection.");
+    } finally {
+      setAmiriLoading(false);
+    }
+  }, []);
+
+  const openAmiriReader = useCallback((surahNum = 1, anchorVerse = null) => {
+    setScreen("mushaf");
+    setNavTab("home");
+    paginateAmiri(surahNum, anchorVerse);
+  }, [paginateAmiri]);
 
   const openMushafReader = useCallback((startPage = null) => {
     const p = startPage || 1; // Always start page 1 unless explicitly given a page
@@ -2517,7 +2591,7 @@ export default function QuranLife() {
               setShowMushafStyleSelect(false);
               setShowQuranNav(false);
               setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null);
-              openMushafReader();
+              openAmiriReader(1);
             }}
             style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px", borderRadius: 14, background: "linear-gradient(135deg,#f0faf5,#e8f4ee)", border: `1.5px solid ${G}55`, cursor: "pointer", textAlign: "left" }}>
             <div style={{ fontSize: 30 }}>📖</div>
@@ -2558,6 +2632,7 @@ export default function QuranLife() {
               onClick={() => {
                 setShowQuickLinks(false);
                 setShowQuranNav(false);
+                setMushafFontStyle("classic");
                 setMushafQuickLink(q.name);
                 setMushafQuickLinkSurah(q.surah);
                 setMushafHighlightVerse(q.verse > 1 ? q.verse : null);
@@ -2977,7 +3052,12 @@ export default function QuranLife() {
         </div>
         <div style={{ margin: "12px 14px", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,.06)" }}>
           {listFiltered.map((s, i) => (
-            <div key={s.n} className="srow" style={{ borderBottom: i < listFiltered.length - 1 ? ".5px solid #f0f0ec" : "none" }}>
+            <div key={s.n} id={`surah-row-${s.n}`} className="srow"
+              style={{
+                borderBottom: i < listFiltered.length - 1 ? ".5px solid #f0f0ec" : "none",
+                background: scrollToSurahNum === s.n ? "#fff3c4" : "transparent",
+                transition: "background 1.2s ease"
+              }}>
               <div style={{ width: 32, height: 32, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute" }}><polygon points="16,1.5 30,9 30,23 16,30.5 2,23 2,9" fill="none" stroke={G} strokeWidth="1.1" /></svg>
                 <span style={{ position: "relative", zIndex: 1, fontSize: 10, fontWeight: 700, color: G }}>{s.n}</span>
@@ -3062,7 +3142,7 @@ export default function QuranLife() {
           <div style={{ position: "absolute", top: "calc(100% - 4px)", left: 14, right: 14, background: "#fff", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.15)", zIndex: 200, maxHeight: 280, overflowY: "auto", border: ".5px solid #e4e8e2" }}>
             {searchResults.map(s => (
               <div key={s.n}
-                onMouseDown={e => { e.preventDefault(); setShowQuranNav(false); openSurah(s.n); setSearchResults([]); }}
+                onMouseDown={e => { e.preventDefault(); setShowQuranNav(false); setFilter("all"); setSurahListTitle("All 114 Surahs"); setScrollToSurahNum(s.n); setShowSurahList(true); setSearchResults([]); }}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: ".5px solid #f0f0ec" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f5fcf7"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -3747,15 +3827,45 @@ export default function QuranLife() {
 
               {!entry.loading && !entry.error && totalPages > 0 && (
                 <>
-                  {/* Faceless silhouette illustration — simple, modest, robed */}
+                  {/* Faceless, robed illustration — themed per prophet, modest, no anatomy */}
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                    <svg width="100" height="120" viewBox="0 0 100 120">
-                      {/* Simple robed silhouette — no face, no anatomical detail */}
-                      <ellipse cx="50" cy="22" rx="16" ry="18" fill="#c9943a" opacity="0.85" />
-                      <path d="M 50 34 Q 20 45 15 90 Q 15 110 25 115 L 75 115 Q 85 110 85 90 Q 80 45 50 34 Z" fill="#e67e22" opacity="0.85" />
-                      <path d="M 50 34 Q 35 55 35 90 L 35 115 M 50 34 Q 65 55 65 90 L 65 115" stroke="#a85414" strokeWidth="1.5" fill="none" opacity="0.5" />
-                    </svg>
+                    {selectedProphet === 0 ? (
+                      // ── ADAM & HAWWA — two robed, faceless figures together ──
+                      <svg width="150" height="120" viewBox="0 0 150 120">
+                        {/* Adam figure */}
+                        <ellipse cx="55" cy="22" rx="15" ry="17" fill="#c9943a" opacity="0.85" />
+                        <path d="M 55 33 Q 28 44 24 88 Q 24 108 33 113 L 77 113 Q 86 108 86 88 Q 82 44 55 33 Z" fill="#e67e22" opacity="0.85" />
+                        <path d="M 55 33 Q 42 53 42 88 L 42 113 M 55 33 Q 68 53 68 88 L 68 113" stroke="#a85414" strokeWidth="1.3" fill="none" opacity="0.5" />
+                        {/* Hawwa figure — modest robe with headscarf drape, no anatomical distinction, fully covered */}
+                        <ellipse cx="98" cy="24" rx="14" ry="16" fill="#b0729a" opacity="0.85" />
+                        <path d="M 98 12 Q 84 14 82 34 Q 82 40 88 42" fill="none" stroke="#8a4f76" strokeWidth="0" />
+                        <path d="M 84 16 Q 98 8 112 16 Q 116 26 112 38 Q 105 44 98 44 Q 91 44 84 38 Q 80 26 84 16 Z" fill="#c98cb3" opacity="0.9" />
+                        <path d="M 98 35 Q 74 46 71 88 Q 71 108 79 113 L 117 113 Q 125 108 125 88 Q 122 46 98 35 Z" fill="#b0729a" opacity="0.85" />
+                        <path d="M 98 35 Q 87 55 87 88 L 87 113 M 98 35 Q 109 55 109 88 L 109 113" stroke="#8a4f76" strokeWidth="1.3" fill="none" opacity="0.5" />
+                      </svg>
+                    ) : (
+                      // ── SINGLE ROBED FIGURE — tinted + themed icon badge per prophet ──
+                      (() => {
+                        const palette = ["#c9943a","#2e8b6e","#4a6fa5","#a5504a","#6b5b95","#3a8a8a","#a5754a","#5a7d8c"];
+                        const main = palette[selectedProphet % palette.length];
+                        return (
+                          <svg width="110" height="130" viewBox="0 0 110 130">
+                            <ellipse cx="55" cy="24" rx="17" ry="19" fill={main} opacity="0.85" />
+                            <path d="M 55 37 Q 23 49 18 96 Q 18 118 29 123 L 81 123 Q 92 118 92 96 Q 87 49 55 37 Z" fill={main} opacity="0.72" />
+                            <path d="M 55 37 Q 39 59 39 96 L 39 123 M 55 37 Q 71 59 71 96 L 71 123" stroke={main} strokeWidth="1.4" fill="none" opacity="0.4" />
+                            {/* Themed accent badge — subtle, symbolic, not a face */}
+                            <circle cx="88" cy="20" r="14" fill="#fffaf0" stroke={main} strokeWidth="1.5" opacity="0.95" />
+                            <text x="88" y="26" fontSize="15" textAnchor="middle">{p.icon}</text>
+                          </svg>
+                        );
+                      })()
+                    )}
                   </div>
+                  {selectedProphet === 0 && (
+                    <div style={{ textAlign: "center", fontSize: 10, color: "#c9943a", marginTop: -10, marginBottom: 10, fontStyle: "italic" }}>
+                      Adam and Hawwa (Eve) — shown modestly, fully robed
+                    </div>
+                  )}
 
                   {/* Page counter */}
                   <div style={{ textAlign: "center", fontSize: 11, color: "#9ba5b0", marginBottom: 10 }}>
@@ -3924,12 +4034,21 @@ export default function QuranLife() {
   const saveMushafBookmark = useCallback(() => {
     try {
       const existing = getMushafBookmarks();
-      const entry = { page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString(), time: Date.now() };
-      const updated = [entry, ...existing.filter(b => b.page !== mushafPage)].slice(0, 20);
-      localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
-      alert(`✅ Page ${mushafPage} saved! Tap 📋 to return here.`);
+      if (mushafFontStyle === "amiri") {
+        const surahInfo = SURAHS.find(s => s.n === amiriSurahNum);
+        const anchorVerse = amiriPages[amiriPageIndex]?.verses?.[0]?.number || 1;
+        const entry = { mode: "amiri", surah: amiriSurahNum, surahName: surahInfo?.name || "", verseAnchor: anchorVerse, date: new Date().toLocaleDateString(), time: Date.now() };
+        const updated = [entry, ...existing.filter(b => !(b.mode === "amiri" && b.surah === amiriSurahNum && b.verseAnchor === anchorVerse))].slice(0, 20);
+        localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
+        alert(`✅ ${surahInfo?.name || "Page"} saved! Tap 📋 to return here.`);
+      } else {
+        const entry = { mode: "classic", page: mushafPage, surah: mushafData?.surahName || "", juz: mushafData?.juzNum || 1, date: new Date().toLocaleDateString(), time: Date.now() };
+        const updated = [entry, ...existing.filter(b => !(b.mode !== "amiri" && b.page === mushafPage))].slice(0, 20);
+        localStorage.setItem("ql_mushaf_bookmarks", JSON.stringify(updated));
+        alert(`✅ Page ${mushafPage} saved! Tap 📋 to return here.`);
+      }
     } catch { alert("Could not save."); }
-  }, [mushafPage, mushafData]);
+  }, [mushafPage, mushafData, mushafFontStyle, amiriSurahNum, amiriPageIndex, amiriPages]);
 
   const handleMushafSearch = useCallback((val) => {
     setMushafSearch(val);
@@ -3963,13 +4082,34 @@ export default function QuranLife() {
     }
   }, [mushafHighlightVerse, mushafData, screen]);
 
+  // Scroll to a searched Surah in the Surah List and briefly highlight it
+  useEffect(() => {
+    if (scrollToSurahNum && showSurahList) {
+      const t1 = setTimeout(() => {
+        const el = document.getElementById(`surah-row-${scrollToSurahNum}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+      const t2 = setTimeout(() => setScrollToSurahNum(null), 2500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [scrollToSurahNum, showSurahList]);
+
   const MushafReaderScreen = () => {
+    const amiriGoNext = () => {
+      if (amiriPageIndex < amiriPages.length - 1) setAmiriPageIndex(i => i + 1);
+      else if (amiriSurahNum < 114) paginateAmiri(amiriSurahNum + 1);
+    };
+    const amiriGoPrev = () => {
+      if (amiriPageIndex > 0) setAmiriPageIndex(i => i - 1);
+      else if (amiriSurahNum > 1) paginateAmiri(amiriSurahNum - 1, null, true);
+    };
+
     const handleDragStart = (clientX) => { if (mushafAnimating) return; mushafDragStartRef.current = clientX; };
     const handleDragMove = (clientX) => { if (mushafDragStartRef.current === null || mushafAnimating) return; setMushafDragX(clientX - mushafDragStartRef.current); };
     const handleDragEnd = () => {
       if (mushafDragStartRef.current === null) return;
-      if (mushafDragX < -70) mushafGoToPage(mushafPage + 1);
-      else if (mushafDragX > 70) mushafGoToPage(mushafPage - 1);
+      if (mushafDragX < -70) { mushafFontStyle === "amiri" ? amiriGoNext() : mushafGoToPage(mushafPage + 1); }
+      else if (mushafDragX > 70) { mushafFontStyle === "amiri" ? amiriGoPrev() : mushafGoToPage(mushafPage - 1); }
       else setMushafDragX(0);
       mushafDragStartRef.current = null;
     };
@@ -4008,17 +4148,35 @@ export default function QuranLife() {
             <button onClick={() => { setShowQuranNav(true); setScreen("home"); setMushafQuickLink(null); setMushafQuickLinkSurah(null); setMushafHighlightVerse(null); setMushafTranslations({}); }}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,.1)", border: "none", fontSize: 16, color: "#e8d5a8", cursor: "pointer", flexShrink: 0 }}>←</button>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Complete Quran"}</div>
-              <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
+              {mushafFontStyle === "amiri" ? (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{SURAHS.find(s => s.n === amiriSurahNum)?.name || "Complete Quran"}</div>
+                  <div style={{ fontSize: 10, color: "#a8916a" }}>Page {amiriPageIndex + 1} of {amiriPages.length || 1} · Amiri Style</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e8d5a8", fontFamily: "'Amiri',serif" }}>{mushafData?.surahName || "Complete Quran"}</div>
+                  <div style={{ fontSize: 10, color: "#a8916a" }}>Page {mushafPage} of 604{mushafData ? ` · Juz ${mushafData.juzNum}` : ""}</div>
+                </>
+              )}
             </div>
             <button onClick={saveMushafBookmark}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.3)", border: "1px solid #c8a84b", fontSize: 16, color: "#c8a84b", cursor: "pointer", flexShrink: 0 }} title="Save this page">🔖</button>
             <button onClick={() => setShowMushafBookmarks(b => !b)}
               style={{ width: 32, height: 32, borderRadius: 8, background: showMushafBookmarks ? "#c8a84b" : "rgba(200,168,75,.15)", border: "1px solid #c8a84b55", fontSize: 11, color: showMushafBookmarks ? "#1a0e04" : "#c8a84b", cursor: "pointer", fontWeight: 700, flexShrink: 0 }} title="My saved pages">📋</button>
             <button onClick={() => {
-                const next = mushafFontStyle === "amiri" ? "classic" : "amiri";
-                setMushafFontStyle(next);
-                try { localStorage.setItem("ql_mushaf_font_style", next); } catch {}
+                if (mushafFontStyle === "amiri") {
+                  const surahInfo = SURAHS.find(s => s.n === amiriSurahNum);
+                  setMushafFontStyle("classic");
+                  try { localStorage.setItem("ql_mushaf_font_style", "classic"); } catch {}
+                  openMushafReader(surahInfo ? surahInfo.page : 1);
+                } else {
+                  const anchorSurah = mushafData?.verses?.[0]?.chapter ? parseInt(mushafData.verses[0].chapter) : 1;
+                  const anchorVerseNum = mushafData?.verses?.[0]?.number || null;
+                  setMushafFontStyle("amiri");
+                  try { localStorage.setItem("ql_mushaf_font_style", "amiri"); } catch {}
+                  openAmiriReader(anchorSurah, anchorVerseNum);
+                }
               }}
               style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,168,75,.15)", border: "1px solid #c8a84b55", fontSize: 13, color: "#c8a84b", cursor: "pointer", flexShrink: 0 }}
               title={mushafFontStyle === "amiri" ? "Switch to Mushaf Style" : "Switch to Amiri Style"}>
@@ -4032,14 +4190,29 @@ export default function QuranLife() {
               {mushafBookmarks.length === 0
                 ? <div style={{ padding: "12px 14px", color: "#a8916a", fontSize: 12, textAlign: "center" }}>No saved pages yet. Tap 🔖 to save a page.</div>
                 : mushafBookmarks.map((b, i) => (
-                  <div key={i} onClick={() => { mushafGoToPage(b.page); setShowMushafBookmarks(false); }}
+                  <div key={i} onClick={() => {
+                      setShowMushafBookmarks(false);
+                      if (b.mode === "amiri") {
+                        setMushafFontStyle("amiri");
+                        try { localStorage.setItem("ql_mushaf_font_style", "amiri"); } catch {}
+                        openAmiriReader(b.surah, b.verseAnchor);
+                      } else {
+                        setMushafFontStyle("classic");
+                        try { localStorage.setItem("ql_mushaf_font_style", "classic"); } catch {}
+                        mushafGoToPage(b.page);
+                      }
+                    }}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer", borderBottom: i < mushafBookmarks.length - 1 ? "1px solid #3d241044" : "none" }}
                     onMouseEnter={e => e.currentTarget.style.background = "#2a1505"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg,#8b6914,#c9943a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>P{b.page}</div>
+                    <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg,#8b6914,#c9943a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{b.mode === "amiri" ? "📖" : `P${b.page}`}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#e8d5a8" }}>Page {b.page} — {b.surah}</div>
-                      <div style={{ fontSize: 10, color: "#a8916a" }}>Juz {b.juz} · Saved {b.date}</div>
+                      {b.mode === "amiri" ? (
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#e8d5a8" }}>{b.surahName} — Verse {b.verseAnchor}</div>
+                      ) : (
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#e8d5a8" }}>Page {b.page} — {b.surah}</div>
+                      )}
+                      <div style={{ fontSize: 10, color: "#a8916a" }}>{b.mode === "amiri" ? "Amiri Style" : `Juz ${b.juz}`} · Saved {b.date}</div>
                     </div>
                     <div style={{ fontSize: 11, color: "#c8a84b", fontWeight: 700 }}>Go →</div>
                   </div>
@@ -4065,7 +4238,7 @@ export default function QuranLife() {
               {mushafSearchResults.length > 0 && (
                 <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1a0e04", border: "1px solid #c8a84b44", borderRadius: 8, zIndex: 100, maxHeight: 200, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
                   {mushafSearchResults.map((r, i) => (
-                    <div key={i} onClick={() => { mushafGoToPage(r.page); setMushafSearch(""); setMushafSearchResults([]); }}
+                    <div key={i} onClick={() => { setMushafFontStyle("classic"); try { localStorage.setItem("ql_mushaf_font_style", "classic"); } catch {}; mushafGoToPage(r.page); setMushafSearch(""); setMushafSearchResults([]); }}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", borderBottom: i < mushafSearchResults.length - 1 ? "1px solid #3d241044" : "none" }}
                       onMouseEnter={e => e.currentTarget.style.background = "#2a1505"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -4108,101 +4281,150 @@ export default function QuranLife() {
 
             <div style={{ padding: "22px 20px 16px", position: "relative", zIndex: 2 }}>
 
-              {mushafLoading && !mushafData && (
-                <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914", fontFamily: "'Amiri',serif", fontSize: 18 }}>جاري التحميل...</div>
-              )}
-              {mushafError && (
-                <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                  <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{mushafError}</div>
-                  <button onClick={() => fetchMushafPage(mushafPage)} style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>Retry</button>
-                </div>
-              )}
-
-              {mushafData && !mushafError && (
-                <div style={{ display: "flex", gap: 4 }}>
-
-                  {/* RIGHT SIDE MARGIN — Ruku & Sajdah markers */}
-                  <div style={{ width: 20, flexShrink: 0, direction: "rtl" }}>
-                    {mushafData.verses.map((v, i) => {
-                      const sajdah = isSajdahVerse(parseInt(v.chapter), v.number);
-                      const ruku = isRukuStart(parseInt(v.chapter), v.number);
-                      return (
-                        <div key={i} style={{ minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 6 }}>
-                          {ruku && <div style={{ fontSize: 14, color: "#0f5132", fontFamily: "'Amiri',serif", fontWeight: 700, lineHeight: 1 }} title="Ruku start">ع</div>}
-                          {sajdah && <div style={{ fontSize: 13, color: "#8b6914", lineHeight: 1, marginTop: ruku ? 2 : 0 }} title="Sajdah">۩</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* MAIN TEXT AREA */}
-                  <div style={{ flex: 1 }}>
-                    {versesBySurah.map((group, gi) => {
-                      const surahInfo = SURAHS.find(s => s.n === parseInt(group.surah));
-                      const isFirstVerse = group.verses[0]?.number === 1;
-                      const showBismillah = isFirstVerse && parseInt(group.surah) !== 1 && parseInt(group.surah) !== 9;
-                      return (
-                        <div key={gi}>
-                          {/* Surah header banner */}
-                          {isFirstVerse && (
-                            <div style={{ textAlign: "center", margin: "8px 0 6px", background: "linear-gradient(135deg,#1a4a2e,#0f5132)", borderRadius: 6, padding: "8px 12px", border: "1px solid #c8a84b" }}>
-                              <div style={{ fontSize: 9, color: "#c8a84b", letterSpacing: 2, textTransform: "uppercase", marginBottom: 3 }}>سورة</div>
-                              <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>{surahInfo?.ar || group.surah}</div>
-                              <div style={{ fontSize: 10, color: "rgba(255,255,255,.7)", marginTop: 2 }}>{surahInfo?.name} · {surahInfo?.verses} verses · {surahInfo?.type}</div>
-                            </div>
-                          )}
-                          {/* Bismillah box */}
-                          {showBismillah && (
-                            <div style={{ textAlign: "center", margin: "6px 0", background: "#fdf8ef", border: "1px solid #c8a84b", borderRadius: 4, padding: "6px 10px" }}>
-                              <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#1a0800", fontWeight: 700, direction: "rtl" }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-                            </div>
-                          )}
-                          {/* Verses — Arabic */}
-                          <div style={mushafFontStyle === "classic"
-                            ? { fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }
-                            : { fontFamily: "'Amiri Quran','Amiri',serif", fontSize: 27, lineHeight: 2.5, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }
-                          }>
-                            {group.verses.map((v, i) => {
-                              const isHighlighted = mushafHighlightVerse && v.number === mushafHighlightVerse && parseInt(v.chapter) === mushafQuickLinkSurah;
-                              return (
-                                <span key={i} id={isHighlighted ? "mushaf-highlight-verse" : undefined}
-                                  style={isHighlighted ? { background: "linear-gradient(180deg,#fff3c4,#ffe08a)", borderRadius: 4, padding: "2px 4px", boxShadow: "0 0 0 2px #c9943a" } : undefined}>
-                                  {v.arabic}
-                                  <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
-                                  {" "}
-                                </span>
-                              );
-                            })}
-                          </div>
-                          {/* Translations — shown only in Quick Link mode */}
-                          {mushafQuickLink && (
-                            <div style={{ marginTop: 10, marginBottom: 8 }}>
-                              {mushafTransLoading && Object.keys(mushafTranslations).length === 0 && (
-                                <div style={{ textAlign: "center", fontSize: 12, color: "#8b6914", padding: "8px 0" }}>Loading translation...</div>
-                              )}
-                              {group.verses.map((v) => {
-                                const key = `${v.chapter}:${v.number}`;
-                                const tr = mushafTranslations[key];
-                                if (!tr) return null;
-                                return (
-                                  <div key={key} style={{ padding: "8px 10px", marginBottom: 6, background: "#fdf8ef", borderLeft: "3px solid #c8a84b", borderRadius: "0 6px 6px 0" }}>
-                                    <div style={{ fontSize: 10, color: "#8b6914", fontWeight: 700, marginBottom: 3 }}>Verse {v.number}</div>
-                                    <div style={{ fontSize: 13, color: "#2a1a00", lineHeight: 1.7 }}>{tr}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Page number */}
-                    <div style={{ textAlign: "center", marginTop: 16, paddingTop: 10, borderTop: "1px solid #c8a84b55", fontFamily: "'Amiri',serif", fontSize: 14, color: "#8b6914", fontWeight: 700 }}>
-                      {mushafPage}
+              {mushafFontStyle === "amiri" ? (
+                <>
+                  {/* ── AMIRI STYLE BODY — custom ~10-line pagination ── */}
+                  {amiriLoading && amiriPages.length === 0 && (
+                    <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914", fontFamily: "'Amiri',serif", fontSize: 18 }}>جاري التحميل...</div>
+                  )}
+                  {amiriError && (
+                    <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                      <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{amiriError}</div>
+                      <button onClick={() => paginateAmiri(amiriSurahNum)} style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>Retry</button>
                     </div>
-                  </div>
-                </div>
+                  )}
+                  {!amiriError && amiriPages.length > 0 && (() => {
+                    const page = amiriPages[amiriPageIndex] || { verses: [] };
+                    const surahInfo = SURAHS.find(s => s.n === amiriSurahNum);
+                    const showSurahHeader = page.verses[0]?.number === 1;
+                    const showBismillah = showSurahHeader && amiriSurahNum !== 1 && amiriSurahNum !== 9;
+                    return (
+                      <div>
+                        {showSurahHeader && (
+                          <div style={{ textAlign: "center", margin: "8px 0 6px", background: "linear-gradient(135deg,#1a4a2e,#0f5132)", borderRadius: 6, padding: "8px 12px", border: "1px solid #c8a84b" }}>
+                            <div style={{ fontSize: 9, color: "#c8a84b", letterSpacing: 2, textTransform: "uppercase", marginBottom: 3 }}>سورة</div>
+                            <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>{surahInfo?.ar}</div>
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,.7)", marginTop: 2 }}>{surahInfo?.name} · {surahInfo?.verses} verses · {surahInfo?.type}</div>
+                          </div>
+                        )}
+                        {showBismillah && (
+                          <div style={{ textAlign: "center", margin: "6px 0", background: "#fdf8ef", border: "1px solid #c8a84b", borderRadius: 4, padding: "6px 10px" }}>
+                            <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#1a0800", fontWeight: 700, direction: "rtl" }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                          </div>
+                        )}
+                        <div style={{ fontFamily: "'Amiri Quran','Amiri',serif", fontSize: 27, lineHeight: 2.5, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
+                          {page.verses.map((v, i) => (
+                            <span key={i}>
+                              {v.arabic}
+                              <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
+                              {" "}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ textAlign: "center", marginTop: 16, paddingTop: 10, borderTop: "1px solid #c8a84b55", fontFamily: "'Amiri',serif", fontSize: 14, color: "#8b6914", fontWeight: 700 }}>
+                          {amiriPageIndex + 1} / {amiriPages.length}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* ── CLASSIC / OFFICIAL 604-PAGE BODY ── */}
+                  {mushafLoading && !mushafData && (
+                    <div style={{ textAlign: "center", padding: "80px 0", color: "#8b6914", fontFamily: "'Amiri',serif", fontSize: 18 }}>جاري التحميل...</div>
+                  )}
+                  {mushafError && (
+                    <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                      <div style={{ color: "#c0392b", fontSize: 13, marginBottom: 12 }}>{mushafError}</div>
+                      <button onClick={() => fetchMushafPage(mushafPage)} style={{ padding: "8px 18px", borderRadius: 8, background: "#8b6914", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>Retry</button>
+                    </div>
+                  )}
+
+                  {mushafData && !mushafError && (
+                    <div style={{ display: "flex", gap: 4 }}>
+
+                      {/* RIGHT SIDE MARGIN — Ruku & Sajdah markers */}
+                      <div style={{ width: 20, flexShrink: 0, direction: "rtl" }}>
+                        {mushafData.verses.map((v, i) => {
+                          const sajdah = isSajdahVerse(parseInt(v.chapter), v.number);
+                          const ruku = isRukuStart(parseInt(v.chapter), v.number);
+                          return (
+                            <div key={i} style={{ minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 6 }}>
+                              {ruku && <div style={{ fontSize: 14, color: "#0f5132", fontFamily: "'Amiri',serif", fontWeight: 700, lineHeight: 1 }} title="Ruku start">ع</div>}
+                              {sajdah && <div style={{ fontSize: 13, color: "#8b6914", lineHeight: 1, marginTop: ruku ? 2 : 0 }} title="Sajdah">۩</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* MAIN TEXT AREA */}
+                      <div style={{ flex: 1 }}>
+                        {versesBySurah.map((group, gi) => {
+                          const surahInfo = SURAHS.find(s => s.n === parseInt(group.surah));
+                          const isFirstVerse = group.verses[0]?.number === 1;
+                          const showBismillah = isFirstVerse && parseInt(group.surah) !== 1 && parseInt(group.surah) !== 9;
+                          return (
+                            <div key={gi}>
+                              {/* Surah header banner */}
+                              {isFirstVerse && (
+                                <div style={{ textAlign: "center", margin: "8px 0 6px", background: "linear-gradient(135deg,#1a4a2e,#0f5132)", borderRadius: 6, padding: "8px 12px", border: "1px solid #c8a84b" }}>
+                                  <div style={{ fontSize: 9, color: "#c8a84b", letterSpacing: 2, textTransform: "uppercase", marginBottom: 3 }}>سورة</div>
+                                  <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#fff", fontWeight: 700 }}>{surahInfo?.ar || group.surah}</div>
+                                  <div style={{ fontSize: 10, color: "rgba(255,255,255,.7)", marginTop: 2 }}>{surahInfo?.name} · {surahInfo?.verses} verses · {surahInfo?.type}</div>
+                                </div>
+                              )}
+                              {/* Bismillah box */}
+                              {showBismillah && (
+                                <div style={{ textAlign: "center", margin: "6px 0", background: "#fdf8ef", border: "1px solid #c8a84b", borderRadius: 4, padding: "6px 10px" }}>
+                                  <div style={{ fontFamily: "'Amiri',serif", fontSize: 20, color: "#1a0800", fontWeight: 700, direction: "rtl" }}>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                                </div>
+                              )}
+                              {/* Verses — Arabic */}
+                              <div style={{ fontFamily: "'Amiri',serif", fontSize: 22, lineHeight: 2.2, textAlign: "justify", textAlignLast: "center", direction: "rtl", color: "#1a0800", fontWeight: 700 }}>
+                                {group.verses.map((v, i) => {
+                                  const isHighlighted = mushafHighlightVerse && v.number === mushafHighlightVerse && parseInt(v.chapter) === mushafQuickLinkSurah;
+                                  return (
+                                    <span key={i} id={isHighlighted ? "mushaf-highlight-verse" : undefined}
+                                      style={isHighlighted ? { background: "linear-gradient(180deg,#fff3c4,#ffe08a)", borderRadius: 4, padding: "2px 4px", boxShadow: "0 0 0 2px #c9943a" } : undefined}>
+                                      {v.arabic}
+                                      <span style={{ fontSize: 15, color: "#8b6914", margin: "0 3px", fontFamily: "'Amiri',serif" }}>﴿{v.number}﴾</span>
+                                      {" "}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                              {/* Translations — shown only in Quick Link mode */}
+                              {mushafQuickLink && (
+                                <div style={{ marginTop: 10, marginBottom: 8 }}>
+                                  {mushafTransLoading && Object.keys(mushafTranslations).length === 0 && (
+                                    <div style={{ textAlign: "center", fontSize: 12, color: "#8b6914", padding: "8px 0" }}>Loading translation...</div>
+                                  )}
+                                  {group.verses.map((v) => {
+                                    const key = `${v.chapter}:${v.number}`;
+                                    const tr = mushafTranslations[key];
+                                    if (!tr) return null;
+                                    return (
+                                      <div key={key} style={{ padding: "8px 10px", marginBottom: 6, background: "#fdf8ef", borderLeft: "3px solid #c8a84b", borderRadius: "0 6px 6px 0" }}>
+                                        <div style={{ fontSize: 10, color: "#8b6914", fontWeight: 700, marginBottom: 3 }}>Verse {v.number}</div>
+                                        <div style={{ fontSize: 13, color: "#2a1a00", lineHeight: 1.7 }}>{tr}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Page number */}
+                        <div style={{ textAlign: "center", marginTop: 16, paddingTop: 10, borderTop: "1px solid #c8a84b55", fontFamily: "'Amiri',serif", fontSize: 14, color: "#8b6914", fontWeight: 700 }}>
+                          {mushafPage}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -4210,18 +4432,35 @@ export default function QuranLife() {
 
         {/* Navigation */}
         <div style={{ display: "flex", gap: 10, padding: "0 14px", marginTop: 8 }}>
-          <button onClick={() => { mushafGoToPage(mushafPage - 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage - 1); }} disabled={mushafPage <= 1}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: mushafPage <= 1 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
-            → Previous
-          </button>
-          <button onClick={() => { mushafGoToPage(mushafPage + 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage + 1); }} disabled={mushafPage >= 604}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: mushafPage >= 604 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
-            Next ←
-          </button>
+          {mushafFontStyle === "amiri" ? (
+            <>
+              <button onClick={amiriGoPrev} disabled={amiriPageIndex <= 0 && amiriSurahNum <= 1}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: (amiriPageIndex <= 0 && amiriSurahNum <= 1) ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: (amiriPageIndex <= 0 && amiriSurahNum <= 1) ? "#5a4a30" : "#e8d5a8", border: (amiriPageIndex <= 0 && amiriSurahNum <= 1) ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                → Previous
+              </button>
+              <button onClick={amiriGoNext} disabled={amiriPageIndex >= amiriPages.length - 1 && amiriSurahNum >= 114}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: (amiriPageIndex >= amiriPages.length - 1 && amiriSurahNum >= 114) ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: (amiriPageIndex >= amiriPages.length - 1 && amiriSurahNum >= 114) ? "#5a4a30" : "#e8d5a8", border: (amiriPageIndex >= amiriPages.length - 1 && amiriSurahNum >= 114) ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Next ←
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { mushafGoToPage(mushafPage - 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage - 1); }} disabled={mushafPage <= 1}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage <= 1 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage <= 1 ? "#5a4a30" : "#e8d5a8", border: mushafPage <= 1 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage <= 1 ? "default" : "pointer" }}>
+                → Previous
+              </button>
+              <button onClick={() => { mushafGoToPage(mushafPage + 1); if (mushafQuickLink) fetchMushafTranslations(mushafPage + 1); }} disabled={mushafPage >= 604}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: mushafPage >= 604 ? "rgba(255,255,255,.05)" : "rgba(201,148,58,.2)", color: mushafPage >= 604 ? "#5a4a30" : "#e8d5a8", border: mushafPage >= 604 ? "none" : "1px solid #c8a84b44", fontSize: 13, fontWeight: 600, cursor: mushafPage >= 604 ? "default" : "pointer" }}>
+                Next ←
+              </button>
+            </>
+          )}
         </div>
         <div style={{ textAlign: "center", fontSize: 10, color: "#7a6a4a", marginTop: 8 }}>
-          Swipe or drag the page to turn · Uthmani script from Quran.com
+          {mushafFontStyle === "amiri" ? "Swipe or drag to turn · 10 lines per page · Amiri Style" : "Swipe or drag the page to turn · Uthmani script from Quran.com"}
         </div>
+        {/* Hidden measuring element for Amiri pagination — never visible */}
+        <div ref={amiriMeasureRef} style={{ position: "fixed", top: -9999, left: -9999, visibility: "hidden", pointerEvents: "none", fontFamily: "'Amiri Quran','Amiri',serif", fontSize: AMIRI_FONT_SIZE, lineHeight: AMIRI_LINE_HEIGHT_MULT, direction: "rtl", textAlign: "justify" }} />
       </div>
     );
   };
