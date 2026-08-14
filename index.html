@@ -10,9 +10,12 @@
     <meta property="og:title" content="Quran Life — Complete Quran Knowledge" />
     <meta property="og:description" content="The world's most complete Quran app. Every word clickable. Tafsir, Hadith grading, Science connections. 48+ languages." />
     <meta property="og:type" content="website" />
-    <!-- Google Fonts preconnect — loads Amiri faster on all devices -->
+    <!-- Google Fonts — must be in HTML head so fonts load reliably on ALL devices/browsers -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Amiri: primary Quranic font with full tashkeel/diacritics support -->
+    <!-- Noto Naskh Arabic: reliable fallback with full Unicode Arabic support -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" />
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
