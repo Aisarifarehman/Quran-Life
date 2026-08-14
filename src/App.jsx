@@ -2216,7 +2216,16 @@ export default function QuranLife() {
     setCache({});
     // Clear verse translations cache for all surahs so they reload in new language
     Object.keys(verseCache).forEach(k => { delete verseCache[k]; });
-  }, []);
+    // If user is inside a surah, reload verses in new language
+    if (surahNum) {
+      setVerses([]);
+      setVersesLoading(true);
+      const onAIReady = (updated) => setVerses([...updated]);
+      fetchVerses(surahNum, code, onAIReady)
+        .then(v => { setVerses(v); setVersesLoading(false); })
+        .catch(() => setVersesLoading(false));
+    }
+  }, [surahNum]);
 
   // ── BOOKMARKS ───────────────────────────────────────────────
   const toggleBk = useCallback((sn, sname, vn, arabic, translation) => {
