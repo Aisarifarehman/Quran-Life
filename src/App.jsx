@@ -3417,45 +3417,54 @@ export default function QuranLife() {
                 <div className="ar" style={{ fontSize: 17, color: G, lineHeight: 1.4 }}>{s.ar}</div>
                 <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
               </div>
-              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                {bilingualPlaying && bilingualSurah === s.n ? (
-                  <>
-                    <div style={{ fontSize: 11, color: G, fontWeight: 600, alignSelf: "center", marginRight: 2 }}>
-                      {bilingualPlaying === "ur" ? "🇵🇰" : "🇬🇧"} v{bilingualVerse}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0, alignItems: "flex-end" }}>
+                {/* Playing state — shows controls */}
+                {(bilingualPlaying && bilingualSurah === s.n) || (playKey && playKey.startsWith(`${s.n}:`)) ? (
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <div style={{ fontSize: 11, color: G, fontWeight: 600 }}>
+                      {bilingualPlaying && bilingualSurah === s.n
+                        ? (bilingualPlaying === "ur" ? "▶ Urdu" : "▶ English") + ` v${bilingualVerse}`
+                        : "▶ Arabic"}
                     </div>
-                    {!bilingualPaused ? (
-                      <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                    {bilingualPlaying && bilingualSurah === s.n ? (
+                      <>
+                        {!bilingualPaused ? (
+                          <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                        ) : (
+                          <button className="pbtn" style={{ background: "#27ae60", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                        )}
+                        <button className="pbtn" style={{ background: "#c0392b", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
+                      </>
                     ) : (
-                      <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                      <>
+                        {!audioPaused ? (
+                          <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
+                        ) : (
+                          <button className="pbtn" style={{ background: "#27ae60", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); resumeAudio(); }}>▶</button>
+                        )}
+                        <button className="pbtn" style={{ background: "#c0392b", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
+                      </>
                     )}
-                    <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
-                  </>
-                ) : playKey && playKey.startsWith(`${s.n}:`) ? (
-                  <>
-                    {!audioPaused ? (
-                      <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
-                    ) : (
-                      <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeAudio(); }}>▶</button>
-                    )}
-                    <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
-                  </>
+                    <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                  </div>
                 ) : (
-                  <>
-                    <button className="pbtn" onClick={async e => {
-                      e.stopPropagation(); stopAudio(); stopBilingualAudio(); setContinueDialog(null);
+                  /* Normal state — show all 3 play buttons + Read */
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px" }} onClick={async e => {
+                      e.stopPropagation(); stopBilingualAudio(); stopAudio(); setContinueDialog(null);
                       try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
-                    }}>▶ Play</button>
-                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
-                      onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
-                      🇵🇰 UR
+                    }}>▶ Arabic</button>
+                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px", background: "#145a32", color: "#fff" }}
+                      onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
+                      ▶ Urdu
                     </button>
-                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
-                      onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
-                      🇬🇧 EN
+                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px", background: "#1a5276", color: "#fff" }}
+                      onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
+                      ▶ English
                     </button>
-                  </>
+                    <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                  </div>
                 )}
-                <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
               </div>
             </div>
           ))}
@@ -3596,45 +3605,52 @@ export default function QuranLife() {
               <div className="ar" style={{ fontSize: 17, color: G, lineHeight: 1.4 }}>{s.ar}</div>
               <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
             </div>
-            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-              {bilingualPlaying && bilingualSurah === s.n ? (
-                <>
-                  <div style={{ fontSize: 11, color: G, fontWeight: 600, alignSelf: "center", marginRight: 2 }}>
-                    {bilingualPlaying === "ur" ? "🇵🇰" : "🇬🇧"} v{bilingualVerse}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0, alignItems: "flex-end" }}>
+              {(bilingualPlaying && bilingualSurah === s.n) || (playKey && playKey.startsWith(`${s.n}:`)) ? (
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <div style={{ fontSize: 11, color: G, fontWeight: 600 }}>
+                    {bilingualPlaying && bilingualSurah === s.n
+                      ? (bilingualPlaying === "ur" ? "▶ Urdu" : "▶ English") + ` v${bilingualVerse}`
+                      : "▶ Arabic"}
                   </div>
-                  {!bilingualPaused ? (
-                    <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                  {bilingualPlaying && bilingualSurah === s.n ? (
+                    <>
+                      {!bilingualPaused ? (
+                        <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                      ) : (
+                        <button className="pbtn" style={{ background: "#27ae60", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                      )}
+                      <button className="pbtn" style={{ background: "#c0392b", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
+                    </>
                   ) : (
-                    <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                    <>
+                      {!audioPaused ? (
+                        <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
+                      ) : (
+                        <button className="pbtn" style={{ background: "#27ae60", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); resumeAudio(); }}>▶</button>
+                      )}
+                      <button className="pbtn" style={{ background: "#c0392b", color: "#fff", fontSize: 11, padding: "3px 8px" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
+                    </>
                   )}
-                  <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
-                </>
-              ) : playKey && playKey.startsWith(`${s.n}:`) ? (
-                <>
-                  {!audioPaused ? (
-                    <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
-                  ) : (
-                    <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeAudio(); }}>▶</button>
-                  )}
-                  <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
-                </>
+                  <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                </div>
               ) : (
-                <>
-                  <button className="pbtn" onClick={async e => {
-                    e.stopPropagation(); stopAudio(); stopBilingualAudio(); setContinueDialog(null);
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px" }} onClick={async e => {
+                    e.stopPropagation(); stopBilingualAudio(); stopAudio(); setContinueDialog(null);
                     try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
-                  }}>▶ Play</button>
-                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
-                    onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
-                    🇵🇰 UR
+                  }}>▶ Arabic</button>
+                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px", background: "#145a32", color: "#fff" }}
+                    onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
+                    ▶ Urdu
                   </button>
-                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
-                    onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
-                    🇬🇧 EN
+                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 9px", background: "#1a5276", color: "#fff" }}
+                    onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
+                    ▶ English
                   </button>
-                </>
+                  <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                </div>
               )}
-              <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
             </div>
           </div>
         ))}
