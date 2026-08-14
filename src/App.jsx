@@ -1092,6 +1092,36 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 // ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
 // ─── GEMINI FREE AI — with model fallback + retry ───────────
+// ─── SUPABASE CACHE ──────────────────────────────────────────
+const SUPA_URL = "https://syemtsqbgaupkybtomex.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5ZW10c3FiZ2F1cGt5YnRvbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTU5NTgsImV4cCI6MjEwMjI3MTk1OH0.LPK8kmpPDmOZCzjltRjxutJwmDguiKnXUKHMB28V2YI";
+
+async function cacheGet(id) {
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/ai_cache?id=eq.${encodeURIComponent(id)}&select=content`, {
+      headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` }
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.[0]?.content || null;
+  } catch { return null; }
+}
+
+async function cacheSet(id, content) {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/ai_cache`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPA_KEY,
+        "Authorization": `Bearer ${SUPA_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({ id, content })
+    });
+  } catch { }
+}
+
 const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
 // Current Gemini models in priority order — app finds the one that works
 const GEMINI_MODELS = [
@@ -1135,7 +1165,13 @@ async function geminiCall(bodyText, maxTokens, key) {
   throw lastErr || new Error("All Gemini models failed");
 }
 
-async function askAI(prompt, langName, retries = 2) {
+async function askAI(prompt, langName, cacheKey, retries = 2) {
+  // Check Supabase cache first
+  if (cacheKey) {
+    const cached = await cacheGet(cacheKey);
+    if (cached) return cached;
+  }
+
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
 
@@ -1146,14 +1182,16 @@ async function askAI(prompt, langName, retries = 2) {
   geminiQueue.lastCall = Date.now();
 
   try {
-    return await geminiCall(
+    const text = await geminiCall(
       `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
       1200, key
     );
+    if (cacheKey && text) await cacheSet(cacheKey, text);
+    return text;
   } catch (e) {
     if (e.message === "RATE_LIMIT" && retries > 0) {
       await new Promise(res => setTimeout(res, 7000));
-      return askAI(prompt, langName, retries - 1);
+      return askAI(prompt, langName, cacheKey, retries - 1);
     }
     throw e;
   }
@@ -1163,6 +1201,12 @@ async function askAI(prompt, langName, retries = 2) {
 // grounded only in Quran/authentic hadith, written simply for children.
 // Returns an array of short page strings (no full biography, no invented dates).
 async function fetchProphetStory(prophet, langName) {
+  const cacheKey = `prophet-${prophet.en}-${langName}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    const pages = cached.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
+    return pages.length > 0 ? pages : [cached];
+  }
   const prompt = `Tell the story of Prophet ${prophet.en} (${prophet.ar}) as a SHORT children's storybook, using ONLY what is stated in the Quran (references: ${prophet.surahRefs}) and authentic hadith. Do NOT invent dates, ages, or locations not mentioned in these sources. Do NOT include any birth or death dates. Write EXACTLY 4 short story pages, each 2-3 simple sentences a child can understand, moving the story forward like "First... then... then... finally...". Separate the 4 pages with the exact marker "|||PAGE|||" and nothing else between them. Do not number the pages. Do not add a title. Write directly in ${langName}.`;
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
@@ -1171,6 +1215,7 @@ async function fetchProphetStory(prophet, langName) {
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   geminiQueue.lastCall = Date.now();
   const raw = await geminiCall(prompt, 900, key);
+  if (raw) await cacheSet(cacheKey, raw);
   const pages = raw.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
   return pages.length > 0 ? pages : [raw];
 }
@@ -2112,7 +2157,7 @@ export default function QuranLife() {
         if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
         } else {
-          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName);
+          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, key);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
         }
       }
@@ -2125,14 +2170,14 @@ export default function QuranLife() {
         if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
         } else {
-          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName);
+          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, key);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
         }
       }
 
       else if (tab === "hadith") {
         if (geminiKey) {
-          const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName);
+          const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName, key);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
         } else {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Authentic Hadiths\n\n✅ SAHIH — Bukhari\nThe Prophet ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Quran will receive a good deed multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\n\n⚠️ WARNING: Always verify hadiths before sharing. Millions of fabricated hadiths circulate on social media daily.` } }));
@@ -2141,7 +2186,7 @@ export default function QuranLife() {
 
       else if (tab === "science") {
         if (geminiKey) {
-          const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName);
+          const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName, key);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
         } else {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "🔬 Scientific Connections\n\nAdd VITE_GEMINI_KEY to Vercel to unlock this feature." } }));
@@ -2947,7 +2992,7 @@ export default function QuranLife() {
       if (!text) {
         const prompt = `Translate this Quran verse from Arabic into ${LANG_NAMES[audioLang] || audioLang}. Surah ${sName}, Verse ${v.number}: "${v.arabic}"\n\nGive ONLY the accurate, clear meaning translation. No Arabic, no transliteration, no extra notes — just the translated meaning.`;
         try {
-          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang);
+          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang, key);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
         } catch { text = null; }
       }
