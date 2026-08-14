@@ -978,22 +978,25 @@ function speakWordNursery(letterObj) {
   window.speechSynthesis.speak(u);
 }
 
-async function aiTranslateChunk(chunk, langName, surahNum, chunkIndex) {
+async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
-  const cacheKey = `translate-${surahNum}-chunk${chunkIndex}-${langName}`;
   try {
-    const r = await fetch("https://quran-inlife.aisarifarehman.workers.dev", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "translateChunk",
-        cacheKey,
-        prompt: `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}`,
-      })
+    // Respect global rate gap
+    const now = Date.now();
+    const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    geminiQueue.lastCall = Date.now();
+
+    const text = await geminiCall(
+      `You are a Quran translation expert. Translate these Quran verse meanings from English into ${langName}.\nReturn ONLY the numbered translations in the same format, one per line. No extra text.\n\n${input}`,
+      4000, apiKey
+    );
+    const result = {};
+    text.split("\n").forEach(line => {
+      const m = line.match(/^(\d+)[:.]\s*(.+)/);
+      if (m) result[parseInt(m[1])] = m[2].trim();
     });
-    if (!r.ok) return null;
-    const d = await r.json();
-    return d.result || null;
+    return Object.keys(result).length > 0 ? result : null;
   } catch { return null; }
 }
 
@@ -1061,24 +1064,26 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   // Every language except English & Arabic: AI translates from English
   if (langCode !== "en" && langCode !== "ar") {
     const langName = LANG_NAMES[langCode] || langCode;
-    (async () => {
-      const CHUNK = 25;
-      const current = [...verses];
-      for (let i = 0; i < current.length; i += CHUNK) {
-        const chunkIndex = Math.floor(i / CHUNK);
-        const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
-        const result = await aiTranslateChunk(chunk, langName, surahNum, chunkIndex);
-        if (result) {
-          for (let j = 0; j < current.length; j++) {
-            if (result[current[j].number]) {
-              current[j] = { ...current[j], translation: result[current[j].number] };
+    const apiKey = import.meta.env?.VITE_GEMINI_KEY || "";
+    if (apiKey) {
+      (async () => {
+        const CHUNK = 25;
+        const current = [...verses];
+        for (let i = 0; i < current.length; i += CHUNK) {
+          const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
+          const result = await aiTranslateChunk(chunk, langName, apiKey);
+          if (result) {
+            for (let j = 0; j < current.length; j++) {
+              if (result[current[j].number]) {
+                current[j] = { ...current[j], translation: result[current[j].number] };
+              }
             }
+            verseCache[cacheKey] = [...current];
+            if (onAIReady) onAIReady([...current]);
           }
-          verseCache[cacheKey] = [...current];
-          if (onAIReady) onAIReady([...current]);
         }
-      }
-    })();
+      })();
+    }
   }
 
   return verses;
@@ -1130,23 +1135,26 @@ async function geminiCall(bodyText, maxTokens, key) {
   throw lastErr || new Error("All Gemini models failed");
 }
 
-async function askAI(prompt, langName, cacheKey) {
+async function askAI(prompt, langName, retries = 2) {
+  const key = import.meta.env.VITE_GEMINI_KEY || "";
+  if (!key) throw new Error("NO_KEY");
+
+  // Rate limiting — minimum gap between calls
+  const now = Date.now();
+  const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geminiQueue.lastCall = Date.now();
+
   try {
-    const r = await fetch("https://quran-inlife.aisarifarehman.workers.dev", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "askAI",
-        cacheKey: cacheKey || `ai-${Date.now()}`,
-        prompt: `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
-        maxTokens: 1200
-      })
-    });
-    if (!r.ok) throw new Error(`AI ${r.status}`);
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    return (d.text || "").trim();
+    return await geminiCall(
+      `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
+      1200, key
+    );
   } catch (e) {
+    if (e.message === "RATE_LIMIT" && retries > 0) {
+      await new Promise(res => setTimeout(res, 7000));
+      return askAI(prompt, langName, retries - 1);
+    }
     throw e;
   }
 }
@@ -1156,16 +1164,13 @@ async function askAI(prompt, langName, cacheKey) {
 // Returns an array of short page strings (no full biography, no invented dates).
 async function fetchProphetStory(prophet, langName) {
   const prompt = `Tell the story of Prophet ${prophet.en} (${prophet.ar}) as a SHORT children's storybook, using ONLY what is stated in the Quran (references: ${prophet.surahRefs}) and authentic hadith. Do NOT invent dates, ages, or locations not mentioned in these sources. Do NOT include any birth or death dates. Write EXACTLY 4 short story pages, each 2-3 simple sentences a child can understand, moving the story forward like "First... then... then... finally...". Separate the 4 pages with the exact marker "|||PAGE|||" and nothing else between them. Do not number the pages. Do not add a title. Write directly in ${langName}.`;
-  const cacheKey = `prophet-${prophet.en}-${langName}`;
-  const r = await fetch("https://quran-inlife.aisarifarehman.workers.dev", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "askAI", cacheKey, prompt, maxTokens: 900 })
-  });
-  if (!r.ok) throw new Error("Story failed to load");
-  const d = await r.json();
-  if (d.error) throw new Error(d.error);
-  const raw = (d.text || "").trim();
+  const key = import.meta.env.VITE_GEMINI_KEY || "";
+  if (!key) throw new Error("NO_KEY");
+  const now = Date.now();
+  const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geminiQueue.lastCall = Date.now();
+  const raw = await geminiCall(prompt, 900, key);
   const pages = raw.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
   return pages.length > 0 ? pages : [raw];
 }
@@ -2095,6 +2100,8 @@ export default function QuranLife() {
 
     const sn = curSurah?.name || "";
     const langName = curLang?.n || "English";
+    const geminiKey = import.meta.env?.VITE_GEMINI_KEY || "";
+
     try {
       if (tab === "tafsir") {
         const r = await fetch(`https://api.quran.com/api/v4/tafsirs/169/by_ayah/${surahNum}:${verse.number}`);
@@ -2102,10 +2109,10 @@ export default function QuranLife() {
         const d = await r.json();
         const raw = (d.tafsir?.text || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
         if (!raw) throw new Error("empty");
-        if (lang === "en") {
+        if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
         } else {
-          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, key);
+          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
         }
       }
@@ -2115,22 +2122,30 @@ export default function QuranLife() {
         if (!surahR.ok) throw new Error("failed");
         const ch = (await surahR.json()).chapter;
         const revEn = `Surah ${ch.name_simple} (${ch.translated_name?.name || ""}) is a ${ch.revelation_place === "makkah" ? "Meccan" : "Medinan"} surah revealed ${ch.revelation_order}th in order. It contains ${ch.verses_count} verses. ${ch.revelation_place === "makkah" ? "Meccan surahs focus on faith, the afterlife, and prophets stories." : "Medinan surahs address community law, social issues, and guidance."} This is verse ${verse.number} of ${ch.verses_count}.`;
-        if (lang === "en") {
+        if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
         } else {
-          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, key);
+          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
         }
       }
 
       else if (tab === "hadith") {
-        const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName, key);
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
+        if (geminiKey) {
+          const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
+        } else {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Authentic Hadiths\n\n✅ SAHIH — Bukhari\nThe Prophet ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Quran will receive a good deed multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\n\n⚠️ WARNING: Always verify hadiths before sharing. Millions of fabricated hadiths circulate on social media daily.` } }));
+        }
       }
 
       else if (tab === "science") {
-        const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName, key);
-        setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
+        if (geminiKey) {
+          const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName);
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
+        } else {
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "🔬 Scientific Connections\n\nAdd VITE_GEMINI_KEY to Vercel to unlock this feature." } }));
+        }
       }
 
       else if (tab === "translation") {
@@ -2932,7 +2947,7 @@ export default function QuranLife() {
       if (!text) {
         const prompt = `Translate this Quran verse from Arabic into ${LANG_NAMES[audioLang] || audioLang}. Surah ${sName}, Verse ${v.number}: "${v.arabic}"\n\nGive ONLY the accurate, clear meaning translation. No Arabic, no transliteration, no extra notes — just the translated meaning.`;
         try {
-          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang, key);
+          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
         } catch { text = null; }
       }
@@ -4980,7 +4995,7 @@ Be honest: if the dream has no specific Islamic interpretation, say so clearly. 
 
 IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpretation is not a religious ruling (fatwa), that only scholars can give authoritative interpretations, and that good dreams are from Allah while bad dreams should be ignored and one should seek refuge in Allah.`;
 
-        const result = await askAI(prompt, langName, `dream-${Date.now()}`);
+        const result = await askAI(prompt, langName);
         setDreamResult(result);
       } catch (e) {
         setDreamError("Could not interpret dream. Please check your connection and try again.");
