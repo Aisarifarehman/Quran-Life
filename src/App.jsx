@@ -1125,9 +1125,10 @@ async function cacheSet(id, content) {
 const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
 // Current Gemini models in priority order — app finds the one that works
 const GEMINI_MODELS = [
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-1.5-pro",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-3-flash-preview",
 ];
 
 async function geminiCall(bodyText, maxTokens, key) {
@@ -1165,7 +1166,7 @@ async function geminiCall(bodyText, maxTokens, key) {
 }
 
 async function askAI(prompt, langName, cacheKey, retries = 2) {
-  // Check Supabase cache first
+  // Check Supabase cache first — zero Gemini call if cached
   if (cacheKey) {
     const cached = await cacheGet(cacheKey);
     if (cached) return cached;
@@ -1185,6 +1186,7 @@ async function askAI(prompt, langName, cacheKey, retries = 2) {
       `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
       1200, key
     );
+    // Save to Supabase so next user gets it instantly
     if (cacheKey && text) await cacheSet(cacheKey, text);
     return text;
   } catch (e) {
@@ -1200,12 +1202,6 @@ async function askAI(prompt, langName, cacheKey, retries = 2) {
 // grounded only in Quran/authentic hadith, written simply for children.
 // Returns an array of short page strings (no full biography, no invented dates).
 async function fetchProphetStory(prophet, langName) {
-  const cacheKey = `prophet-${prophet.en}-${langName}`;
-  const cached = await cacheGet(cacheKey);
-  if (cached) {
-    const pages = cached.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
-    return pages.length > 0 ? pages : [cached];
-  }
   const prompt = `Tell the story of Prophet ${prophet.en} (${prophet.ar}) as a SHORT children's storybook, using ONLY what is stated in the Quran (references: ${prophet.surahRefs}) and authentic hadith. Do NOT invent dates, ages, or locations not mentioned in these sources. Do NOT include any birth or death dates. Write EXACTLY 4 short story pages, each 2-3 simple sentences a child can understand, moving the story forward like "First... then... then... finally...". Separate the 4 pages with the exact marker "|||PAGE|||" and nothing else between them. Do not number the pages. Do not add a title. Write directly in ${langName}.`;
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
@@ -1214,7 +1210,6 @@ async function fetchProphetStory(prophet, langName) {
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   geminiQueue.lastCall = Date.now();
   const raw = await geminiCall(prompt, 900, key);
-  if (raw) await cacheSet(cacheKey, raw);
   const pages = raw.split("|||PAGE|||").map(p => p.trim()).filter(Boolean);
   return pages.length > 0 ? pages : [raw];
 }
