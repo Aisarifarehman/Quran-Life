@@ -5,6 +5,36 @@
 // Search: instant, smooth, no delay
 
 import { useState, useRef, useCallback, useEffect } from "react";
+// ─── SUPABASE CACHE ──────────────────────────────────────────
+const SUPA_URL = "https://syemtsqbgaupkybtomex.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5ZW10c3FiZ2F1cGt5YnRvbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTU5NTgsImV4cCI6MjEwMjI3MTk1OH0.LPK8kmpPDmOZCzjltRjxutJwmDguiKnXUKHMB28V2YI";
+
+async function cacheGet(id) {
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/ai_cache?id=eq.${encodeURIComponent(id)}&select=content`, {
+      headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` }
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.[0]?.content || null;
+  } catch { return null; }
+}
+
+async function cacheSet(id, content) {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/ai_cache`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPA_KEY,
+        "Authorization": `Bearer ${SUPA_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({ id, content })
+    });
+  } catch { }
+}
+
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 const G = "#0f5132";
@@ -978,8 +1008,16 @@ function speakWordNursery(letterObj) {
   window.speechSynthesis.speak(u);
 }
 
-async function aiTranslateChunk(chunk, langName, apiKey) {
+async function aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
+  const ck = `tr-${surahNum}-${chunkIndex}-${langName}`;
+
+  // Check Supabase cache first
+  try {
+    const cached = await cacheGet(ck);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+
   try {
     // Respect global rate gap
     const now = Date.now();
@@ -996,7 +1034,9 @@ async function aiTranslateChunk(chunk, langName, apiKey) {
       const m = line.match(/^(\d+)[:.]\s*(.+)/);
       if (m) result[parseInt(m[1])] = m[2].trim();
     });
-    return Object.keys(result).length > 0 ? result : null;
+    const finalResult = Object.keys(result).length > 0 ? result : null;
+    if (finalResult) await cacheSet(ck, JSON.stringify(finalResult));
+    return finalResult;
   } catch { return null; }
 }
 
@@ -1070,8 +1110,9 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
         const CHUNK = 25;
         const current = [...verses];
         for (let i = 0; i < current.length; i += CHUNK) {
+          const chunkIndex = Math.floor(i / CHUNK);
           const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
-          const result = await aiTranslateChunk(chunk, langName, apiKey);
+          const result = await aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex);
           if (result) {
             for (let j = 0; j < current.length; j++) {
               if (result[current[j].number]) {
@@ -1092,47 +1133,13 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 
 // ─── GEMINI FREE AI — replaces Anthropic, free forever ──────
 // ─── GEMINI FREE AI — with model fallback + retry ───────────
-// ─── SUPABASE CACHE ──────────────────────────────────────────
-const SUPA_URL = "https://syemtsqbgaupkybtomex.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5ZW10c3FiZ2F1cGt5YnRvbWV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTU5NTgsImV4cCI6MjEwMjI3MTk1OH0.LPK8kmpPDmOZCzjltRjxutJwmDguiKnXUKHMB28V2YI";
-
-async function cacheGet(id) {
-  try {
-    const r = await fetch(`${SUPA_URL}/rest/v1/ai_cache?id=eq.${encodeURIComponent(id)}&select=content`, {
-      headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}` }
-    });
-    if (!r.ok) return null;
-    const d = await r.json();
-    return d?.[0]?.content || null;
-  } catch { return null; }
-}
-
-async function cacheSet(id, content) {
-  try {
-    await fetch(`${SUPA_URL}/rest/v1/ai_cache`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPA_KEY,
-        "Authorization": `Bearer ${SUPA_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-      },
-      body: JSON.stringify({ id, content })
-    });
-  } catch { }
-}
-
 const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
-// Global promise queue — ensures only 1 AI call runs at a time,
-// preventing HTTP 429 rate-limit errors from simultaneous requests.
-let _geminiQueueChain = Promise.resolve();
-// Current Gemini models in priority order — stable free-tier models first
+// Current Gemini models in priority order — app finds the one that works
 const GEMINI_MODELS = [
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-8b",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
   "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-3-flash-preview",
 ];
 
 async function geminiCall(bodyText, maxTokens, key) {
@@ -1153,12 +1160,7 @@ async function geminiCall(bodyText, maxTokens, key) {
         })
       }
     );
-    if (r.status === 404) {
-      // If our cached working model is now 404, clear it so next call tries all models fresh
-      if (model === geminiQueue.workingModel) geminiQueue.workingModel = null;
-      lastErr = new Error(`Model ${model} not available`);
-      continue;
-    }
+    if (r.status === 404) { lastErr = new Error(`Model ${model} not available`); continue; }
     if (r.status === 429) { lastErr = new Error("RATE_LIMIT"); continue; }
     if (!r.ok) {
       let detail = "";
@@ -1175,7 +1177,7 @@ async function geminiCall(bodyText, maxTokens, key) {
 }
 
 async function askAI(prompt, langName, cacheKey, retries = 2) {
-  // Check Supabase cache first — zero Gemini call if cached
+  // Check Supabase cache first
   if (cacheKey) {
     const cached = await cacheGet(cacheKey);
     if (cached) return cached;
@@ -1184,39 +1186,26 @@ async function askAI(prompt, langName, cacheKey, retries = 2) {
   const key = import.meta.env.VITE_GEMINI_KEY || "";
   if (!key) throw new Error("NO_KEY");
 
-  // Chain onto the global queue so requests run one-at-a-time
-  // This prevents simultaneous calls that trigger HTTP 429 RATE_LIMIT errors
-  const result = await (_geminiQueueChain = _geminiQueueChain.then(async () => {
-    // Enforce minimum gap between successive calls
-    const now = Date.now();
-    const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
-    geminiQueue.lastCall = Date.now();
+  // Rate limiting — minimum gap between calls
+  const now = Date.now();
+  const wait = geminiQueue.minGap - (now - geminiQueue.lastCall);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geminiQueue.lastCall = Date.now();
 
-    let lastErr = null;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const text = await geminiCall(
-          `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
-          1200, key
-        );
-        // Save to Supabase so next user gets it instantly
-        if (cacheKey && text) await cacheSet(cacheKey, text);
-        return text;
-      } catch (e) {
-        lastErr = e;
-        if (e.message === "RATE_LIMIT" && attempt < retries) {
-          // Exponential backoff: 7s, 14s
-          await new Promise(res => setTimeout(res, 7000 * (attempt + 1)));
-          geminiQueue.lastCall = Date.now();
-          continue;
-        }
-        throw e;
-      }
+  try {
+    const text = await geminiCall(
+      `You are a Quranic scholar. ${prompt}\n\nIMPORTANT: Write a COMPLETE response in ${langName} language only. Write at least 5-8 full sentences. Never cut off mid sentence. Plain flowing text only. No JSON. No bullet points. No markdown.`,
+      1200, key
+    );
+    if (cacheKey && text) await cacheSet(cacheKey, text);
+    return text;
+  } catch (e) {
+    if (e.message === "RATE_LIMIT" && retries > 0) {
+      await new Promise(res => setTimeout(res, 7000));
+      return askAI(prompt, langName, cacheKey, retries - 1);
     }
-    throw lastErr || new Error("RATE_LIMIT");
-  }).catch(e => { throw e; }));
-  return result;
+    throw e;
+  }
 }
 
 // Fetch a SHORT storybook version of a prophet's story — 4 short pages,
@@ -2213,15 +2202,7 @@ export default function QuranLife() {
       }
 
     } catch(e) {
-      let errMsg;
-      if (e.message === "RATE_LIMIT") {
-        errMsg = "RATE_LIMIT — Too many requests. Please wait a moment then tap Retry.";
-      } else if (e.message === "NO_KEY") {
-        errMsg = "AI Knowledge coming soon. The app is fully functional for reading, audio and translation.";
-      } else {
-        errMsg = (e.message || "Could not load.") + " — Tap Retry.";
-      }
-      setCache(p => ({ ...p, [key]: { loading: false, error: errMsg, text: null } }));
+      setCache(p => ({ ...p, [key]: { loading: false, error: (e.message || "Could not load.") + " — Tap Retry.", text: null } }));
     }
   }, [surahNum, curSurah, lang, curLang, cache]);
 
@@ -2243,18 +2224,7 @@ export default function QuranLife() {
     setLangSearch("");
     // Clear cached AI content so it reloads in new language
     setCache({});
-    // Clear verse translations cache for all surahs so they reload in new language
-    Object.keys(verseCache).forEach(k => { delete verseCache[k]; });
-    // If user is inside a surah, reload verses in new language
-    if (surahNum) {
-      setVerses([]);
-      setVersesLoading(true);
-      const onAIReady = (updated) => setVerses([...updated]);
-      fetchVerses(surahNum, code, onAIReady)
-        .then(v => { setVerses(v); setVersesLoading(false); })
-        .catch(() => setVersesLoading(false));
-    }
-  }, [surahNum]);
+  }, []);
 
   // ── BOOKMARKS ───────────────────────────────────────────────
   const toggleBk = useCallback((sn, sname, vn, arabic, translation) => {
@@ -2432,14 +2402,10 @@ export default function QuranLife() {
   );
 
   const RetryRow = ({ msg, onRetry }) => {
-    const isNoKey = msg && (msg.includes("coming soon") || msg.includes("NO_KEY") || msg.includes("not configured"));
-    const isRateLimit = msg && msg.includes("RATE_LIMIT");
+    const isNoKey = msg && msg.includes("coming soon");
     return (
       <div style={{ padding: "12px 14px", borderRadius: 10, background: isNoKey ? "#f0faf5" : "#fff5f5", border: `.5px solid ${isNoKey ? "#0f513244" : "#fca5a5"}`, margin: "6px 0" }}>
-        <div style={{ fontSize: 13, color: isNoKey ? G : "#dc2626", lineHeight: 1.6 }}>
-          {isNoKey ? "🔐 " : "⚠️ "}
-          {isRateLimit ? "Rate limit reached — please wait a moment then tap Retry." : msg}
-        </div>
+        <div style={{ fontSize: 13, color: isNoKey ? G : "#dc2626", lineHeight: 1.6 }}>{isNoKey ? "🔐 " : "⚠️ "}{msg}</div>
         {!isNoKey && <button className="retry-btn" style={{ marginTop: 8 }} onClick={onRetry}>↺ Retry</button>}
       </div>
     );
@@ -3030,7 +2996,7 @@ export default function QuranLife() {
       if (!text) {
         const prompt = `Translate this Quran verse from Arabic into ${LANG_NAMES[audioLang] || audioLang}. Surah ${sName}, Verse ${v.number}: "${v.arabic}"\n\nGive ONLY the accurate, clear meaning translation. No Arabic, no transliteration, no extra notes — just the translated meaning.`;
         try {
-          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang, key);
+          text = await askAI(prompt, LANG_NAMES[audioLang] || audioLang);
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text } }));
         } catch { text = null; }
       }
