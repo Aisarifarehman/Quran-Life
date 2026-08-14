@@ -1678,6 +1678,14 @@ export default function QuranLife() {
   const [audioNoVoice, setAudioNoVoice] = useState(false);
   const audioStopRef = useRef(false);
   const meaningAudioElRef = useRef(null);
+  // ── Bilingual audio (Arabic + Translation together) ──
+  const [bilingualPlaying, setBilingualPlaying] = useState(null); // null | "ur" | "en"
+  const [bilingualSurah, setBilingualSurah] = useState(null);
+  const [bilingualPaused, setBilingualPaused] = useState(false);
+  const [bilingualVerse, setBilingualVerse] = useState(0);
+  const bilingualStopRef = useRef(false);
+  const bilingualPauseRef = useRef(false);
+  const bilingualAudioRef = useRef(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [lastRead, setLastRead] = useState(null);
   const [kidLetter, setKidLetter] = useState(null);
@@ -2938,6 +2946,105 @@ export default function QuranLife() {
     setAudioCurrentVerse(0);
   }, []);
 
+  // ── BILINGUAL AUDIO — Arabic verse then Translation verse ──
+  const playBilingualAudio = useCallback(async (surahNum, langCode) => {
+    // Stop any existing audio first
+    audioStopRef.current = true;
+    bilingualStopRef.current = true;
+    bilingualPauseRef.current = false;
+    if (bilingualAudioRef.current) { bilingualAudioRef.current.pause(); bilingualAudioRef.current = null; }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setAudioPlaying(false);
+    await new Promise(r => setTimeout(r, 200));
+
+    bilingualStopRef.current = false;
+    setBilingualPlaying(langCode);
+    setBilingualSurah(surahNum);
+    setBilingualPaused(false);
+    setBilingualVerse(0);
+
+    const playOne = (url) => new Promise((resolve) => {
+      const audio = new Audio(url);
+      bilingualAudioRef.current = audio;
+      let done = false;
+      const finish = () => { if (done) return; done = true; bilingualAudioRef.current = null; resolve(); };
+      audio.addEventListener("ended", finish);
+      audio.addEventListener("error", finish);
+      audio.addEventListener("loadedmetadata", () => {
+        if (audio.duration && isFinite(audio.duration))
+          setTimeout(finish, audio.duration * 1000 + 600);
+      });
+      audio.play().catch(finish);
+    });
+
+    const waitWhilePaused = () => new Promise(resolve => {
+      const check = () => {
+        if (bilingualStopRef.current) { resolve(); return; }
+        if (!bilingualPauseRef.current) { resolve(); return; }
+        setTimeout(check, 200);
+      };
+      check();
+    });
+
+    try {
+      const verses = await fetchVerses(surahNum, "en", null);
+      for (let i = 0; i < verses.length; i++) {
+        if (bilingualStopRef.current) break;
+        await waitWhilePaused();
+        if (bilingualStopRef.current) break;
+
+        const v = verses[i];
+        setBilingualVerse(v.number);
+
+        // 1. Play Arabic verse
+        const arabicUrl = realAudioUrl("ar", surahNum, v.number) ||
+          `https://cdn.islamic.network/quran/audio/128/${qari}/${(SURAH_VERSE_STARTS[surahNum] || 1) + v.number - 1}.mp3`;
+        const arUrl = `https://cdn.islamic.network/quran/audio/128/${qari}/${(SURAH_VERSE_STARTS[surahNum] || 1) + v.number - 1}.mp3`;
+        await playOne(arUrl);
+
+        if (bilingualStopRef.current) break;
+        await waitWhilePaused();
+
+        // 2. Play Translation verse (Urdu or English)
+        const transUrl = realAudioUrl(langCode, surahNum, v.number);
+        if (transUrl) await playOne(transUrl);
+
+        if (bilingualStopRef.current) break;
+        // Small gap between verses
+        await new Promise(r => setTimeout(r, 400));
+      }
+    } catch(e) {}
+
+    if (!bilingualStopRef.current) {
+      setBilingualPlaying(null);
+      setBilingualSurah(null);
+      setBilingualVerse(0);
+      setBilingualPaused(false);
+    }
+  }, [qari]);
+
+  const stopBilingualAudio = useCallback(() => {
+    bilingualStopRef.current = true;
+    bilingualPauseRef.current = false;
+    if (bilingualAudioRef.current) { bilingualAudioRef.current.pause(); bilingualAudioRef.current = null; }
+    setBilingualPlaying(null);
+    setBilingualSurah(null);
+    setBilingualVerse(0);
+    setBilingualPaused(false);
+  }, []);
+
+  const pauseBilingualAudio = useCallback(() => {
+    bilingualPauseRef.current = true;
+    if (bilingualAudioRef.current) bilingualAudioRef.current.pause();
+    setBilingualPaused(true);
+  }, []);
+
+  const resumeBilingualAudio = useCallback(() => {
+    bilingualPauseRef.current = false;
+    if (bilingualAudioRef.current) bilingualAudioRef.current.play().catch(() => {});
+    setBilingualPaused(false);
+  }, []);
+
   // Play one real MP3 verse, resolving when it finishes — mirrors the
   // proven Arabic-audio continuous-playback pattern (ended + timeupdate +
   // duration-timer safety net, never silently stalls)
@@ -3311,7 +3418,19 @@ export default function QuranLife() {
                 <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
               </div>
               <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                {playKey && playKey.startsWith(`${s.n}:`) ? (
+                {bilingualPlaying && bilingualSurah === s.n ? (
+                  <>
+                    <div style={{ fontSize: 11, color: G, fontWeight: 600, alignSelf: "center", marginRight: 2 }}>
+                      {bilingualPlaying === "ur" ? "🇵🇰" : "🇬🇧"} v{bilingualVerse}
+                    </div>
+                    {!bilingualPaused ? (
+                      <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                    ) : (
+                      <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                    )}
+                    <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
+                  </>
+                ) : playKey && playKey.startsWith(`${s.n}:`) ? (
                   <>
                     {!audioPaused ? (
                       <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
@@ -3321,10 +3440,20 @@ export default function QuranLife() {
                     <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
                   </>
                 ) : (
-                  <button className="pbtn" onClick={async e => {
-                    e.stopPropagation(); stopAudio(); setContinueDialog(null);
-                    try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
-                  }}>▶ Play</button>
+                  <>
+                    <button className="pbtn" onClick={async e => {
+                      e.stopPropagation(); stopAudio(); stopBilingualAudio(); setContinueDialog(null);
+                      try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
+                    }}>▶ Play</button>
+                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
+                      onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
+                      🇵🇰 UR
+                    </button>
+                    <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
+                      onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
+                      🇬🇧 EN
+                    </button>
+                  </>
                 )}
                 <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
               </div>
@@ -3468,7 +3597,19 @@ export default function QuranLife() {
               <div style={{ fontSize: 9, color: "#9ba5b0" }}>{s.meaning}</div>
             </div>
             <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-              {playKey && playKey.startsWith(`${s.n}:`) ? (
+              {bilingualPlaying && bilingualSurah === s.n ? (
+                <>
+                  <div style={{ fontSize: 11, color: G, fontWeight: 600, alignSelf: "center", marginRight: 2 }}>
+                    {bilingualPlaying === "ur" ? "🇵🇰" : "🇬🇧"} v{bilingualVerse}
+                  </div>
+                  {!bilingualPaused ? (
+                    <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseBilingualAudio(); }}>⏸</button>
+                  ) : (
+                    <button className="pbtn" style={{ background: "#27ae60", color: "#fff" }} onClick={e => { e.stopPropagation(); resumeBilingualAudio(); }}>▶</button>
+                  )}
+                  <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopBilingualAudio(); }}>⏹</button>
+                </>
+              ) : playKey && playKey.startsWith(`${s.n}:`) ? (
                 <>
                   {!audioPaused ? (
                     <button className="pbtn" style={{ background: "#e8b84b", color: "#1a0800" }} onClick={e => { e.stopPropagation(); pauseAudio(); }}>⏸</button>
@@ -3478,10 +3619,20 @@ export default function QuranLife() {
                   <button className="pbtn" style={{ background: "#c0392b", color: "#fff" }} onClick={e => { e.stopPropagation(); stopAudio(); }}>⏹</button>
                 </>
               ) : (
-                <button className="pbtn" onClick={async e => {
-                  e.stopPropagation(); stopAudio(); setContinueDialog(null);
-                  try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
-                }}>▶ Play</button>
+                <>
+                  <button className="pbtn" onClick={async e => {
+                    e.stopPropagation(); stopAudio(); stopBilingualAudio(); setContinueDialog(null);
+                    try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
+                  }}>▶ Play</button>
+                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
+                    onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
+                    🇵🇰 UR
+                  </button>
+                  <button className="pbtn" style={{ fontSize: 11, padding: "4px 8px", background: "#1a5276", color: "#fff" }}
+                    onClick={async e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
+                    🇬🇧 EN
+                  </button>
+                </>
               )}
               <button className="rbtn" onClick={() => { cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
             </div>
