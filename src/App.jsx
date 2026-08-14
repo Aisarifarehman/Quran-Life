@@ -978,16 +978,8 @@ function speakWordNursery(letterObj) {
   window.speechSynthesis.speak(u);
 }
 
-async function aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex) {
+async function aiTranslateChunk(chunk, langName, apiKey) {
   const input = chunk.map(v => `${v.number}: ${v.text}`).join("\n");
-  const ck = `tr-${surahNum}-${chunkIndex}-${langName}`;
-
-  // Check Supabase cache first
-  try {
-    const cached = await cacheGet(ck);
-    if (cached) return JSON.parse(cached);
-  } catch {}
-
   try {
     // Respect global rate gap
     const now = Date.now();
@@ -1004,10 +996,7 @@ async function aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex) {
       const m = line.match(/^(\d+)[:.]\s*(.+)/);
       if (m) result[parseInt(m[1])] = m[2].trim();
     });
-    const finalResult = Object.keys(result).length > 0 ? result : null;
-    // Save to Supabase cache
-    if (finalResult) await cacheSet(ck, JSON.stringify(finalResult));
-    return finalResult;
+    return Object.keys(result).length > 0 ? result : null;
   } catch { return null; }
 }
 
@@ -1081,9 +1070,8 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
         const CHUNK = 25;
         const current = [...verses];
         for (let i = 0; i < current.length; i += CHUNK) {
-          const chunkIndex = Math.floor(i / CHUNK);
           const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
-          const result = await aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex);
+          const result = await aiTranslateChunk(chunk, langName, apiKey);
           if (result) {
             for (let j = 0; j < current.length; j++) {
               if (result[current[j].number]) {
