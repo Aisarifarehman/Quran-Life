@@ -2191,10 +2191,12 @@ export default function QuranLife() {
   // ── STYLES ──────────────────────────────────────────────────
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Inter:wght@300;400;500;600&display=swap');
+    @font-face{font-family:'Amiri';font-display:swap}
+    @font-face{font-family:'Amiri Quran';font-display:swap}
     *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
     html,body{overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%}
     body{font-family:'Inter',sans-serif;background:${darkMode ? "#0f0f0f" : "#f5f3ee"};color:${darkMode ? "#e8e8e8" : "#1a1a1a"}}
-    .ar{font-family:'Amiri',serif!important}
+    .ar{font-family:'Amiri',serif!important;word-break:break-word;overflow-wrap:anywhere;white-space:normal}
     ::-webkit-scrollbar{width:0;height:0}
     .dark-card{background:${darkMode ? "#1a1a1a" : "#fff"};border-color:${darkMode ? "#2a2a2a" : "#e2e8e4"}}
     .dark-text{color:${darkMode ? "#e8e8e8" : "#1a1a1a"}}
@@ -2203,7 +2205,7 @@ export default function QuranLife() {
     .mushaf-wrap::after{content:'';position:absolute;inset:10px;border:.5px solid rgba(139,105,20,.1);border-radius:2px;pointer-events:none}
     .mushaf-text{font-family:'Amiri Quran','Amiri',serif;font-size:29px;line-height:2.65;direction:rtl;text-align:justify;text-align-last:right;color:#1a0500;word-spacing:2px;width:100%;display:block}
     .mushaf-num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#8b6914,#c9943a);color:#fff;font-size:10px;font-weight:700;margin:0 3px;vertical-align:middle;flex-shrink:0;font-family:'Inter',sans-serif;line-height:1}
-    .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%}
+    .zoom-arabic{touch-action:pan-y pinch-zoom;display:block;width:100%;word-break:break-word;overflow-wrap:anywhere;white-space:normal}
     .mode-btn{padding:6px 14px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;white-space:nowrap}
     .mode-btn.active{background:linear-gradient(180deg,#e8b84b 0%,#c9943a 100%);color:#1a0a00;border:.5px solid #a67c2a;box-shadow:0 3px 0 #7a5a1a}
     .mode-btn.active:active{transform:translateY(3px);box-shadow:0 0 0 #7a5a1a}
