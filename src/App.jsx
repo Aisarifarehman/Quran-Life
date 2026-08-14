@@ -1125,10 +1125,9 @@ async function cacheSet(id, content) {
 const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
 // Current Gemini models in priority order — app finds the one that works
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-3-flash-preview",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro",
 ];
 
 async function geminiCall(bodyText, maxTokens, key) {
