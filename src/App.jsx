@@ -2214,6 +2214,8 @@ export default function QuranLife() {
     setLangSearch("");
     // Clear cached AI content so it reloads in new language
     setCache({});
+    // Clear verse translations cache for all surahs so they reload in new language
+    Object.keys(verseCache).forEach(k => { delete verseCache[k]; });
   }, []);
 
   // ── BOOKMARKS ───────────────────────────────────────────────
