@@ -1126,12 +1126,13 @@ const geminiQueue = { lastCall: 0, minGap: 2100, workingModel: null };
 // Global promise queue — ensures only 1 AI call runs at a time,
 // preventing HTTP 429 rate-limit errors from simultaneous requests.
 let _geminiQueueChain = Promise.resolve();
-// Current Gemini models in priority order — app finds the one that works
+// Current Gemini models in priority order — stable free-tier models first
 const GEMINI_MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
   "gemini-2.0-flash",
-  "gemini-3-flash-preview",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash-lite",
 ];
 
 async function geminiCall(bodyText, maxTokens, key) {
@@ -1152,7 +1153,12 @@ async function geminiCall(bodyText, maxTokens, key) {
         })
       }
     );
-    if (r.status === 404) { lastErr = new Error(`Model ${model} not available`); continue; }
+    if (r.status === 404) {
+      // If our cached working model is now 404, clear it so next call tries all models fresh
+      if (model === geminiQueue.workingModel) geminiQueue.workingModel = null;
+      lastErr = new Error(`Model ${model} not available`);
+      continue;
+    }
     if (r.status === 429) { lastErr = new Error("RATE_LIMIT"); continue; }
     if (!r.ok) {
       let detail = "";
