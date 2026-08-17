@@ -3532,11 +3532,16 @@ export default function QuranLife() {
 
       {/* Reciter + Language + utility chips */}
       <div style={{ display: "flex", gap: 8, padding: "12px 14px 10px", flexWrap: "wrap" }}>
-        <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
-        <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
-        <button className="chip" onClick={() => setShowGoto(true)}>📄 Go To Page</button>
-        <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
-        <button className="chip" onClick={() => { setShowQuranNav(false); setScreen("hifz"); }} style={{ background: "#e8f5e9", color: "#1a5c2e", borderColor: "#1a5c2e" }}>📗 Hifz Tracker</button>
+        <button onClick={() => setShowQari(true)}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", borderRadius: 16, border: "1px solid #dde3e8", background: "#fff", color: "#1a1a1a", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}><span style={{ fontSize: 16 }}>🎙</span> {curQari.short}</button>
+        <button onClick={() => setShowLang(true)}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", borderRadius: 16, border: "1px solid #dde3e8", background: "#fff", color: "#1a1a1a", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}><span style={{ fontSize: 16 }}>🌍</span> {curLang.na} ▾</button>
+        <button onClick={() => setShowGoto(true)}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", borderRadius: 16, border: "1px solid #dde3e8", background: "#fff", color: "#1a1a1a", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}><span style={{ fontSize: 16 }}>📄</span> Go To Page</button>
+        <button onClick={() => setShowBkSheet(true)}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", borderRadius: 16, border: "1px solid #dde3e8", background: "#fff", color: "#1a1a1a", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}><span style={{ fontSize: 16 }}>🔖</span> Save</button>
+        <button onClick={() => { setShowQuranNav(false); setScreen("hifz"); }}
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", borderRadius: 16, border: "1px solid #1a5c2e", background: "#e8f5e9", color: "#1a5c2e", fontSize: 12, whiteSpace: "nowrap", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}><span style={{ fontSize: 16 }}>📗</span> Hifz Tracker</button>
       </div>
 
       {/* Search */}
