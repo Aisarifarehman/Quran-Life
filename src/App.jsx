@@ -1008,7 +1008,7 @@ function speakWordNursery(letterObj) {
   window.speechSynthesis.speak(u);
 }
 
-async function aiTranslateChunk(chunk, langName, apiKey, surahNum = null, chunkIndex = null) {
+async function aiTranslateChunk(chunk, langName, apiKey, surahNum = null, chunkIndex = null, retries = 3) {
   // Build cache key from surah + chunk index + language
   const ckKey = surahNum !== null && chunkIndex !== null
     ? `trans-${surahNum}-${chunkIndex}-${langName}`
@@ -1045,7 +1045,15 @@ async function aiTranslateChunk(chunk, langName, apiKey, surahNum = null, chunkI
       return result;
     }
     return null;
-  } catch { return null; }
+  } catch (e) {
+    // Retry on rate limit instead of silently giving up (was causing verses to stay in English)
+    if (e.message === "RATE_LIMIT" && retries > 0) {
+      const delay = retries === 3 ? 8000 : retries === 2 ? 15000 : 25000;
+      await new Promise(res => setTimeout(res, delay));
+      return aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex, retries - 1);
+    }
+    return null;
+  }
 }
 
 // Lightweight fetch — Arabic Uthmani text only, no translations.
@@ -1119,7 +1127,8 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
         const current = [...verses];
         for (let i = 0; i < current.length; i += CHUNK) {
           const chunk = current.slice(i, i + CHUNK).map(v => ({ number: v.number, text: v.translation }));
-          const result = await aiTranslateChunk(chunk, langName, apiKey);
+          const chunkIndex = Math.floor(i / CHUNK);
+          const result = await aiTranslateChunk(chunk, langName, apiKey, surahNum, chunkIndex);
           if (result) {
             for (let j = 0; j < current.length; j++) {
               if (result[current[j].number]) {
