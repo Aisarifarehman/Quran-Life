@@ -1070,6 +1070,20 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   const cacheKey = `${surahNum}-${langCode}`;
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
+  // Check offline-saved data first — works without internet
+  try {
+    const offlineRaw = localStorage.getItem(`ql_offline_s${surahNum}`);
+    if (offlineRaw) {
+      const offlineVerses = JSON.parse(offlineRaw);
+      if (Array.isArray(offlineVerses) && offlineVerses.length > 0) {
+        verseCache[cacheKey] = offlineVerses;
+        // Still try network in background to get better translation for other languages,
+        // but return offline data immediately so reading works without internet.
+        if (!navigator.onLine) return offlineVerses;
+      }
+    }
+  } catch (e) { /* localStorage read failed — continue to network */ }
+
   // Try multiple translation IDs — 131 = Sahih International, 20 = Pickthall, 19 = Yusuf Ali
   const translationIds = [131, 20, 19, 85];
   let verses = null;
@@ -1111,7 +1125,18 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
         translation: "",
       }));
     } catch(e) {
-      throw new Error("Could not load surah. Check your connection.");
+      // Network fully failed — use offline-saved data if we have it, instead of erroring out
+      try {
+        const offlineRaw = localStorage.getItem(`ql_offline_s${surahNum}`);
+        if (offlineRaw) {
+          const offlineVerses = JSON.parse(offlineRaw);
+          if (Array.isArray(offlineVerses) && offlineVerses.length > 0) {
+            verseCache[cacheKey] = offlineVerses;
+            return offlineVerses;
+          }
+        }
+      } catch (e2) { /* no offline data either */ }
+      throw new Error("Could not load surah. Check your connection, or download it for offline use first.");
     }
   }
 
