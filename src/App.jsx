@@ -3531,12 +3531,11 @@ export default function QuranLife() {
       </div>
 
       {/* Reciter + Language + utility chips */}
-      <div style={{ display: "flex", gap: 8, padding: "12px 14px 0", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, padding: "12px 14px 10px", flexWrap: "wrap" }}>
         <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
         <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
         <button className="chip" onClick={() => setShowGoto(true)}>📄 Go To Page</button>
         <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
-        <button className="chip" onClick={() => setShowAudioSheet(true)}>🔊 Translation Audio</button>
         <button className="chip" onClick={() => { setShowQuranNav(false); setScreen("hifz"); }} style={{ background: "#e8f5e9", color: "#1a5c2e", borderColor: "#1a5c2e" }}>📗 Hifz Tracker</button>
       </div>
 
