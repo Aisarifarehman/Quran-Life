@@ -3491,6 +3491,55 @@ export default function QuranLife() {
         </div>
       </div>
 
+
+      {/* 4 main navigation buttons — single row, 4 columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, padding: "12px 14px 0" }}>
+        {[
+          { label: "ALL 114\nSURAH -\nONE BY ONE",      bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
+            fn: () => { setFilter("all"); setSurahListTitle("All 114 Surahs"); setShowSurahList(true); } },
+          { label: "Read Full\nQuran in\nArabic",        bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
+            fn: () => { setShowMushafStyleSelect(true); } },
+          { label: "QUICK LINK\nOF SURAHS",              bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
+            fn: () => { setShowQuickLinks(true); } },
+          { label: "JUZ INDEX",                          bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
+            fn: () => { setShowJuz(true); } },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn} className="nav-btn"
+            style={{ background: bg, boxShadow: `0 5px 0 ${sh},0 8px 18px rgba(0,0,0,.3)`, padding: "22px 4px", fontSize: 11, lineHeight: 1.35 }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filter row — 4 equal tiles */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, padding: "10px 14px 0" }}>
+        {[
+          { label: "Meccan",  bg: "linear-gradient(180deg,#e67e22,#a85414)", sh: "#7a3a0a",
+            fn: () => { setFilter("meccan"); setSurahListTitle("Meccan Surahs"); setShowSurahList(true); } },
+          { label: "Medinan", bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
+            fn: () => { setFilter("medinan"); setSurahListTitle("Madinan Surahs"); setShowSurahList(true); } },
+          { label: "Long",    bg: "linear-gradient(180deg,#717d7e,#424949)", sh: "#252c2c",
+            fn: () => { setFilter("long"); setSurahListTitle("Long Surahs (100+ verses)"); setShowSurahList(true); } },
+          { label: "Short",   bg: "linear-gradient(180deg,#909497,#5b6062)", sh: "#363a3b",
+            fn: () => { setFilter("short"); setSurahListTitle("Short Surahs (up to 20 verses)"); setShowSurahList(true); } },
+        ].map(({ label, bg, sh, fn }) => (
+          <button key={label} onClick={fn} className="nav-btn"
+            style={{ background: bg, boxShadow: `0 5px 0 ${sh},0 8px 18px rgba(0,0,0,.3)`, padding: "22px 4px", fontSize: 13, lineHeight: 1.35 }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Reciter + Language + utility chips */}
+      <div style={{ display: "flex", gap: 8, padding: "12px 14px 0", flexWrap: "wrap" }}>
+        <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
+        <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
+        <button className="chip" onClick={() => setShowGoto(true)}>📄 Go To Page</button>
+        <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
+        <button className="chip" onClick={() => setShowAudioSheet(true)}>🔊 Translation Audio</button>
+        <button className="chip" onClick={() => { setShowQuranNav(false); setScreen("hifz"); }} style={{ background: "#e8f5e9", color: "#1a5c2e", borderColor: "#1a5c2e" }}>📗 Hifz Tracker</button>
+      </div>
+
       {/* Search */}
       <div style={{ padding: "12px 14px 4px", position: "relative", zIndex: 50 }}>
         <div style={{ position: "relative" }}>
@@ -3529,55 +3578,6 @@ export default function QuranLife() {
             ))}
           </div>
         )}
-      </div>
-
-      {/* 4 main navigation buttons — single row, 4 columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, padding: "12px 14px 0" }}>
-        {[
-          { label: "ALL 114\nSURAH -\nONE BY ONE",      bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
-            fn: () => { setFilter("all"); setSurahListTitle("All 114 Surahs"); setShowSurahList(true); } },
-          { label: "Read Full\nQuran in\nArabic",        bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
-            fn: () => { setShowMushafStyleSelect(true); } },
-          { label: "QUICK LINK\nOF SURAHS",              bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
-            fn: () => { setShowQuickLinks(true); } },
-          { label: "JUZ INDEX",                          bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
-            fn: () => { setShowJuz(true); } },
-        ].map(({ label, bg, sh, fn }) => (
-          <button key={label} onClick={fn} className="nav-btn"
-            style={{ background: bg, boxShadow: `0 5px 0 ${sh},0 8px 18px rgba(0,0,0,.3)`, padding: "22px 4px", fontSize: 11, lineHeight: 1.35 }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Bottom row — audio + filters */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr", gap: 8, padding: "10px 14px 0" }}>
-        {[
-          { label: "Full Quran\nTranslation\nAudio", bg: "linear-gradient(180deg,#2c3e50,#0a0f14)", sh: "#000",
-            fn: () => setShowAudioSheet(true) },
-          { label: "Meccan",  bg: "linear-gradient(180deg,#e67e22,#a85414)", sh: "#7a3a0a",
-            fn: () => { setFilter("meccan"); setSurahListTitle("Meccan Surahs"); setShowSurahList(true); } },
-          { label: "Madinan", bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
-            fn: () => { setFilter("medinan"); setSurahListTitle("Madinan Surahs"); setShowSurahList(true); } },
-          { label: "Long",    bg: "linear-gradient(180deg,#717d7e,#424949)", sh: "#252c2c",
-            fn: () => { setFilter("long"); setSurahListTitle("Long Surahs (100+ verses)"); setShowSurahList(true); } },
-          { label: "Short",   bg: "linear-gradient(180deg,#909497,#5b6062)", sh: "#363a3b",
-            fn: () => { setFilter("short"); setSurahListTitle("Short Surahs (up to 20 verses)"); setShowSurahList(true); } },
-        ].map(({ label, bg, sh, fn }) => (
-          <button key={label} onClick={fn} className="nav-btn"
-            style={{ background: bg, boxShadow: `0 4px 0 ${sh},0 6px 14px rgba(0,0,0,.25)`, padding: "14px 4px", fontSize: 11 }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Reciter + Language + utility chips */}
-      <div style={{ display: "flex", gap: 8, padding: "12px 14px 0", flexWrap: "wrap" }}>
-        <button className="chip" onClick={() => setShowQari(true)}>🎙 {curQari.short}</button>
-        <button className="chip" onClick={() => setShowLang(true)}>🌍 {curLang.na} ▾</button>
-        <button className="chip" onClick={() => setShowGoto(true)}>📄 Go To Page</button>
-        <button className="chip" onClick={() => setShowBkSheet(true)}>🔖 {bookmarks.length} Saved</button>
-        <button className="chip" onClick={() => { setShowQuranNav(false); setScreen("hifz"); }} style={{ background: "#e8f5e9", color: "#1a5c2e", borderColor: "#1a5c2e" }}>📗 Hifz Tracker</button>
       </div>
 
       {/* Surah list — All 114 with Play · Stop · Read */}
