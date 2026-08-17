@@ -3448,20 +3448,20 @@ export default function QuranLife() {
                   )}
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 7, marginTop: 2 }} onClick={e => e.stopPropagation()}>
-                  <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }} onClick={async e => {
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }} onClick={e => e.stopPropagation()}>
+                  <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }} onClick={async e => {
                     e.stopPropagation(); stopBilingualAudio(); stopAudio(); setContinueDialog(null);
                     try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
                   }}>▶ Arabic</button>
-                  <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
+                  <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
                     onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
                     ▶ Urdu
                   </button>
-                  <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
+                  <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
                     onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
                     ▶ English
                   </button>
-                  <button className="rbtn" style={{ flex: 1, textAlign: "center", fontSize: 12, padding: "7px 0", borderRadius: 22 }} onClick={e => { e.stopPropagation(); cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                  <button className="rbtn" style={{ flex: 1, textAlign: "center", fontSize: 13, padding: "9px 0", borderRadius: 22 }} onClick={e => { e.stopPropagation(); cameFromQuranNav.current = true; setShowSurahList(false); setShowQuranNav(false); openSurah(s.n); }}>Read</button>
                 </div>
               )}
             </div>
@@ -3633,20 +3633,20 @@ export default function QuranLife() {
                 )}
               </div>
             ) : (
-              <div style={{ display: "flex", gap: 7, marginTop: 2 }} onClick={e => e.stopPropagation()}>
-                <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }} onClick={async e => {
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }} onClick={e => e.stopPropagation()}>
+                <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }} onClick={async e => {
                   e.stopPropagation(); stopBilingualAudio(); stopAudio(); setContinueDialog(null);
                   try { const v = await fetchVerses(s.n, lang, null); playVerse(s.n, 1, "surah", v); } catch(err) {}
                 }}>▶ Arabic</button>
-                <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
+                <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
                   onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "ur"); }}>
                   ▶ Urdu
                 </button>
-                <button className="pbtn" style={{ fontSize: 12, padding: "7px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
+                <button className="pbtn" style={{ fontSize: 13, padding: "9px 0", flex: 1, textAlign: "center", borderRadius: 22 }}
                   onClick={e => { e.stopPropagation(); stopAudio(); stopBilingualAudio(); playBilingualAudio(s.n, "en"); }}>
                   ▶ English
                 </button>
-                <button className="rbtn" style={{ flex: 1, textAlign: "center", fontSize: 12, padding: "7px 0", borderRadius: 22 }} onClick={e => { e.stopPropagation(); cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
+                <button className="rbtn" style={{ flex: 1, textAlign: "center", fontSize: 13, padding: "9px 0", borderRadius: 22 }} onClick={e => { e.stopPropagation(); cameFromQuranNav.current = true; setShowQuranNav(false); openSurah(s.n); }}>Read</button>
               </div>
             )}
           </div>
