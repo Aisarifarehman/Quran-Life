@@ -3531,8 +3531,8 @@ export default function QuranLife() {
         )}
       </div>
 
-      {/* 4 main navigation buttons — 2x2 grid matching design */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px 14px 0" }}>
+      {/* 4 main navigation buttons — single row, 4 columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, padding: "12px 14px 0" }}>
         {[
           { label: "ALL 114\nSURAH -\nONE BY ONE",      bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
             fn: () => { setFilter("all"); setSurahListTitle("All 114 Surahs"); setShowSurahList(true); } },
@@ -3544,7 +3544,7 @@ export default function QuranLife() {
             fn: () => { setShowJuz(true); } },
         ].map(({ label, bg, sh, fn }) => (
           <button key={label} onClick={fn} className="nav-btn"
-            style={{ background: bg, boxShadow: `0 5px 0 ${sh},0 8px 18px rgba(0,0,0,.3)`, padding: "26px 10px" }}>
+            style={{ background: bg, boxShadow: `0 5px 0 ${sh},0 8px 18px rgba(0,0,0,.3)`, padding: "22px 4px", fontSize: 11, lineHeight: 1.35 }}>
             {label}
           </button>
         ))}
