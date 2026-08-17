@@ -3531,16 +3531,16 @@ export default function QuranLife() {
         )}
       </div>
 
-      {/* 4 main navigation buttons */}
+      {/* 4 main navigation buttons — 2x2 grid matching design */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px 14px 0" }}>
         {[
-          { label: "ALL 114\nSURAH -\nONE BY ONE", bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
+          { label: "ALL 114\nSURAH -\nONE BY ONE",      bg: "linear-gradient(180deg,#27ae60,#145a32)", sh: "#0a3019",
             fn: () => { setFilter("all"); setSurahListTitle("All 114 Surahs"); setShowSurahList(true); } },
-          { label: "QUICK LINK\nOF SURAHS", bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
-            fn: () => { setShowQuickLinks(true); } },
-          { label: "Read Full\nQuran in\nArabic", bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
+          { label: "Read Full\nQuran in\nArabic",        bg: "linear-gradient(180deg,#7d3c98,#4a2060)", sh: "#2a1038",
             fn: () => { setShowMushafStyleSelect(true); } },
-          { label: "JUZ INDEX", bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
+          { label: "QUICK LINK\nOF SURAHS",              bg: "linear-gradient(180deg,#1a7ab5,#0e4a6e)", sh: "#08293d",
+            fn: () => { setShowQuickLinks(true); } },
+          { label: "JUZ INDEX",                          bg: "linear-gradient(180deg,#1a5276,#0d2b3e)", sh: "#06141e",
             fn: () => { setShowJuz(true); } },
         ].map(({ label, bg, sh, fn }) => (
           <button key={label} onClick={fn} className="nav-btn"
