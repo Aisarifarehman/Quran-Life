@@ -1071,15 +1071,19 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
   if (verseCache[cacheKey]) return verseCache[cacheKey];
 
   // Check offline-saved data first — works without internet
+  // We attempt network anyway to get fresh data, but fall back to offline if network fails.
+  let offlineFallback = null;
   try {
     const offlineRaw = localStorage.getItem(`ql_offline_s${surahNum}`);
     if (offlineRaw) {
       const offlineVerses = JSON.parse(offlineRaw);
-      if (Array.isArray(offlineVerses) && offlineVerses.length > 0) {
-        verseCache[cacheKey] = offlineVerses;
-        // Still try network in background to get better translation for other languages,
-        // but return offline data immediately so reading works without internet.
-        if (!navigator.onLine) return offlineVerses;
+      if (Array.isArray(offlineVerses) && offlineVerses.length > 0 && offlineVerses[0].arabic) {
+        offlineFallback = offlineVerses;
+        // If device is clearly offline, return immediately without waiting for network
+        if (!navigator.onLine) {
+          verseCache[cacheKey] = offlineVerses;
+          return offlineVerses;
+        }
       }
     }
   } catch (e) { /* localStorage read failed — continue to network */ }
@@ -1126,16 +1130,10 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
       }));
     } catch(e) {
       // Network fully failed — use offline-saved data if we have it, instead of erroring out
-      try {
-        const offlineRaw = localStorage.getItem(`ql_offline_s${surahNum}`);
-        if (offlineRaw) {
-          const offlineVerses = JSON.parse(offlineRaw);
-          if (Array.isArray(offlineVerses) && offlineVerses.length > 0) {
-            verseCache[cacheKey] = offlineVerses;
-            return offlineVerses;
-          }
-        }
-      } catch (e2) { /* no offline data either */ }
+      if (offlineFallback) {
+        verseCache[cacheKey] = offlineFallback;
+        return offlineFallback;
+      }
       throw new Error("Could not load surah. Check your connection, or download it for offline use first.");
     }
   }
@@ -1177,10 +1175,9 @@ async function fetchVerses(surahNum, langCode, onAIReady) {
 const geminiQueue = { lastCall: 0, minGap: 3500, workingModel: null };
 // Current Gemini models in priority order — app finds the one that works
 const GEMINI_MODELS = [
-  "gemini-3.1-flash-lite",   // newest stable, free, fastest
-  "gemini-2.5-flash-lite",   // stable, free (shuts down Oct 2026)
-  "gemini-3-flash-preview",  // preview, free tier
-  "gemini-3.5-flash-lite",   // newest stable free fallback
+  "gemini-1.5-flash",        // stable, free, confirmed working
+  "gemini-1.5-flash-8b",     // stable, free, lightweight fallback
+  "gemini-1.5-pro",          // stable, free tier fallback
 ];
 
 async function geminiCall(bodyText, maxTokens, key) {
@@ -5597,11 +5594,17 @@ IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpr
             const saved = [];
             for (const sn of shortSurahs) {
               try {
-                const url = `https://api.quran.com/api/v4/verses/by_chapter/${sn}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani`;
-                const r = await fetch(url);
+                const url = `https://api.quran.com/api/v4/verses/by_chapter/${sn}?language=en&words=false&per_page=300&translations=131&fields=text_uthmani&_cb=${Date.now()}`;
+                const r = await fetch(url, { cache: "no-store" });
                 if (r.ok) {
                   const d = await r.json();
-                  localStorage.setItem(`ql_offline_s${sn}`, JSON.stringify(d.verses));
+                  // Save in the MAPPED format that fetchVerses expects: {number, arabic, translation}
+                  const mapped = (d.verses || []).map(v => ({
+                    number: v.verse_number,
+                    arabic: v.text_uthmani,
+                    translation: (v.translations?.[0]?.text || "").replace(/<[^>]+>/g, "").trim(),
+                  }));
+                  localStorage.setItem(`ql_offline_s${sn}`, JSON.stringify(mapped));
                   saved.push(sn);
                 }
               } catch {}
