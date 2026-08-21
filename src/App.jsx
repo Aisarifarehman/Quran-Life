@@ -5043,17 +5043,10 @@ export default function QuranLife() {
 
   // ── DUAS SCREEN ─────────────────────────────────────────────
   const DuasScreen = () => {
-
-    // Group duas by category
-    const grouped = DUAS.reduce((acc, d) => {
-      if (!acc[d.cat]) acc[d.cat] = [];
-      acc[d.cat].push(d);
-      return acc;
-    }, {});
-
-    const toggleCat = (cat) => setOpenCats(prev => ({...prev, [cat]: !prev[cat]}));
-    const toggleDua = (key) => setExpandedDua(prev => ({...prev, [key]: !prev[key]}));
-
+    const grouped = DUAS.reduce((acc, d) => { if (!acc[d.cat]) acc[d.cat]=[]; acc[d.cat].push(d); return acc; }, {});
+    const catList = Object.keys(grouped);
+    const toggleCat = (cat) => setOpenCats(prev=>({...prev,[cat]:!prev[cat]}));
+    const toggleDua = (key) => setExpandedDua(prev=>({...prev,[key]:!prev[key]}));
     return (
       <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
         <div style={{background:"linear-gradient(135deg,#5c1a3a,#a82563)",padding:"14px 14px 16px"}}>
@@ -5061,51 +5054,51 @@ export default function QuranLife() {
           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🤲 Duas Collection</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:3}}>Authentic duas for every occasion</div>
         </div>
-
-        <div style={{padding:"12px 14px"}}>
-          {Object.entries(grouped).map(([cat, duas]) => (
-            <div key={cat} style={{marginBottom:10}}>
-              {/* Category Header — tap to expand/collapse */}
-              <div onClick={()=>toggleCat(cat)}
-                style={{background:"#fff",borderRadius:openCats[cat]?"14px 14px 0 0":"14px",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",border:".5px solid #e2e8e4",userSelect:"none"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{fontSize:14,fontWeight:700,color:"#5c1a3a"}}>{cat}</div>
-                  <div style={{background:"#5c1a3a",color:"#fff",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>{duas.length}</div>
+        {/* Responsive: max 600px centered on desktop, full width on mobile */}
+        <div style={{maxWidth:600,margin:"0 auto",padding:"12px 14px"}}>
+          {catList.map((cat,catIdx)=>{
+            const duas=grouped[cat];
+            return (
+              <div key={cat} style={{marginBottom:10}}>
+                {/* Category row with number */}
+                <div onClick={()=>toggleCat(cat)} style={{background:"#fff",borderRadius:openCats[cat]?"14px 14px 0 0":"14px",padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",border:".5px solid #e2e8e4",userSelect:"none",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:"#5c1a3a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{catIdx+1}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#5c1a3a"}}>{cat}</div>
+                    <div style={{background:"#a82563",color:"#fff",borderRadius:10,padding:"2px 7px",fontSize:11,fontWeight:700}}>{duas.length}</div>
+                  </div>
+                  <div style={{fontSize:13,color:"#5c1a3a",transition:"transform 0.3s",transform:openCats[cat]?"rotate(180deg)":"rotate(0deg)"}}>▼</div>
                 </div>
-                <div style={{fontSize:18,color:"#5c1a3a",fontWeight:700,transition:"transform 0.2s",transform:openCats[cat]?"rotate(180deg)":"rotate(0deg)"}}>▼</div>
-              </div>
-
-              {/* Duas list — only shown when category is open */}
-              {openCats[cat] && (
-                <div style={{background:"#fdf8fc",border:".5px solid #e2e8e4",borderTop:"none",borderRadius:"0 0 14px 14px",overflow:"hidden"}}>
-                  {duas.map((d, i) => {
-                    const key = `${cat}-${i}`;
-                    const isOpen = expandedDua[key];
-                    return (
-                      <div key={i} style={{borderTop: i===0?"none":".5px solid #f0e0ec"}}>
-                        {/* Dua row — tap to expand individual dua */}
-                        <div onClick={()=>toggleDua(key)}
-                          style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:isOpen?"#f9eef5":"transparent"}}>
-                          <div style={{width:26,height:26,borderRadius:"50%",background:"#5c1a3a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{i+1}</div>
-                          <div style={{flex:1,fontSize:13,color:"#1a1a1a",lineHeight:1.4}}>{d.en.length>60?d.en.slice(0,60)+"...":d.en}</div>
-                          <div style={{fontSize:14,color:"#5c1a3a",flexShrink:0}}>{isOpen?"▲":"▼"}</div>
-                        </div>
-
-                        {/* Full dua details — shown when individual dua is expanded */}
-                        {isOpen && (
-                          <div style={{padding:"0 16px 16px",background:"#f9eef5"}}>
-                            <div className="ar" style={{fontSize:22,direction:"rtl",textAlign:"right",lineHeight:1.9,color:"#1a0800",marginBottom:10,paddingTop:8,borderTop:".5px solid #e8d0e0"}}>{d.ar}</div>
-                            <div style={{fontSize:13,color:"#1a1a1a",lineHeight:1.6,marginBottom:8}}>{d.en}</div>
-                            <div style={{fontSize:11,color:"#a82563",fontWeight:600,lineHeight:1.5}}>📚 {d.src}</div>
+                {/* Duas list */}
+                {openCats[cat] && (
+                  <div style={{border:".5px solid #e2e8e4",borderTop:"none",borderRadius:"0 0 14px 14px",overflow:"hidden",background:"#fdf8fc"}}>
+                    {duas.map((d,i)=>{
+                      const key=`${cat}-${i}`;
+                      const isOpen=expandedDua[key];
+                      return (
+                        <div key={i} style={{borderTop:i===0?"none":".5px solid #f0e0ec"}}>
+                          {/* Dua preview */}
+                          <div onClick={()=>toggleDua(key)} style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:isOpen?"#f5e8f2":"transparent"}}>
+                            <div style={{width:24,height:24,borderRadius:"50%",background:"#a82563",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                            <div style={{flex:1,fontSize:12,color:"#333",lineHeight:1.5}}>{d.en.length>65?d.en.slice(0,65)+"...":d.en}</div>
+                            <div style={{fontSize:12,color:"#a82563",flexShrink:0}}>{isOpen?"▲":"▼"}</div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+                          {/* Full dua — Arabic centered, English centered */}
+                          {isOpen && (
+                            <div style={{padding:"12px 16px 16px",background:"#f5e8f2",textAlign:"center"}}>
+                              <div className="ar" style={{fontSize:22,direction:"rtl",textAlign:"center",lineHeight:2,color:"#1a0800",marginBottom:12,paddingBottom:12,borderBottom:".5px solid #ddc0d8"}}>{d.ar}</div>
+                              <div style={{fontSize:13,color:"#1a1a1a",lineHeight:1.7,marginBottom:10,textAlign:"center"}}>{d.en}</div>
+                              <div style={{fontSize:11,color:"#a82563",fontWeight:600,background:"rgba(92,26,58,0.08)",borderRadius:8,padding:"6px 12px",display:"inline-block",lineHeight:1.5}}>📚 {d.src}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <Nav/>
         {ScrollFab()}
