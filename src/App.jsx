@@ -5041,8 +5041,19 @@ export default function QuranLife() {
 
   // ── DUAS SCREEN ─────────────────────────────────────────────
   const DuasScreen = () => {
-    const cats = ["all",...new Set(DUAS.map(d=>d.cat))];
-    const list = duaCategory==="all" ? DUAS : DUAS.filter(d=>d.cat===duaCategory);
+    const [openCats, setOpenCats] = React.useState({});
+    const [expandedDua, setExpandedDua] = React.useState({});
+
+    // Group duas by category
+    const grouped = DUAS.reduce((acc, d) => {
+      if (!acc[d.cat]) acc[d.cat] = [];
+      acc[d.cat].push(d);
+      return acc;
+    }, {});
+
+    const toggleCat = (cat) => setOpenCats(prev => ({...prev, [cat]: !prev[cat]}));
+    const toggleDua = (key) => setExpandedDua(prev => ({...prev, [key]: !prev[key]}));
+
     return (
       <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
         <div style={{background:"linear-gradient(135deg,#5c1a3a,#a82563)",padding:"14px 14px 16px"}}>
@@ -5050,20 +5061,49 @@ export default function QuranLife() {
           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🤲 Duas Collection</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:3}}>Authentic duas for every occasion</div>
         </div>
-        <div style={{display:"flex",gap:6,padding:"12px 14px 4px",overflowX:"auto"}}>
-          {cats.map(c=>(
-            <button key={c} onClick={()=>setDuaCategory(c)} style={{padding:"6px 12px",borderRadius:16,border:"none",fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",background:duaCategory===c?"#5c1a3a":"#f0f0f0",color:duaCategory===c?"#fff":"#5a6472"}}>
-              {c==="all"?"All Duas":c}
-            </button>
-          ))}
-        </div>
-        <div style={{padding:"8px 14px"}}>
-          {list.map((d,i)=>(
-            <div key={i} style={{background:"#fff",borderRadius:14,padding:16,marginBottom:10,border:".5px solid #e2e8e4"}}>
-              <div style={{fontSize:11,color:"#a82563",fontWeight:700,marginBottom:8}}>{d.cat}</div>
-              <div className="ar" style={{fontSize:22,direction:"rtl",textAlign:"right",lineHeight:1.8,color:"#1a0800",marginBottom:8}}>{d.ar}</div>
-              <div style={{fontSize:13,color:"#1a1a1a",lineHeight:1.6,marginBottom:6}}>{d.en}</div>
-              <div style={{fontSize:11,color:"#9ba5b0"}}>Source: {d.src}</div>
+
+        <div style={{padding:"12px 14px"}}>
+          {Object.entries(grouped).map(([cat, duas]) => (
+            <div key={cat} style={{marginBottom:10}}>
+              {/* Category Header — tap to expand/collapse */}
+              <div onClick={()=>toggleCat(cat)}
+                style={{background:"#fff",borderRadius:openCats[cat]?"14px 14px 0 0":"14px",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",border:".5px solid #e2e8e4",userSelect:"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontSize:14,fontWeight:700,color:"#5c1a3a"}}>{cat}</div>
+                  <div style={{background:"#5c1a3a",color:"#fff",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>{duas.length}</div>
+                </div>
+                <div style={{fontSize:18,color:"#5c1a3a",fontWeight:700,transition:"transform 0.2s",transform:openCats[cat]?"rotate(180deg)":"rotate(0deg)"}}>▼</div>
+              </div>
+
+              {/* Duas list — only shown when category is open */}
+              {openCats[cat] && (
+                <div style={{background:"#fdf8fc",border:".5px solid #e2e8e4",borderTop:"none",borderRadius:"0 0 14px 14px",overflow:"hidden"}}>
+                  {duas.map((d, i) => {
+                    const key = `${cat}-${i}`;
+                    const isOpen = expandedDua[key];
+                    return (
+                      <div key={i} style={{borderTop: i===0?"none":".5px solid #f0e0ec"}}>
+                        {/* Dua row — tap to expand individual dua */}
+                        <div onClick={()=>toggleDua(key)}
+                          style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",background:isOpen?"#f9eef5":"transparent"}}>
+                          <div style={{width:26,height:26,borderRadius:"50%",background:"#5c1a3a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                          <div style={{flex:1,fontSize:13,color:"#1a1a1a",lineHeight:1.4}}>{d.en.length>60?d.en.slice(0,60)+"...":d.en}</div>
+                          <div style={{fontSize:14,color:"#5c1a3a",flexShrink:0}}>{isOpen?"▲":"▼"}</div>
+                        </div>
+
+                        {/* Full dua details — shown when individual dua is expanded */}
+                        {isOpen && (
+                          <div style={{padding:"0 16px 16px",background:"#f9eef5"}}>
+                            <div className="ar" style={{fontSize:22,direction:"rtl",textAlign:"right",lineHeight:1.9,color:"#1a0800",marginBottom:10,paddingTop:8,borderTop:".5px solid #e8d0e0"}}>{d.ar}</div>
+                            <div style={{fontSize:13,color:"#1a1a1a",lineHeight:1.6,marginBottom:8}}>{d.en}</div>
+                            <div style={{fontSize:11,color:"#a82563",fontWeight:600,lineHeight:1.5}}>📚 {d.src}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
