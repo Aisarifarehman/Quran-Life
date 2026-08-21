@@ -1665,6 +1665,8 @@ export default function QuranLife() {
   const [tasbihTarget, setTasbihTarget] = useState(33);
   const [tasbihLabel, setTasbihLabel] = useState("سُبْحَانَ اللَّهِ");
   const [duaCategory, setDuaCategory] = useState("all");
+  const [openCats, setOpenCats] = useState({});
+  const [expandedDua, setExpandedDua] = useState({});
   const [namesSearch, setNamesSearch] = useState("");
   const [khatamVerses, setKhatamVerses] = useState(() => { try { return parseInt(localStorage.getItem("ql_khatam") || "0"); } catch { return 0; } });
   const [mushafMode, setMushafMode] = useState(false);
@@ -5041,8 +5043,6 @@ export default function QuranLife() {
 
   // ── DUAS SCREEN ─────────────────────────────────────────────
   const DuasScreen = () => {
-    const [openCats, setOpenCats] = React.useState({});
-    const [expandedDua, setExpandedDua] = React.useState({});
 
     // Group duas by category
     const grouped = DUAS.reduce((acc, d) => {
