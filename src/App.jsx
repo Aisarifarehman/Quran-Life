@@ -4122,7 +4122,7 @@ export default function QuranLife() {
         <div style={{ position: "absolute", inset: 0, opacity: .07, fontSize: 48, lineHeight: 1 }}>🌟⭐🌙✨</div>
         <div style={{ position: "relative" }}>
           <button onClick={() => { stopKidsAudio(); setScreen("home"); setNavTab("home"); setKidLetter(null); }}
-            style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>← Home</button>
+            style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:12,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 38, marginBottom: 6 }}>🎓</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Kids Arabic Corner</div>
@@ -4458,7 +4458,7 @@ export default function QuranLife() {
     <div className="fade" style={{ paddingBottom: 80 }}>
       <div style={{ background: "linear-gradient(135deg,#8e44ad,#9b59b6)", padding: "14px 14px 16px" }}>
         <button onClick={() => { setScreen("home"); setNavTab("home"); }}
-          style={{ display: "flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+          style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>🔖 Your Bookmarks</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,.65)", marginTop: 3 }}>{bookmarks.length} saved verses</div>
       </div>
@@ -4954,7 +4954,7 @@ export default function QuranLife() {
     return (
       <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
         <div style={{background:"linear-gradient(135deg,#0f5132,#1a7a4a)",padding:"14px 14px 20px"}}>
-          <button onClick={()=>setScreen("home")} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",fontSize:12,cursor:"pointer",marginBottom:10}}>← Home</button>
+          <button onClick={()=>setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🕌 Prayer Times</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:3}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
           <div style={{fontSize:12,color:"#c8a84b",marginTop:2}}>{hijri.day} {hijri.monthName} {hijri.year} AH</div>
@@ -5013,7 +5013,7 @@ export default function QuranLife() {
   const AdhkarScreen = () => (
     <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
       <div style={{background:"linear-gradient(135deg,#1a3a5c,#2563a8)",padding:"14px 14px 16px"}}>
-        <button onClick={()=>setScreen("home")} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",fontSize:12,cursor:"pointer",marginBottom:10}}>← Home</button>
+        <button onClick={()=>setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
         <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>📿 Morning & Evening Adhkar</div>
         <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:3}}>Authentic dhikr from Quran & Sunnah</div>
       </div>
@@ -5050,7 +5050,7 @@ export default function QuranLife() {
     return (
       <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
         <div style={{background:"linear-gradient(135deg,#5c1a3a,#a82563)",padding:"14px 14px 16px"}}>
-          <button onClick={()=>setScreen("home")} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",fontSize:12,cursor:"pointer",marginBottom:10}}>← Home</button>
+          <button onClick={()=>setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🤲 Duas Collection</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:3}}>Authentic duas for every occasion</div>
         </div>
@@ -5116,7 +5116,7 @@ export default function QuranLife() {
     return (
       <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"#f5f3ee"}}>
         <div style={{background:"linear-gradient(135deg,#1a4a5c,#1a7a8a)",padding:"14px 14px 16px"}}>
-          <button onClick={()=>setScreen("home")} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",fontSize:12,cursor:"pointer",marginBottom:10}}>← Home</button>
+          <button onClick={()=>setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>✨ 99 Names of Allah</div>
           <div className="ar" style={{fontSize:14,color:"#c8a84b",marginTop:3}}>أَسْمَاءُ اللَّهِ الْحُسْنَى</div>
         </div>
@@ -5150,7 +5150,7 @@ export default function QuranLife() {
   const TasbihScreen = () => (
     <div className="fade" style={{paddingBottom:80,minHeight:"100vh",background:"linear-gradient(180deg,#0f5132,#1a1a2e)"}}>
       <div style={{padding:"14px 14px 8px"}}>
-        <button onClick={()=>setScreen("home")} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:20,padding:"5px 12px",color:"#fff",fontSize:12,cursor:"pointer"}}>← Home</button>
+        <button onClick={()=>setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
       </div>
       <div style={{textAlign:"center",padding:"10px 20px 20px"}}>
         <div style={{fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:6,letterSpacing:2}}>DIGITAL TASBIH — مِسْبَحَة</div>
@@ -5266,7 +5266,7 @@ export default function QuranLife() {
   const ExtraKnowledgeScreen = () => (
     <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
       <div style={{ background: "linear-gradient(135deg,#2e0050,#4a235a)", padding: "14px 14px 16px" }}>
-        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <button onClick={() => setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>🔮 Extra Knowledge</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Advanced Islamic knowledge tools</div>
       </div>
@@ -5584,7 +5584,7 @@ IMPORTANT DISCLAIMER to include at the end: Remind the reader that dream interpr
   const OfflineScreen = () => (
     <div className="fade" style={{ paddingBottom: 90, minHeight: "100vh", background: "#f5f3ee" }}>
       <div style={{ background: "linear-gradient(135deg,#1a3a6c,#0d1f3a)", padding: "14px 14px 16px" }}>
-        <button onClick={() => setScreen("home")} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, cursor: "pointer", marginBottom: 10 }}>← Home</button>
+        <button onClick={() => setScreen("home")} style={{background:"#FFD700",border:"none",borderRadius:20,padding:"8px 18px",color:"#1a6e1a",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,boxShadow:"0 4px 0 #b8960c, 0 6px 8px rgba(0,0,0,0.3)",transform:"translateY(-2px)",letterSpacing:0.5}}>← Home</button>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📥 Offline Mode</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginTop: 3 }}>Save Surahs to read without internet</div>
       </div>
