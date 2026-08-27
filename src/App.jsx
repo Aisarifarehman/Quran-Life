@@ -2236,14 +2236,15 @@ export default function QuranLife() {
         if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
         } else {
+          // Show English immediately — user always sees content
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
+          // Then try to append selected language translation below
           const ck = `tafsir-${surahNum}-${verse.number}-${lang}`;
-          try {
-            const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, 3, ck);
-            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
-          } catch {
-            // Gemini translation failed — show English content with a note
-            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir\n\n(${langName} translation temporarily unavailable — showing English)\n\n${raw}` } }));
-          }
+          askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, 3, ck)
+            .then(translated => {
+              setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir\n\n${raw}\n\n─────────────────\n📖 ${langName} Translation\n\n${translated}` } }));
+            })
+            .catch(() => { /* English already showing — silent fail */ });
         }
       }
 
@@ -2255,14 +2256,15 @@ export default function QuranLife() {
         if (lang === "en" || !geminiKey) {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
         } else {
+          // Show English immediately — user always sees content
+          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
+          // Then try to append selected language translation below
           const ck = `revelation-${surahNum}-${verse.number}-${lang}`;
-          try {
-            const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, 3, ck);
-            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
-          } catch {
-            // Gemini translation failed — show English content with a note
-            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information\n\n(${langName} translation temporarily unavailable — showing English)\n\n${revEn}` } }));
-          }
+          askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, 3, ck)
+            .then(translated => {
+              setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information\n\n${revEn}\n\n─────────────────\n📍 ${langName} Translation\n\n${translated}` } }));
+            })
+            .catch(() => { /* English already showing — silent fail */ });
         }
       }
 
