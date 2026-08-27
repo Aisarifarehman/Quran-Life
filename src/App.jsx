@@ -2237,8 +2237,13 @@ export default function QuranLife() {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📖 Ibn Kathir Tafsir\n\n" + raw } }));
         } else {
           const ck = `tafsir-${surahNum}-${verse.number}-${lang}`;
-          const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, 3, ck);
-          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
+          try {
+            const translated = await askAI(`Translate this Quran tafsir into ${langName}. Keep Islamic terms like Allah, Prophet, Quran unchanged. Tafsir: "${raw.substring(0, 800)}"`, langName, 3, ck);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir · ${langName}\n\n${translated}` } }));
+          } catch {
+            // Gemini translation failed — show English content with a note
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📖 Ibn Kathir Tafsir\n\n(${langName} translation temporarily unavailable — showing English)\n\n${raw}` } }));
+          }
         }
       }
 
@@ -2251,16 +2256,26 @@ export default function QuranLife() {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "📍 Revelation Information\n\n" + revEn } }));
         } else {
           const ck = `revelation-${surahNum}-${verse.number}-${lang}`;
-          const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, 3, ck);
-          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
+          try {
+            const translated = await askAI(`Translate this Quran revelation information into ${langName}: "${revEn}"`, langName, 3, ck);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information · ${langName}\n\n${translated}` } }));
+          } catch {
+            // Gemini translation failed — show English content with a note
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📍 Revelation Information\n\n(${langName} translation temporarily unavailable — showing English)\n\n${revEn}` } }));
+          }
         }
       }
 
       else if (tab === "hadith") {
         if (geminiKey) {
           const ck = `hadith-${surahNum}-${verse.number}-${lang}`;
-          const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName, 3, ck);
-          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
+          try {
+            const text = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, langName, 3, ck);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith · ${langName}\n\n${text}` } }));
+          } catch {
+            const fallback = await askAI(`Share 2-3 authentic hadiths related to Surah ${sn} verse ${verse.number}: "${verse.translation}". For each: hadith text, source, grade (Sahih/Hasan/Daif), grader. Also warn about fabricated hadiths.`, "English", 3, `hadith-${surahNum}-${verse.number}-en`).catch(() => null);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Hadith\n\n(${langName} temporarily unavailable — showing English)\n\n${fallback || "Hadith data could not be loaded. Please tap Retry."}` } }));
+          }
         } else {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `📋 Authentic Hadiths\n\n✅ SAHIH — Bukhari\nThe Prophet ﷺ said: "The best of you are those who learn the Quran and teach it."\nSource: Sahih al-Bukhari, Book 66, Hadith 49\n\n✅ SAHIH — Tirmidhi\nThe Prophet ﷺ said: "Whoever recites a letter from the Quran will receive a good deed multiplied by ten."\nSource: Jami at-Tirmidhi, Hadith 2910\n\n⚠️ WARNING: Always verify hadiths before sharing. Millions of fabricated hadiths circulate on social media daily.` } }));
         }
@@ -2269,8 +2284,13 @@ export default function QuranLife() {
       else if (tab === "science") {
         if (geminiKey) {
           const ck = `science-${surahNum}-${verse.number}-${lang}`;
-          const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName, 3, ck);
-          setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
+          try {
+            const text = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, langName, 3, ck);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Science · ${langName}\n\n${text}` } }));
+          } catch {
+            const fallback = await askAI(`Explain any scientific connection for Surah ${sn} verse ${verse.number}: "${verse.translation}". Be completely honest. Label as: Confirmed by science / Claimed but debated / Speculative / No scientific connection. Never make false claims about the Quran.`, "English", 3, `science-${surahNum}-${verse.number}-en`).catch(() => null);
+            setCache(p => ({ ...p, [key]: { loading: false, error: null, text: `🔬 Scientific Connections\n\n(${langName} temporarily unavailable — showing English)\n\n${fallback || "Scientific connection data could not be loaded. Please tap Retry."}` } }));
+          }
         } else {
           setCache(p => ({ ...p, [key]: { loading: false, error: null, text: "🔬 Scientific Connections\n\nAdd VITE_GEMINI_KEY to Vercel to unlock this feature." } }));
         }
